@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pulsar · prod traffic · M5StickS3</title>
+  <style>
+    :root {
+      --bg: #07090d;
+      --bg2: #0e1218;
+      --ink: #f4f6f8;
+      --muted: #8b95a3;
+      --line: #1e2530;
+      --card: #12171f;
+      --blue-a: #3b82f6;
+      --blue-a-hi: #93c5fd;
+      --lcd-bg: #061014;
+      --lcd-hdr: #0a2830;
+      --lcd-ftr: #0a2830;
+      --lcd-tile: #0c1c22;
+      --lcd-text: #e8fbff;
+      --lcd-muted: #7aa8b0;
+      --accent: #2ee6c7;
+      --accent-dim: rgba(46, 230, 199, 0.28);
+      --warn: #ffc14d;
+      --crit: #ff4d6d;
+      --ok: #5dffb2;
+      --err: #ff9f43;
+    }
+    body[data-theme="ember"] {
+      --lcd-bg: #120a08;
+      --lcd-hdr: #2a1410;
+      --lcd-ftr: #2a1410;
+      --lcd-tile: #1c100e;
+      --lcd-text: #fff4ec;
+      --lcd-muted: #c4a090;
+      --accent: #ff7a45;
+      --accent-dim: rgba(255, 122, 69, 0.3);
+      --warn: #ffd166;
+      --crit: #ff5c5c;
+      --ok: #9dffb0;
+    }
+    body[data-theme="ion"] {
+      --lcd-bg: #080814;
+      --lcd-hdr: #161632;
+      --lcd-ftr: #161632;
+      --lcd-tile: #101028;
+      --lcd-text: #eef0ff;
+      --lcd-muted: #9aa3d4;
+      --accent: #8b9cff;
+      --accent-dim: rgba(139, 156, 255, 0.32);
+      --warn: #f0c14d;
+      --crit: #ff5a8a;
+      --ok: #6dffe2;
+    }
+    body[data-theme="paper"] {
+      --bg: #e8ecf2;
+      --bg2: #f4f6fa;
+      --ink: #141820;
+      --muted: #5e6774;
+      --line: #d5dbe4;
+      --card: #ffffff;
+      --lcd-bg: #f7f8fb;
+      --lcd-hdr: #eef1f6;
+      --lcd-ftr: #eef1f6;
+      --lcd-tile: #ffffff;
+      --lcd-text: #1b1f28;
+      --lcd-muted: #6a7382;
+      --accent: #2563eb;
+      --accent-dim: rgba(37, 99, 235, 0.2);
+      --warn: #c98600;
+      --crit: #e11d48;
+      --ok: #059669;
+      --err: #ea580c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+      background:
+        radial-gradient(900px 400px at 10% -10%, #163044 0%, transparent 50%),
+        radial-gradient(700px 360px at 100% 0%, #1a1530 0%, transparent 46%),
+        var(--bg);
+      color: var(--ink);
+    }
+    body[data-theme="ember"] {
+      background:
+        radial-gradient(900px 400px at 8% -8%, #3a1810 0%, transparent 52%),
+        radial-gradient(700px 360px at 100% 0%, #2a1018 0%, transparent 46%),
+        var(--bg);
+    }
+    body[data-theme="paper"] {
+      background:
+        radial-gradient(900px 400px at 10% -10%, #dbe7ff 0%, transparent 52%),
+        radial-gradient(700px 360px at 100% 0%, #efe6ff 0%, transparent 46%),
+        var(--bg);
+    }
+    a { color: var(--accent); }
+    code {
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+      color: var(--accent);
+      background: rgba(255,255,255,0.04);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 36px 22px 72px; }
+    h1 { font-size: 26px; font-weight: 700; margin: 0 0 8px; letter-spacing: -0.03em; }
+    .lede { color: var(--muted); margin: 0 0 28px; font-size: 14px; line-height: 1.5; max-width: 68ch; }
+
+    .stage {
+      display: grid;
+      grid-template-columns: minmax(360px, 1fr) 1fr;
+      gap: 36px;
+      align-items: start;
+      margin-bottom: 48px;
+    }
+    @media (max-width: 840px) {
+      .stage { grid-template-columns: 1fr; }
+    }
+
+    .stick-col { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+    .stick {
+      position: relative;
+      width: 420px;
+      height: 210px;
+      background: linear-gradient(105deg, #4a5160 0%, #2c3038 22%, #1b1e24 100%);
+      border-radius: 18px;
+      border: 1px solid #5a6170;
+      box-shadow: 0 18px 50px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.04) inset;
+    }
+    .hat {
+      position: absolute;
+      top: 14px; left: 0;
+      width: 10px; bottom: 14px;
+      background: #16181c;
+      border-radius: 0 3px 3px 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 10px 0;
+      align-items: center;
+    }
+    .hat span { width: 4px; height: 6px; background: #44484f; border-radius: 1px; }
+    .bezel {
+      position: absolute;
+      top: 22px; left: 18px;
+      width: 264px; height: 155px;
+      background: #050608;
+      border-radius: 6px;
+      padding: 7px;
+    }
+    .lcd {
+      width: 240px;
+      height: 135px;
+      background: var(--lcd-bg);
+      color: var(--lcd-text);
+      font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 11px;
+      line-height: 1.1;
+      overflow: hidden;
+      box-shadow: 0 0 18px var(--accent-dim);
+    }
+    .lcd-inner {
+      width: 240px;
+      height: 135px;
+      background: var(--lcd-bg);
+      display: flex;
+      flex-direction: column;
+    }
+    .lcd.off .lcd-inner { background: #030405; }
+    .lcd.off .ident,
+    .lcd.off .body { visibility: hidden; }
+    .ident {
+      flex-shrink: 0;
+      background: var(--lcd-hdr);
+      padding: 2px 6px;
+    }
+    .ident-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    .ident-name {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--lcd-text);
+      letter-spacing: -0.02em;
+      white-space: nowrap;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-width: 0;
+    }
+    .live-emoji {
+      display: inline-flex;
+      width: 14px; height: 14px;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      border-radius: 50%;
+      background: var(--accent-dim);
+      flex-shrink: 0;
+    }
+    .mood {
+      display: inline-block;
+      font-size: 11px;
+      line-height: 1;
+    }
+    .bars {
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      align-items: flex-end;
+      gap: 1px;
+      padding: 2px 0 0;
+    }
+    .bar {
+      flex: 1;
+      min-width: 0;
+      background: var(--accent);
+      border-radius: 1px 1px 0 0;
+      transform-origin: bottom center;
+      animation: growBar 0.5s ease-out both;
+    }
+    .bar.last {
+      background: var(--lcd-text);
+    }
+    @keyframes growBar {
+      from { transform: scaleY(0); }
+      to { transform: scaleY(1); }
+    }
+    .ident-sub {
+      font-size: 8px;
+      color: var(--accent);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .ident-meta {
+      font-size: 8px;
+      color: var(--lcd-muted);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .ident .pwr-pip {
+      display: inline-block;
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--ok); margin-right: 3px; vertical-align: 0;
+      animation: pipGlow 2s ease-in-out infinite;
+    }
+    .ident .pwr-pip.bat { background: var(--warn); }
+    @keyframes pipGlow {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
+    }
+    .ident .wifi-pip {
+      display: inline-block;
+      width: 7px; height: 5px;
+      border: 1.5px solid currentColor;
+      border-bottom: 0;
+      border-radius: 7px 7px 0 0;
+      margin: 0 3px 0 5px;
+      opacity: 0.85;
+    }
+    .ident .wifi-pip.off { opacity: 0.25; }
+    .portal .wifi-pip {
+      display: inline-block;
+      width: 16px; height: 11px;
+      border: 2px solid var(--accent);
+      border-bottom: 0;
+      border-radius: 16px 16px 0 0;
+      margin: 0 0 8px;
+    }
+    .glyph {
+      width: 8px; height: 8px;
+      flex-shrink: 0;
+      display: inline-block;
+      animation: blink 0.7s steps(1) infinite;
+    }
+    .glyph.ok { border-radius: 50%; background: currentColor; animation: none; opacity: 0.85; }
+    .glyph.warn {
+      width: 0; height: 0;
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+      border-bottom: 8px solid currentColor;
+    }
+    .glyph.crit {
+      width: 8px; height: 8px;
+      background: currentColor;
+      clip-path: polygon(50% 0, 100% 100%, 0 100%);
+    }
+    .glyph.err {
+      width: 7px; height: 7px;
+      background: currentColor;
+      transform: rotate(45deg);
+    }
+    .alarm-slot {
+      height: 16px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      padding: 0 6px;
+      font-size: 9px;
+      font-weight: 700;
+      gap: 5px;
+    }
+    .alarm-slot.crit { background: #4a1018; color: var(--crit); animation: critFlash 0.7s steps(1) infinite; }
+    .alarm-slot.warn { background: #3a2a08; color: var(--warn); animation: warnPulse 1.2s ease-in-out infinite; }
+    .alarm-slot.info,
+    .alarm-slot.clear { background: #0c2418; color: var(--ok); }
+    .alarm-slot.error { background: #2a1600; color: var(--err); animation: errFlash 0.9s steps(1) infinite; }
+    .alarm-slot .dot {
+      width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0;
+      animation: blink 0.7s steps(1) infinite;
+    }
+    .alarm-slot.clear .dot,
+    .alarm-slot.info .dot { animation: none; opacity: 0.7; }
+    .alarm-slot .msg { font-weight: 500; color: var(--lcd-text); white-space: nowrap; overflow: hidden; }
+    @keyframes critFlash {
+      0%, 49% { background: #5a1018; color: #ff8a9a; }
+      50%, 100% { background: var(--crit); color: #fff; }
+    }
+    @keyframes warnPulse {
+      0%, 100% { background: #3a2a08; }
+      50% { background: #6a4e08; }
+    }
+    @keyframes errFlash {
+      0%, 49% { background: #2a1600; color: var(--err); }
+      50%, 100% { background: var(--err); color: #1a0a00; }
+    }
+    @keyframes blink {
+      0%, 49% { opacity: 1; }
+      50%, 100% { opacity: 0.15; }
+    }
+    .ov .hot { animation: metricPulse 0.8s steps(1) infinite; }
+    .ov .stale { opacity: 0.45; }
+    @keyframes metricPulse {
+      0%, 49% { background: #2a1014; }
+      50%, 100% { background: #4a1820; }
+    }
+    body[data-theme="paper"] .alarm-slot.crit { animation: critFlashPaper 0.7s steps(1) infinite; }
+    body[data-theme="paper"] .alarm-slot.warn { animation: warnPulsePaper 1.2s ease-in-out infinite; background: #fff4d6; color: var(--warn); }
+    body[data-theme="paper"] .alarm-slot.clear,
+    body[data-theme="paper"] .alarm-slot.info { background: #e6f7ef; color: var(--ok); }
+    body[data-theme="paper"] .alarm-slot.error { animation: errFlashPaper 0.9s steps(1) infinite; }
+    body[data-theme="paper"] .rail .m.hot { animation: metricPulsePaper 0.8s steps(1) infinite; }
+    @keyframes critFlashPaper {
+      0%, 49% { background: #ffe4ea; color: #c01830; }
+      50%, 100% { background: var(--crit); color: #fff; }
+    }
+    @keyframes warnPulsePaper {
+      0%, 100% { background: #fff4d6; }
+      50% { background: #ffe08a; }
+    }
+    @keyframes errFlashPaper {
+      0%, 49% { background: #fff0e4; color: var(--err); }
+      50%, 100% { background: var(--err); color: #fff; }
+    }
+    @keyframes metricPulsePaper {
+      0%, 49% { background: #ffe8ec; }
+      50%, 100% { background: #ffc8d0; }
+    }
+    body[data-theme="paper"] .chip { background: #fff; }
+    body[data-theme="paper"] .legend { box-shadow: 0 10px 36px rgba(20, 24, 40, 0.08); }
+    body[data-theme="paper"] pre { background: #f4f6fa; color: #3a4250; }
+    body[data-theme="paper"] .mini-bezel { background: #d8dde6; }
+    body[data-theme="paper"] .lcd { box-shadow: 0 0 0 1px #d0d6e0, 0 0 16px rgba(37, 99, 235, 0.12); }
+    .body { flex: 1; padding: 2px 5px 2px; min-height: 0; display: flex; gap: 4px; }
+    .rail {
+      width: 72px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .rail .m {
+      flex: 1;
+      background: var(--lcd-tile);
+      padding: 2px 4px;
+      font-size: 7px;
+      color: var(--lcd-muted);
+      border-radius: 3px;
+      border-left: 2px solid var(--accent);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 0;
+    }
+    .rail .m.hot { animation: metricPulse 0.8s steps(1) infinite; }
+    .rail .m.stale { opacity: 0.45; }
+    .rail b { display: block; color: var(--lcd-text); font-size: 11px; font-weight: 700; letter-spacing: -0.03em; }
+    .chart {
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .spark-lab { font-size: 7px; color: var(--accent); flex-shrink: 0; }
+    .recv {
+      font-size: 7px;
+      color: var(--lcd-muted);
+      flex-shrink: 0;
+      letter-spacing: 0.02em;
+    }
+    .recv.stale { color: var(--warn); }
+    .portal {
+      padding: 18px 8px;
+      text-align: center;
+      color: var(--lcd-text);
+      font-size: 11px;
+      line-height: 1.55;
+      background: var(--lcd-bg);
+    }
+
+    .btn-a {
+      position: absolute;
+      right: 58px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      border: 2px solid #1a3a8a;
+      background: radial-gradient(circle at 35% 30%, var(--blue-a-hi), var(--blue-a) 55%, #1d4ed8);
+      cursor: pointer;
+    }
+    .btn-a:active { filter: brightness(1.15); }
+    .btn-a-lab {
+      position: absolute;
+      right: 64px;
+      bottom: 28px;
+      font-size: 9px;
+      color: #9aa3ad;
+      letter-spacing: 0.08em;
+    }
+    .side-btn {
+      position: absolute;
+      border: 0;
+      cursor: pointer;
+      background: #1c1e22;
+    }
+    .side-btn:active { filter: brightness(1.4); }
+    .btn-b {
+      left: 90px; bottom: -8px;
+      width: 40px; height: 18px;
+      border-radius: 0 0 3px 3px;
+    }
+    .btn-pwr {
+      left: 90px; top: -8px;
+      width: 40px; height: 18px;
+      border-radius: 3px 3px 0 0;
+      background: #2a2424;
+    }
+    .usb {
+      position: absolute;
+      right: 8px; top: 50%;
+      transform: translateY(-50%);
+      width: 10px; height: 28px;
+      background: #c5c9ce;
+      border-radius: 3px 1px 1px 3px;
+    }
+    .grove {
+      position: absolute;
+      right: -6px; top: 50%;
+      transform: translateY(-50%);
+      width: 8px; height: 22px;
+      background: #1a1c20;
+      border-radius: 3px 0 0 3px;
+    }
+    .mic {
+      position: absolute;
+      right: 72px; top: 36px;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #111;
+      border: 1px solid #444;
+    }
+
+    .legend {
+      font-size: 14px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 20px 22px 18px;
+    }
+    .legend h2 { font-size: 15px; margin: 0 0 10px; font-weight: 650; }
+    .legend table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .legend td { padding: 6px 8px 6px 0; vertical-align: top; color: var(--muted); }
+    .legend td:first-child { color: var(--ink); white-space: nowrap; width: 132px; }
+    .swatch {
+      display: inline-block;
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--blue-a); vertical-align: -1px; margin-right: 4px;
+    }
+    .row-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .chip {
+      background: var(--bg2);
+      border: 1px solid var(--line);
+      color: var(--ink);
+      border-radius: 999px;
+      padding: 7px 12px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .chip.on { border-color: var(--accent); color: var(--accent); }
+    .hint { margin-top: 14px; font-size: 12px; color: var(--muted); line-height: 1.45; }
+
+    h2.sec { font-size: 18px; font-weight: 700; margin: 0 0 8px; letter-spacing: -0.02em; }
+    .sub { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+    .frames {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+    }
+    .frame {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+    }
+    .frame h3 { margin: 0 0 4px; font-size: 13px; font-weight: 650; }
+    .frame p { margin: 0 0 10px; font-size: 12px; color: var(--muted); }
+    .mini-bezel {
+      background: #0c0d0f;
+      padding: 8px;
+      border-radius: 4px;
+      display: flex;
+      justify-content: center;
+    }
+    pre {
+      margin: 10px 0 0;
+      font-size: 10px;
+      line-height: 1.35;
+      color: #b8c0c8;
+      background: #121417;
+      padding: 8px;
+      border-radius: 6px;
+      overflow: auto;
+      max-height: 140px;
+    }
+  </style>
+</head>
+<body data-theme="volt">
+  <div class="wrap">
+    <h1>⚡ Pulsar · live traffic</h1>
+    <p class="lede">
+      Two services on the StickS3: <strong>Digital Payouts</strong> and <strong>Fraud VAS</strong>.
+      Top left is the connected service. Metrics stack on the left; a 30-minute
+      throughput <strong>bar chart</strong> fills the rest. Starts all green. Paper is a
+      white LCD.
+    </p>
+
+    <div class="stage">
+      <div class="stick-col">
+        <div class="stick" id="stick" aria-label="M5StickS3">
+          <div class="hat"><span></span><span></span><span></span><span></span></div>
+          <div class="bezel">
+            <div class="lcd" id="lcd">
+              <div class="lcd-inner" id="panel"></div>
+            </div>
+          </div>
+          <button class="side-btn btn-b" id="btnB" title="Btn B — hold 2s Wi-Fi"></button>
+          <button class="side-btn btn-pwr" id="btnPwr" title="Power"></button>
+          <div class="mic"></div>
+          <button class="btn-a" id="btnA" title="Btn A — next service"></button>
+          <div class="btn-a-lab">BTN A</div>
+          <div class="usb"></div>
+          <div class="grove"></div>
+        </div>
+        <div class="hint">Desk landscape. Blue = next service. Bottom hold = Wi-Fi. Top = power.</div>
+      </div>
+
+      <div class="legend">
+        <h2>🎛️ Controls</h2>
+        <table>
+          <tr><td><span class="swatch"></span>🔵 Btn A</td><td>Wake 60 s. Next service.</td></tr>
+          <tr><td>⬛ Btn B</td><td>Hold 2 s → Wi-Fi portal.</td></tr>
+          <tr><td>⏻ Power</td><td>Click on. Double-click off.</td></tr>
+        </table>
+        <div class="row-btns">
+          <button class="chip on" type="button" data-theme="volt">🟢 Volt</button>
+          <button class="chip" type="button" data-theme="ember">🟠 Ember</button>
+          <button class="chip" type="button" data-theme="ion">🟣 Ion</button>
+          <button class="chip" type="button" data-theme="paper">🤍 Paper</button>
+        </div>
+        <div class="row-btns">
+          <button class="chip on" id="modeUsb" type="button">🔌 USB</button>
+          <button class="chip" id="modeBat" type="button">🔋 Battery</button>
+        </div>
+        <div class="row-btns">
+          <button class="chip on" id="errOk" type="button" data-err="">✅ Poll OK</button>
+          <button class="chip" id="errNet" type="button" data-err="NET">📡 NET</button>
+          <button class="chip" id="errAuth" type="button" data-err="AUTH">🔐 AUTH</button>
+          <button class="chip" id="errSrv" type="button" data-err="SRV">💥 SRV</button>
+          <button class="chip" id="err404" type="button" data-err="NOAPI">❓ 404</button>
+        </div>
+        <p class="hint" id="status">USB docked · always-on · poll 20 s</p>
+      </div>
+    </div>
+
+    <h2 class="sec">🖼 Screen mockups</h2>
+    <p class="sub">Identity, one alert, vertical metrics, bar chart in the remaining glass.</p>
+    <div class="frames" id="frames"></div>
+  </div>
+
+  <script>
+    function n30(fn) {
+      const a = [];
+      for (let i = 0; i < 30; i++) a.push(fn(i));
+      return a;
+    }
+
+    const PROJECTS = [
+      {
+        id: "payouts",
+        name: "Digital Payouts",
+        emoji: "💸",
+        alarm: { state: "clear", level: "info", message: "SLO held" },
+        summary: { avg_ms: 32, p95_ms: 78, error_pct: 0.04, served: 18420 },
+        receivedAt: Date.now() - 8000,
+        throughput: {
+          title: "thru 30m",
+          unit: "/s",
+          min: 0,
+          max: 20,
+          points: n30(i => 11 + Math.round(3 * Math.sin(i / 4)))
+        }
+      },
+      {
+        id: "fraud",
+        name: "Fraud VAS",
+        emoji: "🛡️",
+        alarm: { state: "clear", level: "info", message: "SLO held" },
+        summary: { avg_ms: 18, p95_ms: 42, error_pct: 0.08, served: 96240 },
+        receivedAt: Date.now() - 14000,
+        throughput: {
+          title: "thru 30m",
+          unit: "/s",
+          min: 0,
+          max: 80,
+          points: n30(i => 52 + Math.round(6 * Math.sin(i / 5)))
+        }
+      }
+    ];
+
+    const PAYOUTS_CRIT = {
+      ...PROJECTS[0],
+      alarm: { state: "active", level: "crit", message: "err 2.14% > 0.50" },
+      summary: { avg_ms: 48, p95_ms: 210, error_pct: 2.14, served: 18420 },
+      throughput: {
+        title: "thru 30m",
+        unit: "/s",
+        min: 0,
+        max: 20,
+        points: n30(i => i < 22 ? 12 + Math.round(2 * Math.sin(i / 4)) : Math.max(3, 7 - (i - 22)))
+      }
+    };
+
+    const API_ERR = {
+      NET:   { code: "NET",   http: 0,   msg: "timeout 12s",     keep: true },
+      AUTH:  { code: "AUTH",  http: 401, msg: "bad HMAC",        keep: true },
+      SRV:   { code: "SRV",   http: 502, msg: "upstream 502",    keep: true },
+      NOAPI: { code: "NO API", http: 404, msg: "no /v1/status", keep: true }
+    };
+
+    const state = {
+      on: true,
+      usb: true,
+      i: 0,
+      portal: false,
+      peekUntil: 0,
+      bHold: 0,
+      apiErr: null
+    };
+
+    function barChart(g) {
+      const pts = g.points;
+      const lo = g.min, hi = g.max || 1;
+      return pts.map((v, i) => {
+        const pct = Math.max(4, ((Math.min(hi, Math.max(lo, v)) - lo) / (hi - lo || 1)) * 100);
+        const last = i === pts.length - 1 ? " last" : "";
+        return `<span class="bar${last}" style="height:${pct.toFixed(1)}%;animation-delay:${(i * 16)}ms"></span>`;
+      }).join("");
+    }
+
+    function esc(s) {
+      return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    }
+
+    function relatedKey(p) {
+      const m = (p.alarm.message || "").toLowerCase();
+      if (m.includes("err") || m.includes("%")) return "error";
+      if (m.includes("p95") || m.includes("p99")) return "p95";
+      if (m.includes("avg")) return "avg";
+      return null;
+    }
+
+    function fmtServed(n) {
+      if (n >= 1000000) return (n / 1e6).toFixed(1) + "M";
+      if (n >= 10000) return (n / 1000).toFixed(1) + "k";
+      return String(n);
+    }
+
+    function fmtPct(n) {
+      return (Math.abs(n) >= 1 ? n.toFixed(2) : n.toFixed(2)) + "%";
+    }
+
+    function fmtRecv(ms) {
+      if (!ms) return "--";
+      const d = new Date(ms);
+      const mon = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()];
+      const dd = String(d.getDate()).padStart(2, "0");
+      const hh = String(d.getHours()).padStart(2, "0");
+      const mm = String(d.getMinutes()).padStart(2, "0");
+      const ss = String(d.getSeconds()).padStart(2, "0");
+      return dd + " " + mon + " " + hh + ":" + mm + ":" + ss;
+    }
+
+    function lastPoint(g) {
+      return g.points[g.points.length - 1];
+    }
+
+    function moodOf(p, apiErr) {
+      if (apiErr) {
+        return { NET: "📡", AUTH: "🔐", SRV: "💥", "NO API": "❓" }[apiErr.code] || "⚠️";
+      }
+      if (p.alarm.state === "clear") return "✅";
+      if (p.alarm.level === "crit") return "🚨";
+      if (p.alarm.level === "warn") return "⚠️";
+      return "ℹ️";
+    }
+
+    function dashHtml(p, apiErr) {
+      const g = p.throughput;
+      const last = lastPoint(g);
+      const hot = relatedKey(p);
+      const stale = !!(apiErr && apiErr.keep);
+      const empty = apiErr && !apiErr.keep;
+      const mood = moodOf(p, apiErr);
+      let slot;
+      if (apiErr) {
+        slot = `<div class="alarm-slot error"><span class="mood">${mood}</span><span>${esc(apiErr.code)}</span><span class="msg">${esc(apiErr.msg)}</span></div>`;
+      } else {
+        const lv = p.alarm.level === "clear" || p.alarm.state === "clear" ? "clear" : p.alarm.level;
+        const tag = p.alarm.state === "clear" ? "" : (lv === "crit" ? "CRIT" : lv === "warn" ? "WARN" : "INFO");
+        slot = `<div class="alarm-slot ${lv}"><span class="mood">${mood}</span>${tag ? `<span>${tag}</span>` : ""}<span class="msg">${esc(p.alarm.message)}</span></div>`;
+      }
+      const avg = empty ? "--" : p.summary.avg_ms + "ms";
+      const p95 = empty ? "--" : p.summary.p95_ms + "ms";
+      const err = empty ? "--" : fmtPct(p.summary.error_pct);
+      const served = empty ? "--" : fmtServed(p.summary.served);
+      const recv = fmtRecv(p.receivedAt);
+      const recvCls = stale ? "recv stale" : "recv";
+      const cls = (key) =>
+        `${hot === key && !apiErr ? "hot" : ""} ${stale || empty ? "stale" : ""}`;
+      const graph = empty
+        ? `<div class="spark-lab">no data yet</div><div class="recv">recv --</div>`
+        : `<div class="spark-lab">${esc(g.title)}  last ${last}${g.unit || ""}</div>
+           <div class="bars">${barChart(g)}</div>
+           <div class="${recvCls}">recv ${recv}${stale ? "  (held)" : ""}</div>`;
+      return `
+        ${slot}
+        <div class="body">
+          <div class="rail">
+            <div class="m ${cls("avg")}">avg<b>${avg}</b></div>
+            <div class="m ${cls("p95")}">p95<b>${p95}</b></div>
+            <div class="m ${cls("error")}">error<b>${err}</b></div>
+            <div class="m ${cls("served")}">served<b>${served}</b></div>
+          </div>
+          <div class="chart">${graph}</div>
+        </div>`;
+    }
+
+    function renderPanel(target, opts) {
+      const { p, usb, bat, idx, total, dark, portal, apiErr } = opts;
+      if (dark) {
+        target.innerHTML = "";
+        target.parentElement.classList.add("off");
+        return;
+      }
+      target.parentElement.classList.remove("off");
+      if (portal) {
+        target.innerHTML = `<div class="portal"><span class="wifi-pip"></span><br>Pulsar-Setup<br>192.168.4.1<br><span style="color:var(--accent)">add Wi-Fi</span></div>`;
+        return;
+      }
+      const pip = usb ? `<span class="pwr-pip"></span>USB` : `<span class="pwr-pip bat"></span>${bat}%`;
+      const wifi = `<span class="wifi-pip${apiErr ? " off" : ""}"></span>${apiErr ? "-" : "W"}`;
+      target.innerHTML =
+        `<div class="ident">
+          <div class="ident-row"><span class="ident-name"><span class="live-emoji">${p.emoji}</span>${esc(p.name)}</span><span class="ident-meta">${pip}${wifi} ${idx + 1}/${total}</span></div>
+        </div>` +
+        dashHtml(p, apiErr);
+    }
+
+    let lastSig = "";
+
+    function replayGraph(panel) {
+      const track = panel && panel.querySelector(".bars");
+      if (!track) return;
+      const html = track.innerHTML;
+      track.innerHTML = "";
+      void track.offsetWidth;
+      track.innerHTML = html;
+    }
+
+    function tickRecv(panel) {
+      if (state.apiErr || !state.on || state.portal) return;
+      const dark = !state.usb && Date.now() > state.peekUntil;
+      if (dark) return;
+      const p = PROJECTS[state.i];
+      if (Date.now() - p.receivedAt < 20000) return;
+      p.receivedAt = Date.now();
+      const el = panel && panel.querySelector(".recv");
+      if (el) {
+        el.textContent = "recv " + fmtRecv(p.receivedAt);
+        el.classList.remove("stale");
+      }
+      replayGraph(panel);
+    }
+    function drawLive(force) {
+      const lcd = document.getElementById("lcd");
+      const panel = document.getElementById("panel");
+      const p = PROJECTS[state.i];
+      const dark = state.on && !state.usb && !state.portal && Date.now() > state.peekUntil;
+      const sig = [state.on, state.usb, state.i, state.portal, dark, state.apiErr && state.apiErr.code].join("|");
+      const footerOnly = sig === lastSig && !force;
+      if (footerOnly) {
+        tickRecv(panel);
+        return;
+      }
+      lastSig = sig;
+      if (!state.on) {
+        renderPanel(panel, { p, usb: true, bat: 82, idx: 0, total: 2, dark: true });
+        document.getElementById("status").textContent = "Power off · click power to turn on";
+        return;
+      }
+      if (state.portal) {
+        lcd.classList.remove("off");
+        renderPanel(panel, { p, usb: state.usb, bat: 82, idx: state.i, total: 2, portal: true });
+        document.getElementById("status").textContent = "Wi-Fi portal · Pulsar-Setup · 192.168.4.1";
+        return;
+      }
+      renderPanel(panel, {
+        p, usb: state.usb, bat: 82,
+        idx: state.i, total: PROJECTS.length, dark,
+        apiErr: state.apiErr
+      });
+      let st = state.usb
+        ? "USB · " + p.name + " · throughput 30m"
+        : (dark ? "Battery · screen off · Btn A peeks traffic" : "Peek · " + p.name);
+      if (state.apiErr) st = "API error " + state.apiErr.code + " · last payload " + (state.apiErr.keep ? "kept" : "cleared");
+      document.getElementById("status").textContent = st;
+    }
+
+    document.getElementById("btnA").addEventListener("click", () => {
+      if (!state.on) return;
+      state.portal = false;
+      if (!state.usb) {
+        if (Date.now() > state.peekUntil) {
+          state.peekUntil = Date.now() + 60000;
+        } else {
+          state.i = (state.i + 1) % PROJECTS.length;
+          state.peekUntil = Date.now() + 60000;
+        }
+      } else {
+        state.i = (state.i + 1) % PROJECTS.length;
+      }
+      drawLive(true);
+    });
+
+    const btnB = document.getElementById("btnB");
+    btnB.addEventListener("mousedown", () => { state.bHold = Date.now(); });
+    btnB.addEventListener("mouseup", () => {
+      if (!state.on) return;
+      if (Date.now() - state.bHold >= 2000) {
+        state.portal = !state.portal;
+        drawLive(true);
+      }
+    });
+
+    let lastPwr = 0;
+    document.getElementById("btnPwr").addEventListener("click", () => {
+      const now = Date.now();
+      if (now - lastPwr < 400) {
+        state.on = false;
+        state.portal = false;
+      } else {
+        state.on = true;
+      }
+      lastPwr = now;
+      drawLive(true);
+    });
+
+    document.getElementById("modeUsb").addEventListener("click", () => {
+      state.usb = true;
+      document.getElementById("modeUsb").classList.add("on");
+      document.getElementById("modeBat").classList.remove("on");
+      drawLive(true);
+    });
+    document.getElementById("modeBat").addEventListener("click", () => {
+      state.usb = false;
+      state.peekUntil = 0;
+      document.getElementById("modeBat").classList.add("on");
+      document.getElementById("modeUsb").classList.remove("on");
+      drawLive(true);
+    });
+
+    document.querySelectorAll(".chip[data-theme]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".chip[data-theme]").forEach(b => b.classList.remove("on"));
+        btn.classList.add("on");
+        document.body.setAttribute("data-theme", btn.getAttribute("data-theme"));
+        lastSig = "";
+        drawLive(true);
+      });
+    });
+    document.querySelectorAll("[data-err]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("[data-err]").forEach(b => b.classList.remove("on"));
+        btn.classList.add("on");
+        const k = btn.getAttribute("data-err");
+        state.apiErr = k ? API_ERR[k] : null;
+        if (!k) PROJECTS[state.i].receivedAt = Date.now();
+        drawLive(true);
+      });
+    });
+
+    setInterval(() => drawLive(false), 500);
+
+    const FRAMES = [
+      {
+        title: "✅ Digital Payouts",
+        note: "Starts green. Metrics on the left, vertical bar chart fills the rest.",
+        json: `{ "project": { "id": "payouts", "name": "Digital Payouts" },
+  "alarm": { "state": "clear", "level": "info", "message": "SLO held" },
+  "summary": { "window": "30m", "avg_ms": 32, "p95_ms": 78, "error_pct": 0.04, "served": 18420 } }`,
+        opts: { p: PROJECTS[0], usb: true, bat: 82, idx: 0, total: 2 }
+      },
+      {
+        title: "✅ Fraud VAS",
+        note: "Same layout. ✅ only — no OK word.",
+        json: `{ "project": { "id": "fraud", "name": "Fraud VAS" },
+  "alarm": { "state": "clear", "level": "info", "message": "SLO held" },
+  "summary": { "window": "30m", "avg_ms": 18, "p95_ms": 42, "error_pct": 0.08, "served": 96240 } }`,
+        opts: { p: PROJECTS[1], usb: true, bat: 82, idx: 1, total: 2 }
+      },
+      {
+        title: "🚨 Digital Payouts · crit",
+        note: "When error% blows SLO. Bars drop. Same chrome.",
+        json: `{ "alarm": { "state": "active", "level": "crit", "message": "err 2.14% > 0.50" },
+  "summary": { "avg_ms": 48, "p95_ms": 210, "error_pct": 2.14, "served": 18420 } }`,
+        opts: { p: PAYOUTS_CRIT, usb: true, bat: 82, idx: 0, total: 2 }
+      },
+      {
+        title: "🔋 Battery idle",
+        note: "Unplugged. Panel off. Stick still polls both services. Speaker on crit.",
+        json: "screen sleep · backlight 0",
+        opts: { p: PROJECTS[0], usb: false, bat: 64, idx: 0, total: 2, dark: true }
+      },
+      {
+        title: "📶 Wi-Fi portal",
+        note: "Hold Btn B 2 s. Save office / prod SSIDs.",
+        json: "Join Pulsar-Setup → 192.168.4.1",
+        opts: { p: PROJECTS[0], usb: true, bat: 82, idx: 0, total: 2, portal: true }
+      },
+      {
+        title: "📡 API error · NET",
+        note: "Timeout. Strip becomes NET. Last summary stays, dimmed.",
+        json: "HTTP timeout · code NET · keep last payload",
+        opts: { p: PROJECTS[0], usb: true, bat: 82, idx: 0, total: 2, apiErr: API_ERR.NET }
+      },
+      {
+        title: "🔐 API error · AUTH",
+        note: "401 HMAC mismatch. Numbers are stale until the next good poll.",
+        json: "HTTP 401 · { \"error\": \"bad HMAC\" }",
+        opts: { p: PROJECTS[1], usb: true, bat: 82, idx: 1, total: 2, apiErr: API_ERR.AUTH }
+      }
+    ];
+
+    const frames = document.getElementById("frames");
+    FRAMES.forEach((f, n) => {
+      const el = document.createElement("div");
+      el.className = "frame";
+      el.innerHTML = `<h3>${esc(f.title)}</h3><p>${esc(f.note)}</p>
+        <div class="mini-bezel"><div class="lcd" style="width:240px;height:135px"><div class="lcd-inner"></div></div></div>
+        <pre>${esc(f.json)}</pre>`;
+      frames.appendChild(el);
+      renderPanel(el.querySelector(".lcd-inner"), f.opts);
+    });
+
+    drawLive(true);
+  </script>
+</body>
+</html>
