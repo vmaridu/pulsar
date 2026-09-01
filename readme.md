@@ -26,7 +26,15 @@ Pulsar is a compact, battery-powered smart display designed to sit on a desk or 
 
 ## 🛠️ Hardware
 
-**M5StickS3** — ESP32-S3, 1.14" colour TFT (135 × 240, portrait), speaker, 250 mAh battery, one blue front key plus a side key.
+Three boards, one contract. Every one polls the same endpoint and shows the same five numbers.
+
+| Board | Screen | Input | Notes |
+| --- | --- | --- | --- |
+| **M5StickS3** | 1.14" 135 × 240 | blue key + shake | Speaker and 250 mAh cell in the case, magnetic back |
+| **ESP32-S3-Touch-LCD-3.49** | 3.49" **640 × 172** landscape | touch + shake | Real RTC, dual mics, speaker on a header |
+| **ESP32-S3-LCD-1.54** | 1.54" 240 × 240 | touch + PLUS key | Speaker in the case, TF slot, square |
+
+Pixel count drives the design, not just the layout. Laid out **landscape at 640 × 172** the 3.49 becomes a comparison board: every panel gets its own column, side by side at the same scale, so you read across to find the one dragging the service down instead of stepping through them. See **[docs/stick.md](docs/stick.md)**.
 
 ## 📚 Docs
 
@@ -36,7 +44,9 @@ Pulsar is a compact, battery-powered smart display designed to sit on a desk or 
 | **[docs/stick.md](docs/stick.md)** | The device. Hardware specs, the five screen bands, the keys, power behaviour, animation budget. |
 | **[docs/code.md](docs/code.md)** | Proposed firmware — model, HTTP client, drawing, main loop, storage. |
 | **[docs/compare.md](docs/compare.md)** | Hardware comparison — candidate boards, ESP32 chips, DevKits, what to check on anything else. |
-| **[docs/ui.html](docs/ui.html)** | Interactive mockup. Open it in a browser and press the blue key. |
+| **[docs/ui-sticks3.html](docs/ui-sticks3.html)** | Interactive mockup — M5StickS3, 135 × 240. |
+| **[docs/ui-lcd349.html](docs/ui-lcd349.html)** | Interactive mockup — ESP32-S3-Touch-LCD-3.49, 640 × 172 landscape. |
+| **[docs/ui-lcd154.html](docs/ui-lcd154.html)** | Interactive mockup — ESP32-S3-LCD-1.54, 240 × 240. |
 
 Earlier drafts live in `docs/archive/`.
 
@@ -146,7 +156,7 @@ A few decisions that the rest follows from:
 ## 🚀 Getting Started
 
 1. 📥 Clone the repository.
-2. 🖥️ Open **[docs/ui.html](docs/ui.html)** in a browser to see what you are building.
+2. 🖥️ Open one of the mockups — **[stick](docs/ui-sticks3.html)** · **[3.49](docs/ui-lcd349.html)** · **[1.54](docs/ui-lcd154.html)** — to see what you are building.
 3. 🔧 Point a backend at **[docs/api.md](docs/api.md)** and serve `GET /v1/status`.
 4. 📟 Build the firmware from **[docs/code.md](docs/code.md)**; add service URLs and tokens over the Wi-Fi portal — hold the right key.
 5. 🔌 Polls every 60 s either way. USB = screen on. Battery = screen off, blue key wakes it for 60 s, speaker on alerts.

@@ -4,7 +4,7 @@ A backend contract. One `GET`, one JSON object, no device knowledge required.
 
 Anything that speaks this contract can be watched by Pulsar. Nothing in this document assumes a particular screen, chip, or client — the limits below are part of the contract, so any client can render a response without measuring it first.
 
-The client that consumes it → **[stick.md](stick.md)** · Live payloads → **[ui.html](ui.html)**
+The clients that consume it → **[stick.md](stick.md)** · Live payloads → **[stick](ui-sticks3.html)** · **[3.49](ui-lcd349.html)** · **[1.54](ui-lcd154.html)**
 
 ---
 

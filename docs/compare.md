@@ -26,27 +26,40 @@ The two in bold are what disqualify most boards. Plenty of kits have a screen an
 
 ## 2. Head to head
 
-| Feature | **M5StickS3** | ESP32-C6 Waveshare 1.54 | ESP32-C6 Waveshare 1.83 | ESP32-S3 Waveshare 3.49 |
-| --- | --- | --- | --- | --- |
-| **SoC** | **ESP32-S3-PICO-1-N8R8** · dual LX7 · 240 MHz · 8 MB flash + **8 MB PSRAM** | **ESP32-C6** · RISC-V · 160 MHz · 16 MB flash · **no PSRAM** | **ESP32-C6** · RISC-V · 160 MHz · 16 MB flash · no PSRAM | **ESP32-S3R8** · dual LX7 · 240 MHz · 16 MB + 8 MB PSRAM |
-| **Released** | 23 Jan 2026 | 2026 (SKU 34659) | ~Nov 2025 | Sep 2025 |
-| **Display** | 1.14" 135×240, **no touch** | 1.54" 240×240 square IPS, **touch** (CST816) | 1.83" 240×284, touch | 3.49" 172×640 bar, touch |
-| **Buttons** | A, B, power | PLUS, BOOT, PWR | PWR, BOOT | PWR, BOOT, RESET |
-| **Wi-Fi** | 2.4 GHz Wi-Fi 4 | 2.4 GHz **Wi-Fi 6** + Thread/Zigbee | 2.4 GHz Wi-Fi 6 | 2.4 GHz |
-| **Speaker** | **Yes**, in the case | **Yes**, in the case + dual mics | **Plug** — codec + amp, speaker plug | **Plug** — ES8311 + mics, MX1.25 plug |
-| **Battery** | **Yes** — 250 mAh inside | **Plug** — optional **1000 mAh** fits the shell | **Plug** — cell optional | **Plug** — 18650 holder or LiPo header |
-| **Case** | Moulded stick, magnetic back | Square moulded shell | Plastic kit | Case A (thick) or B (thin) |
-| **Under 3 × 3 in** | **Yes** — 48×24×15 mm | Yes | Yes | **No** — ~98.5 mm long |
-| **Price** | $21.50 | **$17.99** | $21.99–22.99 | $29.99–31.99 |
-| **Firmware** | **M5Unified, runs today** | Port to C6, no M5 libs | Port to C6 | Port, S3 keeps the CPU |
+| Feature | **M5StickS3** | ESP32-S3 Waveshare 1.54 | ESP32-C6 Waveshare 1.54 | ESP32-C6 Waveshare 1.83 | ESP32-S3 Waveshare 3.49 |
+| --- | --- | --- | --- | --- | --- |
+| **SoC** | **ESP32-S3-PICO-1-N8R8** · dual LX7 · 240 MHz · 8 MB flash + **8 MB PSRAM** | **ESP32-S3R8** · dual LX7 · 240 MHz · 16 MB flash + **8 MB PSRAM** | **ESP32-C6** · RISC-V · 160 MHz · 16 MB flash · **no PSRAM** | **ESP32-C6** · RISC-V · 160 MHz · 16 MB flash · no PSRAM | **ESP32-S3R8** · dual LX7 · 240 MHz · 16 MB + 8 MB PSRAM |
+| **Released** | 23 Jan 2026 | 2025 (SKU **33867**) | 2026 (SKU 34659) | ~Nov 2025 | Sep 2025 |
+| **Display** | 1.14" 135×240, **no touch** | 1.54" 240×240 square IPS, **no touch** (ST7789) | 1.54" 240×240 square IPS, **touch** (CST816) | 1.83" 240×284, touch | 3.49" 172×640 bar, touch |
+| **Buttons** | A, B, power | PLUS, BOOT, PWR | PLUS, BOOT, PWR | PWR, BOOT | PWR, BOOT, RESET |
+| **Wi-Fi** | 2.4 GHz Wi-Fi 4 | 2.4 GHz Wi-Fi 4 + BLE 5 | 2.4 GHz **Wi-Fi 6** + Thread/Zigbee | 2.4 GHz Wi-Fi 6 | 2.4 GHz |
+| **Speaker** | **Yes**, in the case | **Yes**, in the case + dual mics | **Yes**, in the case + dual mics | **Plug** — codec + amp, speaker plug | **Plug** — ES8311 + mics, MX1.25 plug |
+| **Battery** | **Yes** — 250 mAh inside | **Plug** — optional **1000 mAh** fits the shell | **Plug** — optional **1000 mAh** fits the shell | **Plug** — cell optional | **Plug** — 18650 holder or LiPo header |
+| **Case** | Moulded stick, magnetic back | Square moulded shell | Square moulded shell | Plastic kit | Case A (thick) or B (thin) |
+| **Under 3 × 3 in** | **Yes** — 48×24×15 mm | Yes | Yes | Yes | **No** — ~98.5 mm long |
+| **Price** | $21.50 | **$15.99** | $17.99 | $21.99–22.99 | $29.99–31.99 |
+| **Firmware** | **M5Unified, runs today** | Port pins; **same S3 + PSRAM** | Port to C6, no M5 libs | Port to C6 | Port, S3 keeps the CPU |
 
 ### The verdict
 
-**Stay on StickS3** for the current firmware, dual-core + PSRAM, the stick shape, Grove and IR — and because it is the only board in this document that ships screen + speaker + cell + case at stick size.
+**Stay on StickS3** for the current firmware, the stick shape, Grove and IR — and because it is the only board in this document that ships screen + speaker + cell + case at stick size with M5Unified already running.
 
-**The C6 1.54 is the only real alternative.** Same idea in a square shell, cheaper, with touch, a 4× bigger cell (1000 mAh), dual mics and a TF slot. The cost is a firmware port: RISC-V C6, no PSRAM, no M5Unified — the display, speaker and power layers all get rewritten. There is also an **ESP32-S3-Touch-LCD-1.54** in the same shell if you want that case without leaving the S3.
+**The S3 1.54 is the strongest Waveshare alternative.** Same square shell as the C6 1.54, cheaper (**$15.99**), dual-core S3 with 8 MB PSRAM, onboard speaker, dual mics, TF slot, IMU, and a 1000 mAh cell that fits the case. SKU **33867** is the no-touch + battery kit (Pulsar does not need touch). Firmware is still a pin-level port — not M5Unified — but you stay on Xtensa S3, so Arduino / PlatformIO and the HTTP/JSON stack do not change CPU.
+
+**The C6 1.54 is the same idea on Wi-Fi 6.** Only pick it if you want Thread/Zigbee. RISC-V, no PSRAM, display/speaker/power all get rewritten.
 
 **The 3.49 is the wrong shape.** 98.5 mm is not a stick, and the speaker is a plug.
+
+### S3 1.54 SKUs — read carefully
+
+| SKU       | Name                         | Touch | 1000 mAh cell |
+| --------- | ---------------------------- | ----- | ------------- |
+| **33867** | ESP32-S3-LCD-1.54            | No    | Yes           |
+| 33866     | ESP32-S3-LCD-1.54-EN         | No    | **No**        |
+| 33869     | ESP32-S3-Touch-LCD-1.54      | Yes   | Yes           |
+| 33868     | ESP32-S3-Touch-LCD-1.54-EN   | Yes   | **No**        |
+
+`-EN` means no cell — USB only. Confirm **Included** under "3.7V MX1.25 Lithium Batt" at checkout. Wiki: [ESP32-S3-Touch-LCD-1.54](https://docs.waveshare.com/ESP32-S3-Touch-LCD-1.54).
 
 ### C6 1.54 SKUs — read carefully
 
@@ -82,7 +95,8 @@ Waveshare does not publish the 18650's capacity. Do not assume the two cases shi
 | M5Cardputer                  | Yes           | Yes              | **Yes**  | Keyboard | Yes        | Yes  | Works — card with a keyboard        |
 | M5StickC Plus2               | Yes           | Yes              | **Yes**  | A + B  | 200 mAh      | Yes  | Older stick, no native USB OTG      |
 | M5Dial                       | Yes           | Round, touch     | No       | Encoder| Yes          | Yes  | Rotary UI, no speaker               |
-| Waveshare C6 1.54            | Wi-Fi 6       | Yes, touch       | **Yes**  | 3      | Optional SKU | Yes  | Best alternative — port to C6       |
+| Waveshare S3 1.54            | Yes           | Yes, no touch    | **Yes**  | 3      | Optional SKU | Yes  | Best alternative — stay on S3       |
+| Waveshare C6 1.54            | Wi-Fi 6       | Yes, touch       | **Yes**  | 3      | Optional SKU | Yes  | Same shell, port to C6              |
 | Waveshare C6 1.83            | Wi-Fi 6       | Yes, touch       | Plug     | 2      | Optional SKU | Yes  | Port + add a speaker                |
 | Waveshare S3 3.49            | Yes           | Bar, touch       | Plug     | 3      | Optional SKU | Yes  | Too long for a stick                |
 | LilyGO T-Display S3          | Yes           | Yes, no touch    | No       | 2      | Header       | No   | Add amp + cell + shell              |
@@ -219,6 +233,8 @@ Bare boards: headers, USB, BOOT/RESET, sometimes an RGB LED. **No** display, spe
 
 | Board | SoC | Display | Touch | Speaker | Battery | Under 3×3 in |
 | --- | --- | --- | --- | --- | --- | --- |
+| ESP32-S3-LCD-1.54 | S3R8 | 1.54" 240×240 | No | **Yes** | Optional 1000 mAh | Yes |
+| ESP32-S3-Touch-LCD-1.54 | S3R8 | 1.54" 240×240 | Yes | **Yes** | Optional 1000 mAh | Yes |
 | ESP32-C6-Touch-LCD-1.54 | C6 | 1.54" 240×240 | Yes | **Yes** | Optional 1000 mAh | Yes |
 | ESP32-C6-Touch-LCD-1.83 | C6 | 1.83" 240×284 | Yes | Plug | Optional | Yes |
 | ESP32-S3-Touch-LCD-3.49 | S3R8 | 3.49" 172×640 bar | Yes | Plug | 18650 or 2000 mAh | **No** |
@@ -257,6 +273,9 @@ T-Display S3 and the Reverse TFT Feather have a screen and a LiPo connector but 
 | Board | Where | What you get |
 | --- | --- | --- |
 | **StickS3, complete** | [shop.m5stack.com](https://shop.m5stack.com/products/m5sticks3-esp32s3-mini-iot-dev-kit) | $21.50, everything inside |
+| **S3 1.54 no-touch + cell** | [waveshare.com sku=33867](https://www.waveshare.com/esp32-s3-lcd-1.54.htm?sku=33867) | **$15.99** — confirm battery **Included** |
+| S3 1.54, no cell | same page, SKU 33866 (`-EN`) | USB only |
+| S3 1.54 touch + cell | same page, SKU 33869 | Touch (CST816) + 1000 mAh |
 | **C6 1.54 touch + cell** | [waveshare.com sku=34659](https://www.waveshare.com/esp32-c6-lcd-1.54.htm?sku=34659) | $17.99 — confirm battery **Included** |
 | C6 1.54, no cell | same page, SKU 34661 (`-EN`) | USB only |
 | C6 1.83 + cell | [esp32-c6-touch-lcd-1.83](https://www.waveshare.com/product/esp32-c6-touch-lcd-1.83.htm) | Not the `-EN` SKU |

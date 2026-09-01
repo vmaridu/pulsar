@@ -1,9 +1,58 @@
-# The stick
+# The devices
 
-Everything about the device: the hardware, what it draws, and what the three keys do.
+Everything about the hardware: what each board draws, and how you drive it.
 
 The backend contract is separate and knows nothing about any of this → **[api.md](api.md)**
-Firmware → **[code.md](code.md)** · Live mockup → **[ui.html](ui.html)** · Other boards → **[compare.md](compare.md)**
+Firmware → **[code.md](code.md)** · Board choice → **[compare.md](compare.md)**
+
+## Three screens, one contract
+
+Every board polls the same [api.md](api.md) endpoint and shows the same five numbers. What changes is how much fits at once — and that changes the interaction more than the layout.
+
+| Board | Screen | Input | Live mockup |
+| --- | --- | --- | --- |
+| **M5StickS3** | 1.14" **135 × 240** portrait, ST7789P3, no touch | One blue key + shake | **[ui-sticks3.html](ui-sticks3.html)** |
+| **ESP32-S3-Touch-LCD-3.49** | 3.49" **640 × 172 landscape**, AXS15231B, capacitive | Touch + shake | **[ui-lcd349.html](ui-lcd349.html)** |
+| **ESP32-S3-LCD-1.54** | 1.54" **240 × 240** square, ST7789, CST816 | Touch halves + PLUS key | **[ui-lcd154.html](ui-lcd154.html)** |
+
+### What each size increase actually buys
+
+| Board | Diagonal | Pixels | Count | vs stick | Chars per line | Panels visible |
+| --- | --- | --- | --- | --- | --- | --- |
+| M5StickS3 | 1.14" | 135 × 240 | 32,400 | 1.00× | 22 | **1** |
+| S3-LCD-1.54 | 1.54" | 240 × 240 | 57,600 | **1.78×** | 40 | **1** |
+| S3-Touch-LCD-3.49 | 3.49" | 640 × 172 | 110,080 | **3.40×** | 106 | **4** |
+
+The pixel count is not the interesting column. **Panels visible** is:
+
+- **135 × 240 → 240 × 240** is 1.78× the pixels and buys *comfort*, not capability. The same one panel, but four numbers land on one 40-character line instead of stacking into four rows, the graph doubles in height, and touch splits the square into prev/next halves. Still one panel at a time, still a cycle.
+- **240 × 240 → 640 × 172** is only 1.9× again, but it crosses a threshold: **106 characters across a line is enough for four columns**, so every panel fits side by side and the cycle disappears entirely. That is a different product, not a bigger screen.
+
+The lesson worth carrying: below ~500 px of width you are designing a *sequence*, above it you are designing a *comparison*. Doubling the pixels inside one of those regimes only makes things roomier; the jump between them changes what the device is for.
+
+Height matters less than you would expect. All three fit 21–30 text lines, and none of them can use that many — the constraint is always width.
+
+### The 3.49 in landscape
+
+The panel is native portrait at 172 × 640, but rotating it is the whole point. Stood on end it is a tall ribbon still showing one thing at a time, which is what the stick already does with less hardware. Laid flat you read *across* to see which panel is dragging the service down, instead of stepping through and holding numbers in your head.
+
+**The alarm is the top bar.** Not a banner, not a rail — the bar that was going to be there anyway.
+
+A landscape board still needs a strip for the service name, the battery and the clock. So that strip *is* the alarm: it takes the level colour, blinks at the level's rate, and everything on it is drawn in near-black ink so it stays readable on green, amber, red or grey. A full-width banner would have cost 40 of 172 rows to say one word; a vertical rail cost 42 of 640 columns. This costs **nothing** — the 26 rows were already spent on chrome, and all 146 remaining rows go to content.
+
+It is also the most visible option of the three. A blinking strip the full width of the screen is far harder to miss from the corner of your eye than a rail down one edge, and it needs no glyph to explain itself because the level word sits right there on it.
+
+The stick cannot do this. At 135 px wide its status bar has room for a battery and a Wi-Fi icon and nothing else, so the level word and message need a band of their own. Give the same bar 640 px and it swallows the service name, the alarm, the message, the battery and the clock with room to spare.
+
+On the stick you ask "what is this panel doing?" and step through. On the 3.49 you ask "which panel is the problem?" and the answer is one glance.
+
+Two things the Waveshare boards have that the stick does not: a **real RTC** (PCF85063 on the 3.49, so time survives a reboot without NTP) and **capacitive touch**. Two things they lose: the 3.49 has no speaker in the box — only an MX1.25 header — and neither has the stick's magnetic back.
+
+---
+
+# The M5StickS3
+
+Detailed below because it is the tightest constraint. The other two relax it.
 
 ---
 

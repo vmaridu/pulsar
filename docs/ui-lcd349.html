@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Pulsar — M5StickS3 mockup</title>
+<title>Pulsar — ESP32-S3-Touch-LCD-3.49</title>
 <style>
 :root{
   --bg:#070910; --bg2:#0b0f1a; --card:#0f1522; --card2:#141c2c;
@@ -46,100 +46,48 @@ header.top .pill{
 .stage{display:grid;grid-template-columns:minmax(300px,auto) minmax(340px,1fr);gap:34px;align-items:start}
 @media (max-width:900px){.stage{grid-template-columns:1fr}}
 
-/* ---------- device: proportions taken from the StickS3 product photo ------ */
-.deviceCol{display:flex;flex-direction:column;align-items:center;gap:12px;position:sticky;top:20px;
-  min-width:0;max-width:100%}
-@media (max-width:900px){.deviceCol{position:static}}
+
 .deviceBox{position:relative;overflow:hidden}
-.deviceScale{position:absolute;top:0;left:0;transform-origin:top left;
-  transition:transform .22s cubic-bezier(.2,.8,.2,1)}
-.deviceScale.bare .stick{width:441px;height:756px;border-radius:22px;
-  background:#0c0f15;box-shadow:0 0 0 1px #232a36}
-.deviceScale.bare .glass{left:18px;top:18px}
-.deviceScale.bare .btnA,.deviceScale.bare .btnB,.deviceScale.bare .btnP,
-.deviceScale.bare .usbc,.deviceScale.bare .keycap{display:none}
-
-/* key labels live INSIDE the body so nothing bleeds out of the column */
-.keycap{position:absolute;font-family:var(--mono);font-size:16px;letter-spacing:1.4px;
-  color:#767f8e;white-space:nowrap}
-.keycap.a{left:50%;transform:translateX(-50%);top:1146px}
-.keycap.b{right:26px;top:700px;writing-mode:vertical-rl}
-.keycap.p{left:26px;top:500px;writing-mode:vertical-rl;transform:rotate(180deg)}
-.legend{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;font-size:11.5px;color:var(--dim2);
-  font-family:var(--mono);max-width:100%}
-.legend b{color:var(--dim);font-weight:400}
-
-.stick{
-  position:relative; width:711px; height:1484px; border-radius:62px;
-  background:
-    radial-gradient(130% 55% at 32% -4%, rgba(255,255,255,.11), transparent 62%),
-    linear-gradient(180deg,#4d525b 0%,#41464f 34%,#383d45 68%,#2e333a 100%);
-  box-shadow:
-    inset 0 0 0 2px rgba(255,255,255,.09),
-    inset 0 -6px 16px rgba(0,0,0,.55),
-    0 46px 90px -34px rgba(0,0,0,.95);
-}
-.stick{cursor:grab}
+.deviceScale{position:absolute;top:0;left:0;transform-origin:top left;transition:transform .22s cubic-bezier(.2,.8,.2,1)}
+.deviceScale.bare .stick{width:1304px;height:368px;border-radius:16px;background:#0c0f15;box-shadow:0 0 0 1px #232a36}
+.deviceScale.bare .glass{left:12px;top:12px}
+.deviceScale.bare .btnP,.deviceScale.bare .usbc,.deviceScale.bare .keycap{display:none}
+.stick{position:relative;width:1408px;height:492px;border-radius:34px;cursor:grab;
+  background:radial-gradient(80% 120% at 4% 0%,rgba(255,255,255,.10),transparent 55%),
+             linear-gradient(180deg,#33383f 0%,#262a30 40%,#1d2127 100%);
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.07),inset 0 -6px 16px rgba(0,0,0,.55),
+             0 40px 80px -30px rgba(0,0,0,.95)}
 .stick.shook{animation:shakeIt .5s cubic-bezier(.36,.07,.19,.97)}
-@keyframes shakeIt{
-  0%,100%{transform:translateX(0) rotate(0)}
-  15%{transform:translateX(-9px) rotate(-1.6deg)}
-  32%{transform:translateX(9px)  rotate(1.6deg)}
-  50%{transform:translateX(-7px) rotate(-1.2deg)}
-  68%{transform:translateX(7px)  rotate(1.2deg)}
-  85%{transform:translateX(-3px) rotate(-.5deg)}
-}
+@keyframes shakeIt{0%,100%{transform:translateY(0)}15%{transform:translateY(-8px) rotate(-.5deg)}
+  32%{transform:translateY(8px) rotate(.5deg)}50%{transform:translateY(-6px)}68%{transform:translateY(6px)}85%{transform:translateY(-3px)}}
 .stick.beep{animation:beepShake .42s ease-in-out}
-@keyframes beepShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}45%{transform:translateX(5px)}70%{transform:translateX(-3px)}}
-.stick::after{content:"";position:absolute;inset:-10px;border-radius:72px;pointer-events:none;
-  box-shadow:0 0 0 0 rgba(255,77,94,0)}
+@keyframes beepShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}45%{transform:translateX(6px)}70%{transform:translateX(-4px)}}
+.stick::after{content:"";position:absolute;inset:-10px;border-radius:44px;pointer-events:none;box-shadow:0 0 0 0 rgba(255,77,94,0)}
 .stick.beep::after{animation:ring 1s ease-out}
 @keyframes ring{0%{box-shadow:0 0 0 0 rgba(255,77,94,.5)}100%{box-shadow:0 0 0 46px rgba(255,77,94,0)}}
-
-/* screen recess — light bezel ring, exactly like the photo */
-.glass{position:absolute;left:153px;top:176px;width:405px;height:720px;border-radius:26px;background:#000;
-  overflow:hidden;
-  box-shadow:0 0 0 4px #cfd5dd, 0 0 0 7px #262b32, inset 0 3px 18px rgba(0,0,0,.9)}
-.glass canvas{display:block;width:405px;height:720px}
+.glass{position:absolute;left:64px;top:74px;width:1280px;height:344px;border-radius:10px;background:#000;
+  overflow:hidden;box-shadow:0 0 0 4px #0c1017,0 0 0 6px #3a4048,inset 0 3px 18px rgba(0,0,0,.9)}
+.glass canvas{display:block;width:1280px;height:344px;cursor:pointer}
 .glass .sheen{position:absolute;inset:0;pointer-events:none;
-  background:linear-gradient(126deg,rgba(255,255,255,.07) 0%,rgba(255,255,255,.018) 24%,transparent 48%)}
+  background:linear-gradient(100deg,rgba(255,255,255,.06) 0%,rgba(255,255,255,.015) 22%,transparent 46%)}
 .glass .grid{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .25s;
-  background:repeating-linear-gradient(to bottom,rgba(0,0,0,.32) 0 1px,transparent 1px 3px)}
+  background:repeating-linear-gradient(to bottom,rgba(0,0,0,.30) 0 1px,transparent 1px 3px)}
 .glass.px .grid{opacity:1}
 .glass .off{position:absolute;inset:0;display:none;place-items:center;text-align:center;
-  font-family:var(--mono);font-size:15px;color:#222a37;letter-spacing:2px;line-height:2.2}
+  font-family:var(--mono);font-size:16px;color:#222a37;letter-spacing:2px;line-height:2.2}
 .glass.dark .off{display:grid}
-
-/* blue pill — the only front key */
-.btnA{position:absolute;left:50%;transform:translateX(-50%);top:1054px;width:328px;height:67px;
-  border:0;border-radius:34px;cursor:pointer;
-  background:linear-gradient(180deg,#45a9ff 0%,#1478e4 44%,#0a54b6 100%);
-  box-shadow:
-    inset 0 3px 4px rgba(255,255,255,.5), inset 0 -4px 8px rgba(0,0,0,.35),
-    0 5px 12px rgba(0,0,0,.55), 0 0 34px rgba(32,132,255,.26);
-  transition:transform .07s,filter .07s,box-shadow .18s}
-.btnA:active,.btnA.hit{transform:translateX(-50%) translateY(3px);filter:brightness(1.18)}
-.btnA.holding{box-shadow:inset 0 3px 4px rgba(255,255,255,.5),0 0 0 6px rgba(34,211,238,.28),0 0 46px rgba(34,211,238,.5)}
-
-/* side keys peeking past the silhouette */
-.btnB{position:absolute;right:-8px;top:560px;width:10px;height:132px;border:0;cursor:pointer;
-  border-radius:0 7px 7px 0;background:linear-gradient(90deg,#41464f,#2a2e35);
-  box-shadow:0 1px 0 rgba(255,255,255,.12) inset;transition:transform .07s}
-.btnB:active,.btnB.hit{transform:translateX(3px);background:linear-gradient(90deg,#5a6270,#343a44)}
-.btnP{position:absolute;left:-8px;top:500px;width:10px;height:96px;border:0;cursor:pointer;
-  border-radius:7px 0 0 7px;background:linear-gradient(270deg,#41464f,#2a2e35);
-  box-shadow:0 1px 0 rgba(255,255,255,.12) inset;transition:transform .07s}
-.btnP:active,.btnP.hit{transform:translateX(-3px)}
-
-.usbc{position:absolute;left:50%;transform:translateX(-50%);bottom:22px;width:104px;height:15px;border-radius:8px;
+.glass .zones{position:absolute;inset:0;pointer-events:none;opacity:0;transition:.2s}
+.glass.zones .zones{opacity:1}
+.glass .zones i{position:absolute;border:1px dashed rgba(34,211,238,.65);background:rgba(34,211,238,.10);
+  font-family:var(--mono);font-size:13px;color:#7fe6f5;display:grid;place-items:center;letter-spacing:1px}
+.btnP{position:absolute;left:300px;top:-8px;width:80px;height:10px;border:0;cursor:pointer;
+  border-radius:7px 7px 0 0;background:linear-gradient(0deg,#41464f,#2a2e35)}
+.btnP:active{transform:translateY(-3px)}
+.usbc{position:absolute;right:24px;top:50%;transform:translateY(-50%);width:14px;height:88px;border-radius:7px;
   background:#171b21;box-shadow:inset 0 0 0 1.5px #0e1116}
-.usbc.live{background:linear-gradient(#0f2f38,#07191f);box-shadow:inset 0 0 0 1.5px #22d3ee55,0 0 20px rgba(34,211,238,.4)}
-
-
-.zoomrow{display:flex;gap:6px;align-items:center;font-size:11px;color:var(--dim);font-family:var(--mono)}
-.zoomrow button{font-family:var(--mono);font-size:11px;background:var(--card);color:var(--dim);
-  border:1px solid var(--line);border-radius:6px;padding:3px 8px;cursor:pointer}
-.zoomrow button.on{color:var(--cy);border-color:#1d4f5e;background:#0c1a20}
+.usbc.live{background:linear-gradient(90deg,#0f2f38,#07191f);box-shadow:inset 0 0 0 1.5px #22d3ee55,0 0 20px rgba(34,211,238,.4)}
+.keycap{position:absolute;font-family:var(--mono);font-size:16px;letter-spacing:1.4px;color:#767f8e;white-space:nowrap}
+.keycap.p{left:300px;top:22px}
 
 /* ---------- control panel ---------- */
 .panel{display:flex;flex-direction:column;gap:16px;min-width:0}
@@ -194,20 +142,21 @@ pre.json .b{color:#c99bf5}pre.json .hl{background:#12303a;border-radius:3px}
 
 <header class="top">
   <h1><span class="bolt">⚡</span> Pulsar</h1>
-  <span class="sub">M5StickS3 · 135 × 240 portrait · ST7789P3</span>
-  <span class="pill">every pixel inside the glass is an M5GFX call</span>
+  <span class="sub">3.49" IPS · 640 × 172 landscape · AXS15231B · capacitive touch</span>
+  <span class="pill">every pixel inside the glass is a real draw call</span>
 </header>
 
-<p class="lede">
-  Live simulation of the firmware screen. The <b>blue key</b> taps through every screen on the stick
-  (<code style="font-family:var(--mono);font-size:11.5px;color:var(--cy)">overview → metrics[] → next service</code>)
-; <b>shake the stick</b> to force a refresh, and the <b>right key</b> opens setup. The alarm band never leaves its place. Drawing uses only <b>fillRect, fillRoundRect, drawLine, drawFastVLine,
-  fillCircle, fillTriangle</b> and the built-in 6 × 8 font — no effect the panel cannot do. Payload follows
-  <a href="api.md">api.md</a>; bands follow <a href="stick.md">stick.md</a>.
+<p class="lede">Rotated to landscape, the 3.49 becomes a <b>column board</b>. The alarm costs nothing:
+    the <b>top bar itself</b> takes the level colour and blinks, so all 146 remaining rows go to
+    content — the service headline, then every panel side by side. Tap the service block to change
+    service; shake to refresh.
+  Payload follows <a href="api.md">api.md</a>; the other two screens are
+  <a href="ui-sticks3.html">M5StickS3</a> and <a href="ui-lcd349.html">3.49</a> /
+  <a href="ui-lcd154.html">1.54</a>.
   Payload follows <a href="api.md">api.md</a>.
 </p>
 
-  <span class="devnav"><b>M5StickS3 · 135×240</b> <a href="ui-lcd349.html">S3-Touch-LCD-3.49 · 640×172</a> <a href="ui-lcd154.html">S3-LCD-1.54 · 240×240</a></span>
+  <span class="devnav"><a href="ui-sticks3.html">M5StickS3 · 135×240</a> <b>S3-Touch-LCD-3.49 · 640×172</b> <a href="ui-lcd154.html">S3-LCD-1.54 · 240×240</a></span>
 
 <div class="stage">
 
@@ -216,26 +165,24 @@ pre.json .b{color:#c99bf5}pre.json .hl{background:#12303a;border-radius:3px}
     <div class="deviceScale bare" id="scaler">
       <div class="stick" id="stick">
         <div class="glass" id="glass">
-          <canvas id="screen" width="405" height="720"></canvas>
-          <div class="sheen"></div>
-          <div class="grid"></div>
-          <div class="off" id="offMsg">SCREEN OFF<br>PRESS THE BLUE KEY</div>
+          <canvas id="screen" width="1280" height="344"></canvas>
+          <div class="sheen"></div><div class="grid"></div>
+          <div class="zones">
+            <i style="left:0;top:15%;width:25%;height:85%">TAP → NEXT SERVICE</i>
+            <i style="left:69%;top:0;width:31%;height:15%">SETUP</i>
+          </div>
+          <div class="off" id="offMsg">SCREEN OFF · TOUCH TO WAKE</div>
         </div>
-        <button class="btnA" id="bA" title="Blue key — GPIO 11"></button>
-        <button class="btnB" id="bB" title="Side key — GPIO 12 — settings / Wi-Fi"></button>
-        <button class="btnP" id="bP" title="Power — PMIC"></button>
+        <button class="btnP" id="bP" title="PWR"></button>
         <div class="usbc" id="usb"></div>
-        <div class="keycap a">TAP · NEXT SCREEN</div>
-        <div class="keycap b">SETUP</div>
-        <div class="keycap p">POWER</div>
+        <div class="keycap p">PWR</div>
       </div>
     </div>
     </div>
-    <div class="legend" id="legend">
-      <span><b>blue</b> tap = next screen</span>
-      <span><b>shake</b> = refresh now</span>
-      <span><b>right</b> = setup · hold = Wi-Fi</span>
-      <span><b>left</b> = power</span>
+    <div class="legend">
+      <span><b>board</b> ESP32-S3-Touch-LCD-3.49</span>
+      <span><b>screen</b> 640 × 172</span>
+      <span><b>shake</b> = refresh</span>
     </div>
     <div class="zoomrow">
       <span>zoom</span>
@@ -244,25 +191,25 @@ pre.json .b{color:#c99bf5}pre.json .hl{background:#12303a;border-radius:3px}
       <span style="margin-left:8px">·</span>
       <button id="bareToggle" class="on">screen only</button>
       <button id="pxToggle">pixel grid</button>
+      <button id="zoneToggle">touch zones</button>
     </div>
   </div>
 
   <div class="panel">
 
     <div class="card">
-      <h3>Keys</h3>
+      <h3>Input</h3>
       <div class="row">
-        <button class="b" id="doTap">🔵 Blue · next screen<kbd>a</kbd></button>
+        <button class="b" id="doTap">👆 Tap left block · service<kbd>a</kbd></button>
         <button class="b" id="doShake">🤝 Shake · refresh<kbd>s</kbd></button>
-        <button class="b" id="doSet">▤ Right · setup<kbd>b</kbd></button>
+        <button class="b" id="doSet">▤ Setup<kbd>b</kbd></button>
         <button class="b" id="doOff">⏻ Power<kbd>o</kbd></button>
       </div>
       <p class="note" style="margin:10px 0 0">
-        One key drives the whole UI: a tap walks
-        <b style="color:var(--tx)">Payouts&nbsp;· Overview → Payout → Account → Fraud&nbsp;VAS&nbsp;· Overview → Eval</b>
-        and wraps. To force a refresh, <b style="color:var(--tx)">pick the stick up and shake it</b> —
-        the IMU catches it, with a 5 s cooldown. Click the body here to try. The right key opens setup;
-        hold it for the Wi-Fi portal.
+        <b style="color:var(--tx)">The top bar is the alarm.</b> It has to exist anyway — service
+        name, battery, clock — so it simply takes the level colour and blinks, and costs no rows at
+        all. Everything below it is content: the service headline, then one column per panel. You
+        compare panels by reading <b style="color:var(--tx)">across</b> rather than stepping through.
       </p>
     </div>
 
@@ -282,7 +229,7 @@ pre.json .b{color:#c99bf5}pre.json .hl{background:#12303a;border-radius:3px}
     </div>
 
     <div class="card">
-      <h3>Services on this stick</h3>
+      <h3>Services on this device</h3>
       <div class="svcList" id="svcList"></div>
     </div>
 
@@ -304,8 +251,7 @@ pre.json .b{color:#c99bf5}pre.json .hl{background:#12303a;border-radius:3px}
       </div>
       <p class="note" style="margin:11px 0 0">
         A failed poll never blanks the numbers and never beeps. It shows a grey banner blinking at the
-        <b style="color:var(--am)">warning</b> rate — urgent enough to notice, never dressed up as an
-        outage. See <a href="api.md">api.md</a>.
+        <b style="color:var(--am)">warning</b> rate. See <a href="api.md">api.md</a>.
       </p>
     </div>
 
@@ -323,28 +269,30 @@ pre.json .b{color:#c99bf5}pre.json .hl{background:#12303a;border-radius:3px}
 </div>
 
 <div class="foot">
-  <b style="color:var(--dim)">Mockup only, outside the glass:</b> the stick body, the glare, the pixel-grid overlay and the
-  speaker ripple. <b style="color:var(--dim)">Everything on the screen is device-true:</b> RGB565-quantised colours, a 6 × 8
-  fixed-cell font, band-by-band redraw, and slide transitions done by pushing two <code>M5Canvas</code> sprites at an offset.
+  <b style="color:var(--dim)">Mockup only, outside the glass:</b> the body, the glare and the
+  pixel-grid overlay. <b style="color:var(--dim)">Everything on the screen is real:</b> RGB565-quantised
+  colours, a 6 × 8 fixed-cell font, band-by-band redraw, and slide transitions done by pushing two
+  sprites at an offset.
 </div>
 
 </div>
 <script>
 /* ============================================================================
-   Pulsar screen renderer.
-   Everything in this block maps 1:1 onto M5GFX calls on a 135x240 ST7789P3.
-   Device coords are 0..134 x 0..239. S is mockup upscale only.
+   Pulsar screen renderer — ESP32-S3-Touch-LCD-3.49
+   Device coords are 0..639 x 0..171. S is mockup upscale only.
    ========================================================================= */
-const W = 135, H = 240, S = 3;
+const W = 640, H = 172, S = 2;
 
-/* --- band map (see stick.md) ------------------------------------------- */
+/* --- band map ----------------------------------------------------------- */
+/* THE ANCHOR costs nothing. The top bar has to exist anyway — it carries the
+   service, the battery and the clock — so the alarm simply *is* that bar: it
+   takes the level colour and blinks. No banner, no rail, no rows given up. */
 const BAND = {
-  status: [0,   14],   // battery / charging / wi-fi
-  alarm:  [14,  30],   // THE ANCHOR. glyph + word + ONE line of message.
-  stats:  [44,  76],   // p95 / avg / 4xx / 5xx — four rows, size-2 values
-  graph:  [120, 94],   // trend, with the 2XX/MIN headline drawn inside it
-  foot:   [214, 26],   // service (bold) over panel name + position
+  bar:  [0,  26],    // identity + alarm + status, all on one coloured strip
+  cols: [26, 146],   // the full 640 px: headline, then one column per panel
 };
+const COL_X = [6, 166, 326, 486], COL_W = [152, 152, 152, 148];
+const COL_SEP = [160, 320, 480];
 
 /* --- palette: authored in hex, quantised to RGB565 like the panel -------- */
 function q565(hex){
@@ -586,8 +534,9 @@ function levelOf(s){
   return a.level;
 }
 
+
 /* ============================================================================
-   Renderer — one function, eight bands
+   Renderer
    ========================================================================= */
 function view(sIdx, rIdx, animated){
   const s = svcs[sIdx];
@@ -609,198 +558,145 @@ function view(sIdx, rIdx, animated){
 function render(g, v, now){
   if (st.screen === 'settings'){ drawSettings(g, now); return; }
   g.fillScreen(C.bg);
-  drawStatus(g, now);
-  drawAlarm(g, v, now);
-  drawStats(g, v);
-  drawGraph(g, v);
-  drawFoot(g, v);
+  drawBar(g, v, now);
+  drawCols(g, v);
 }
 
-/* --- status : battery / charging / wi-fi -------------------------------- */
-function drawStatus(g, now){
-  const [Y,Hh] = BAND.status;
-  const b = st.batt;
-  const bcol = b.charging ? C.cy : b.pct>50 ? C.gr : b.pct>20 ? C.am : C.rd;
-  const bx=4, by=3, bw=15, bh=8;
-  g.drawRect(bx,by,bw,bh,C.dim2);
-  g.fillRect(bx+bw,by+2,2,4,C.dim2);
-  g.fillRect(bx+2,by+2,Math.max(1,Math.round(11*clamp(b.pct,0,100)/100)),4,bcol);
-  if (b.charging){                                   // bolt over the fill
-    g.fillTriangle(bx+7,by+1, bx+10,by+1, bx+7,by+4, C.bg);
-    g.fillTriangle(bx+6,by+4, bx+9,by+4, bx+8,by+7, C.bg);
-    g.fillTriangle(bx+8,by+1, bx+10,by+1, bx+8,by+4, C.tx);
-    g.fillTriangle(bx+6,by+4, bx+8,by+4, bx+8,by+7, C.tx);
-  }
-  g.text(Math.round(b.pct)+'%', 25, Y+3, 1, C.dim);
-
-  const wf = st.wifi, wx = 117;
-  const lit = wf.state==='connected' ? wf.bars
-            : wf.state==='connecting' ? (Math.floor(now/250)%5) : 0;
-  for (let i=0;i<4;i++){
-    const h = 3+i*2;
-    g.fillRect(wx+i*3, Y+11-h, 2, h, i<lit ? C.cy : C.gyD);
-  }
-  if (wf.state==='down'){
-    g.drawLine(wx-2,Y+2, wx+11,Y+11, C.rd);
-    g.drawLine(wx+11,Y+2, wx-2,Y+11, C.rd);
-  }
-  // the only poll indicator: the hairline breathes while a fetch is open
-  g.drawFastHLine(0,Y+Hh-1,W, st.polling ? C.cyM : C.line);
-}
-
-/* --- ALARM : same banner every state, icon + word + one line ----------- */
-const BLINK_MS = { critical: 220, warning: 700 };   // crit fast, warn slow
-
-/* 12x12 glyphs drawn in ink on the banner colour, straight from primitives */
-function levelIcon(g, x, y, kind, ink, bg){
-  if (kind === 'warning' || kind === 'critical'){          // warning triangle
-    g.fillTriangle(x+6,y, x,y+11, x+11,y+11, ink);
-    g.fillRect(x+5,y+4,2,4, bg);
-    g.fillRect(x+5,y+9,2,2, bg);
-  } else if (kind === 'ok'){                               // tick in a disc
-    g.fillCircle(x+5,y+5,5, ink);
-    g.drawLine(x+3,y+5, x+5,y+7, bg);
-    g.drawLine(x+5,y+7, x+8,y+3, bg);
-  } else {                                                 // no-link slash
-    g.fillCircle(x+5,y+5,5, ink);
-    g.drawLine(x+2,y+8, x+8,y+2, bg);
-  }
-}
-
-function drawAlarm(g, v, now){
-  const [Y,Hh] = BAND.alarm;
-  const L = v.lv, s = v.s;
-  const a = s.payload.alarm || {state:'ok', level:'info', message:''};
+const BLINK_MS = { critical: 220, warning: 700 };
+function alarmState(v){
+  const s = v.s, a = s.payload.alarm || {state:'ok', level:'info', message:''};
   const faulted = s.fault !== 'none';
   const firing  = !faulted && a.state === 'active' &&
                   (a.level === 'warning' || a.level === 'critical');
+  return { a, faulted, firing,
+    word: faulted ? FAULT[s.fault].w : firing ? v.lv.w : 'OK',
+    msg:  faulted ? FAULT[s.fault].msg : (a.message || ''),
+    period: faulted ? BLINK_MS.warning : firing ? BLINK_MS[a.level] : 0 };
+}
 
-  /* faults blink like a warning; a real alarm blinks at its own level */
-  const period = faulted ? BLINK_MS.warning : firing ? BLINK_MS[a.level] : 0;
-  const lit = period ? (Math.floor(now / period) % 2 === 0) : true;
+/* --- THE ANCHOR : the top bar itself. it was going to be there anyway. -- */
+function drawBar(g, v, now){
+  const [Y,Hh] = BAND.bar;
+  const L = v.lv, A = alarmState(v);
+  const lit = A.period ? (Math.floor(now / A.period) % 2 === 0) : true;
   const bg  = lit ? L.c : L.d;
-  const ink = lit ? C.bg : L.c;
-  const kind = faulted ? 'fault' : firing ? a.level : 'ok';
-  const word = faulted ? FAULT[s.fault].w : firing ? L.w : 'OK';
-  const msg  = faulted ? FAULT[s.fault].msg : (a.message || '');
-
+  const ink = lit ? C.bg : L.c;                 // near-black on a live colour
+  const soft= lit ? L.d : C.dim;
   g.fillRect(0, Y, W, Hh, bg);
-  levelIcon(g, 4, Y+3, kind, ink, bg);
-  g.text(word, 21, Y+2, 2, ink, 'l', true);
-  g.text(fit(msg, 1, 127), 4, Y+20, 1, ink);         // ONE line, always
+
+  g.text(fit(v.s.payload.service, 2, 126), 6, Y+5, 2, ink, 'l', true);
+  for (let i=0;i<svcs.length;i++){
+    const SL = LV[levelOf(svcs[i])];
+    const cx = 142+i*10;
+    if (i===v.sIdx) g.fillCircle(cx, Y+12, 3, ink);
+    else            g.fillCircle(cx, Y+12, 2, soft);
+  }
+  g.text(A.word, 196, Y+9, 1, ink, 'l', true);
+  g.text(fit(A.msg, 1, 236), 196 + A.word.length*6 + 12, Y+9, 1, ink);
+
+  /* status rides the same bar, drawn in ink so it reads on any level colour */
+  const b = st.batt;
+  g.text(hhmm(new Date()), 632, Y+9, 1, ink, 'r');
+  const wf = st.wifi, wx = 570;
+  const lit2 = wf.state==='connected' ? wf.bars : wf.state==='connecting' ? (Math.floor(now/250)%5) : 0;
+  for (let i=0;i<4;i++){ const h=3+i*2; g.fillRect(wx+i*4, Y+18-h, 3, h, i<lit2 ? ink : soft); }
+  if (wf.state==='down'){ g.drawLine(wx-2,Y+5,wx+15,Y+18,ink); g.drawLine(wx+15,Y+5,wx-2,Y+18,ink); }
+  g.text(Math.round(b.pct)+'%', 556, Y+9, 1, ink, 'r');
+  const bx=502, by=Y+7, bw=20, bh=10;
+  g.drawRect(bx,by,bw,bh,ink);
+  g.fillRect(bx+bw,by+3,2,4,ink);
+  g.fillRect(bx+2,by+2,Math.max(1,Math.round(16*clamp(b.pct,0,100)/100)),6,ink);
+  if (b.charging){
+    g.fillTriangle(bx+10,by+1, bx+14,by+1, bx+10,by+5, bg);
+    g.fillTriangle(bx+8,by+5, bx+12,by+5, bx+11,by+9, bg);
+  }
+  if (st.polling) g.drawFastHLine(0, Y+Hh-1, W, ink);
 }
 
-/* --- stats : p95 / avg / 4xx / 5xx, four rows, size-2 values ----------- */
-function drawStats(g, v){
-  const [Y] = BAND.stats;
-  const n = v.n, tot = n.c2 + n.c4 + n.c5;
-
-  /* one row: label left, big value, optional percentage on the right */
-  const line = (i, label, value, pctStr, valCol) => {
-    const y = Y + i*19;
-    g.text(label, 4, y+6, 1, C.dim2);
-    if (pctStr){
-      g.text(pctStr, 131, y+6, 1, valCol, 'r');
-      g.text(value, 131 - pctStr.length*6 - 8, y+2, 2, valCol, 'r', true);
-    } else {
-      g.text(value, 131, y+2, 2, valCol, 'r', true);
-    }
-  };
-  const p4 = pctOf(n.c4, tot), p5 = pctOf(n.c5, tot);
-  const col5 = p5>=1 ? C.rd : p5>=0.5 ? C.am : C.tx;
-  const col4 = p4>=2 ? C.am : C.tx;
-
-  line(0, 'P95', Math.round(n.p95)+'ms', null, C.tx);
-  line(1, 'AVG', Math.round(n.avg)+'ms', null, C.dim);
-  line(2, '4XX', compact(n.c4), p4.toFixed(2)+'%', col4);
-  line(3, '5XX', compact(n.c5), p5.toFixed(2)+'%', col5);
+/* --- the shared area-fill --------------------------------------------- */
+function area(g, pts, X0, PW, YB, PH, fam, sweep){
+  if (!pts || pts.length < 2) return YB;
+  const hi = Math.max(...pts)*1.14 || 1, n = pts.length;
+  const end = Math.round(sweep*(PW-1));
+  let lastY = YB;
+  for (let px=0; px<=end; px++){
+    const f = px/(PW-1)*(n-1), i = Math.floor(f);
+    const val = lerp(pts[i], pts[Math.min(i+1,n-1)], f-i);
+    const h = Math.round(val/hi*(PH-1)), yv = YB-h;
+    g.drawFastVLine(X0+px, yv, YB-yv+1, fam.x);
+    g.drawPixel(X0+px, yv, fam.c);
+    lastY = yv;
+  }
+  return lastY;
 }
 
-/* --- graph : the trend, with the 2XX/MIN headline living inside it ----- */
-function drawGraph(g, v){
-  const [Y] = BAND.graph;
-  const pts = v.n.pts;
-  const X0=4, PW=127, YB=Y+86, PH=80;              // plot 127..206
+/* --- columns : the whole 640 px now, nothing spent on chrome ----------- */
+function drawCols(g, v){
+  const [Y,Hh] = BAND.cols;
   const win = v.s.payload.window_minutes || 30;
+  for (const x of COL_SEP) g.drawFastVLine(x, Y+6, Hh-12, C.line);
 
+  const x0 = COL_X[0], w0 = COL_W[0];
   const hot = v.lvKey==='warning' || v.lvKey==='critical';
-  const fam = hot ? v.lv : {c:C.cy, m:C.cyM, d:C.cyD, x:C.cyX};
-
-  if (pts && pts.length>1){
-    const hi = Math.max(...pts)*1.14 || 1;
-    const midY = Math.round(YB - PH/2);
-    for (let x=X0; x<X0+PW; x+=5) g.drawPixel(x, midY, C.line);
-    const n = pts.length, sweep = Math.round(v.n.sweep*(PW-1));
-    let lastY = YB;
-    for (let px=0; px<=sweep; px++){
-      const f = px/(PW-1)*(n-1), i = Math.floor(f);
-      const val = lerp(pts[i], pts[Math.min(i+1,n-1)], f-i);
-      const h = Math.round(val/hi*(PH-1)), yv = YB-h;
-      g.drawFastVLine(X0+px, yv, YB-yv+1, fam.x);
-      g.drawPixel(X0+px, yv, fam.c);
-      lastY = yv;
-    }
-    if (v.n.sweep>=1) g.fillCircle(X0+PW-1, lastY, 1, fam.c);
-  } else {
-    g.text('no trend', W/2, Y+44, 1, C.dim2, 'c');
-  }
-  g.drawFastHLine(X0, YB+1, PW, C.line);
-
-  /* headline and window sit ON the plot, on a knocked-out plate, so the
-     graph keeps the whole band and nothing needs a header row of its own */
   const head = compact(v.n.c2 / win);
-  const plate = (x,y,w,h) => g.fillRect(x,y,w,h,C.bg);
-  plate(2, Y+4, head.length*18+4, 26);
-  g.text(head, 4, Y+6, 3, hot ? v.lv.c : C.tx, 'l', true);
-  plate(2, Y+32, 9*6+4, 10);
-  g.text('2XX / MIN', 4, Y+33, 1, C.dim2);
-  const wl = `LAST ${win} MIN`;
-  plate(131-wl.length*6-2, Y+76, wl.length*6+4, 10);
-  g.text(wl, 131, Y+77, 1, C.dim, 'r');
-}
+  let hs = 6;
+  while (hs > 3 && head.length*6*hs > w0-6) hs--;
+  g.text(head, x0+w0/2, Y+14, hs, hot ? v.lv.c : C.tx, 'c', true);
+  g.text('2XX / MIN', x0+w0/2, Y+20+8*hs, 1, C.dim2, 'c');
+  g.text(`LAST ${win} MIN`, x0+w0/2, Y+32+8*hs, 1, C.line2, 'c');
+  const fam0 = hot ? v.lv : {c:C.cy, m:C.cyM, d:C.cyD, x:C.cyX};
+  area(g, v.rows[0] && v.rows[0].trend, x0, w0, Y+Hh-8, 44, fam0, v.n.sweep);
+  g.drawFastHLine(x0, Y+Hh-7, w0, C.line);
 
-/* --- footer : service (bold) over panel, plus the fleet dots ----------- */
-function drawFoot(g, v){
-  const [Y] = BAND.foot;
-  g.drawFastHLine(0,Y,W,C.line);
-
-  const n = svcs.length, dx = 131 - (n-1)*8 - 2;
-  for (let i=0;i<n;i++){
-    const L = LV[levelOf(svcs[i])];
-    if (i===v.sIdx) g.fillCircle(dx+i*8, Y+7, 2, L.c);
-    else            g.fillCircle(dx+i*8, Y+7, 1, L.m);
+  for (let i=0;i<3;i++){
+    const cx = COL_X[i+1], cw = COL_W[i+1], r = v.rows[i];
+    if (!r){ g.text('—', cx+cw/2, Y+60, 1, C.line, 'c'); continue; }
+    const tot = r.count_2xx + r.count_4xx + r.count_5xx;
+    const p4 = pctOf(r.count_4xx, tot), p5 = pctOf(r.count_5xx, tot);
+    const rate = compact(r.count_2xx/win)+'/m';
+    g.text(rate, cx+cw, Y+6, 1, C.dim, 'r');
+    g.text(fit(r.name, 1, cw - rate.length*6 - 8), cx, Y+6, 1, i===0 ? C.tx : C.cy, 'l', true);
+    g.drawFastHLine(cx, Y+18, cw, C.line);
+    const row = (k, lab, val, col) => {
+      const y = Y + 24 + k*13;
+      g.text(lab, cx, y, 1, C.dim2);
+      g.text(val, cx+cw, y, 1, col, 'r');
+    };
+    row(0, 'P95', Math.round(r.p95_latency_ms)+'ms', C.tx);
+    row(1, 'AVG', Math.round(r.avg_latency_ms)+'ms', C.dim);
+    row(2, '4XX', p4.toFixed(2)+'%', p4>=2 ? C.am : C.tx);
+    row(3, '5XX', p5.toFixed(2)+'%', p5>=1 ? C.rd : p5>=0.5 ? C.am : C.tx);
+    const fam = p5>=1 ? LV.critical : p5>=0.5 ? LV.warning : {c:C.cy,m:C.cyM,d:C.cyD,x:C.cyX};
+    area(g, r.trend, cx, cw, Y+Hh-8, 42, fam, v.n.sweep);
+    g.drawFastHLine(cx, Y+Hh-7, cw, C.line);
   }
-  g.text(fit(v.s.payload.service, 1, dx-4-8), 4, Y+3, 1, C.tx, 'l', true);
-
-  const pos = `${v.rIdx+1}/${v.rows.length}`;
-  g.text(fit(v.r.name, 1, 131 - pos.length*6 - 12), 4, Y+13, 1, C.cy);
-  g.text(pos, 131, Y+13, 1, C.dim2, 'r');
 }
 
-/* --- settings screen (side key) ----------------------------------------- */
+/* --- settings ---------------------------------------------------------- */
 function drawSettings(g, now){
   g.fillScreen(C.bg);
-  drawStatus(g, now);
-  g.text('SETTINGS', 4, 22, 2, C.tx, 'l', true);
-  g.drawFastHLine(4, 46, 127, C.line);
+  const [Y,Hh] = BAND.bar;
+  g.fillRect(0,Y,W,Hh,C.panel2);
+  g.text('SETUP', 6, Y+5, 2, C.tx, 'l', true);
+  g.text('TAP ANYWHERE TO GO BACK', 632, Y+9, 1, C.dim2, 'r');
   const rows = [
+    ['BOARD',    'ESP32-S3-Touch-LCD-3.49'],
+    ['SCREEN',   '640x172 landscape'],
+    ['DRIVER',   'AXS15231B · QSPI'],
+    ['TOUCH',    'capacitive, I2C'],
     ['WI-FI',    st.wifi.state==='connected' ? 'home-5g' : st.wifi.state],
-    ['SIGNAL',   st.wifi.state==='connected' ? (-40-(4-st.wifi.bars)*12)+' dBm' : '—'],
-    ['IP',       st.wifi.state==='connected' ? '192.168.1.42' : '—'],
+    ['IP',       st.wifi.state==='connected' ? '192.168.1.42' : '--'],
+    ['RTC',      'PCF85063 ok'],
     ['SERVICES', String(svcs.length)],
     ['POLL',     '60 s'],
     ['BATTERY',  Math.round(st.batt.pct)+'% '+(st.batt.charging?'chg':'disc')],
-    ['FIRMWARE', 'pulsar 1.4.0'],
   ];
   rows.forEach(([k,val], i) => {
-    const y = 58 + i*20;
-    if (i%2===0) g.fillRect(0, y-4, W, 20, C.panel);
-    g.text(k, 6, y, 1, C.dim2);
-    g.text(fit(val, 1, 129 - (6 + k.length*6) - 6), 129, y, 1, C.tx, 'r');
+    const y = 44 + (i%5)*24, x = 8 + (i<5 ? 0 : 320);
+    if (i%2===0) g.fillRect(x-4, y-5, 300, 22, C.panel);
+    g.text(k, x, y, 1, C.dim2);
+    g.text(fit(val, 1, 220), x+288, y, 1, C.tx, 'r');
   });
-  const [FY] = BAND.foot;
-  g.drawFastHLine(0,FY,W,C.line);
-  g.text('HOLD FOR WI-FI SETUP', W/2, FY+6, 1, C.dim2, 'c');
 }
 
 /* ============================================================================
@@ -836,7 +732,7 @@ function frame(now){
     const t = clamp((now-st.tr.t0)/st.tr.dur, 0, 1), e = easeOut(t);
     const ctx = gS.x;
     ctx.drawImage(bufB, 0, 0);
-    const y0 = (st.tr.kind==='x' ? BAND.alarm[0] : BAND.stats[0])*S;
+    const y0 = (st.tr.kind==='x' ? BAND.cols[0] : BAND.cols[0])*S;
     const y1 = H*S, hgt = y1-y0;
     ctx.save(); ctx.beginPath(); ctx.rect(0,y0,W*S,hgt); ctx.clip(); ctx.clearRect(0,y0,W*S,hgt);
     if (st.tr.kind==='x'){
@@ -930,28 +826,6 @@ function beep(s, a){
 function wake(){ st.screenOn = true; st.wakeUntil = st.plugged ? 0 : Date.now()+WAKE_MS; }
 function keepAwake(){ if (!st.plugged && st.screenOn) st.wakeUntil = Date.now()+WAKE_MS; }
 
-/* blue key, tap → cycle through every screen on the stick ---------------- */
-function cycle(){
-  const out = [];
-  svcs.forEach((s,i) => rowsOf(s).forEach((r,j) => out.push([i,j])));
-  return out;
-}
-function navNext(){
-  if (!st.power) return;
-  if (!st.screenOn){ wake(); log('blue key · screen on for 60 s','in'); return; }
-  keepAwake();
-  if (st.screen === 'settings'){ st.screen = 'dash'; log('back to dashboard','in'); return; }
-  const list = cycle();
-  const at = list.findIndex(([i,j]) => i===st.cur && j===S_().row);
-  const [ni,nj] = list[(at+1) % list.length];
-  const sameSvc = ni === st.cur;
-  const from = view(st.cur, S_().row, false);
-  st.cur = ni; svcs[ni].row = nj; st.num = null;
-  startTr(sameSvc ? 'y' : 'x', from, view(ni, nj, false));
-  log(`${S_().def.name} · ${curRow().name}`, 'in');
-  paintPanel();
-}
-
 /* shake the stick → force a poll right now ------------------------------- */
 const SHAKE_COOLDOWN = 5000;      // the backend does not deserve a hammering
 function shake(){
@@ -969,21 +843,6 @@ function shake(){
   st.screen = 'dash';
   st.nextPoll = t;
   log('shake → forced refresh','in');
-}
-
-/* side key ---------------------------------------------------------------- */
-function toggleSettings(){
-  if (!st.power) return;
-  if (!st.screenOn){ wake(); return; }
-  keepAwake();
-  st.screen = st.screen==='settings' ? 'dash' : 'settings';
-  st.tr = null;
-  log(st.screen==='settings' ? 'side key · settings' : 'back to dashboard','in');
-}
-function wifiPortal(){
-  if (!st.power) return;
-  wake(); st.screen = 'settings';
-  log('AP "Pulsar-Setup" up → http://192.168.4.1 · add Wi-Fi or a service URL','wa');
 }
 
 /* power ------------------------------------------------------------------- */
@@ -1082,13 +941,7 @@ function holdable(el, tap, hold, ms){
   el.addEventListener('pointerleave', off);
   el.addEventListener('pointercancel', off);
 }
-document.getElementById('bA').onclick = navNext;   // one key, one action
-holdable(document.getElementById('bB'), toggleSettings, wifiPortal, 900);
-holdable(document.getElementById('bP'), () => { if (!st.power) powerOn(); }, powerOff, 800);
 
-document.getElementById('doTap').onclick   = navNext;
-document.getElementById('doShake').onclick = shake;
-document.getElementById('doSet').onclick  = toggleSettings;
 document.getElementById('doPoll').onclick = () => { st.nextPoll = Date.now(); log('manual poll','in'); };
 document.getElementById('pwr').onclick    = () => setPlugged(!st.plugged);
 document.getElementById('doOff').onclick  = () => st.power ? powerOff() : powerOn();
@@ -1118,7 +971,7 @@ document.querySelectorAll('[data-fail]').forEach(b => b.onclick = () => {
   paintPanel();
 });
 
-const DEV = {full:[711,1484], bare:[441,756]};
+const DEV = {full:[1408,492], bare:[1304,368]};
 const devBox = document.getElementById('devBox'), scaler = document.getElementById('scaler');
 let zoomMode = 'fit';
 function applyZoom(){
@@ -1147,20 +1000,63 @@ document.getElementById('pxToggle').onclick = e => {
   glass.classList.toggle('px');
   e.target.classList.toggle('on', glass.classList.contains('px'));
 };
-document.getElementById('stick').addEventListener('click', e => {
-  if (e.target.closest('button')) return;      // the keys have their own jobs
-  shake();
-});
 document.getElementById('bareToggle').onclick = e => {
   scaler.classList.toggle('bare');
   e.target.classList.toggle('on', scaler.classList.contains('bare'));
   applyZoom();
 };
 
+
+
+
+/* ---- touch: everything is visible, so the only target is the service --- */
+function nextService(){
+  if (!st.power) return;
+  if (!st.screenOn){ wake(); return; }
+  keepAwake();
+  const from = view(st.cur, 0, false);
+  st.cur = (st.cur+1) % svcs.length;
+  S_().row = 0; st.num = null;
+  startTr('x', from, view(st.cur, 0, false));
+  log('service → '+S_().def.name, 'in');
+  paintPanel();
+}
+function toggleSettings(){
+  if (!st.power) return;
+  if (!st.screenOn){ wake(); return; }
+  keepAwake();
+  st.screen = st.screen==='settings' ? 'dash' : 'settings';
+  st.tr = null;
+  log(st.screen==='settings' ? 'setup' : 'back to dashboard','in');
+}
+function wifiPortal(){
+  if (!st.power) return;
+  wake(); st.screen = 'settings';
+  log('AP "Pulsar-Setup" up → http://192.168.4.1','wa');
+}
+function touchAt(dx, dy){
+  if (!st.power) return;
+  if (!st.screenOn){ wake(); log('touch · screen on','in'); return; }
+  if (st.screen === 'settings'){ st.screen = 'dash'; log('back to dashboard','in'); return; }
+  if (dy < BAND.bar[1] && dx > 440){ toggleSettings(); return; }
+  if (dy >= BAND.cols[0] && dx < COL_SEP[0]) nextService();
+}
+screenCv.addEventListener('click', e => {
+  const r = screenCv.getBoundingClientRect();
+  touchAt(Math.round((e.clientX-r.left)/r.width*W), Math.round((e.clientY-r.top)/r.height*H));
+});
+document.getElementById('stick').addEventListener('click', e => {
+  if (e.target.closest('button') || e.target.tagName === 'CANVAS') return;
+  shake();
+});
+holdable(document.getElementById('bP'), () => { if (!st.power) powerOn(); }, powerOff, 800);
+document.getElementById('doTap').onclick   = nextService;
+document.getElementById('doShake').onclick = shake;
+document.getElementById('doSet').onclick   = toggleSettings;
 addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') return;
   const k = e.key.toLowerCase();
-  if (k==='a'){ navNext(); e.preventDefault(); }
+  if (k==='a'){ nextService(); e.preventDefault(); }
   if (k==='s'){ shake(); e.preventDefault(); }
   if (k==='b'){ toggleSettings(); e.preventDefault(); }
   if (k==='w'){ wifiPortal(); e.preventDefault(); }
@@ -1182,6 +1078,11 @@ setPlugged(true);
 paintPanel();
 log('booted · Wi-Fi joined · NTP synced · 4 services configured','ok');
 requestAnimationFrame(frame);
+
+document.getElementById('zoneToggle').onclick = e => {
+  glass.classList.toggle('zones');
+  e.target.classList.toggle('on', glass.classList.contains('zones'));
+};
 </script>
 </body>
 </html>
