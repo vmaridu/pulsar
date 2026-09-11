@@ -43,7 +43,7 @@ Waveshare **ESP32-S3-Touch-LCD-3.49**, run landscape. Every panel of a gateway i
 
 ### 🎨 Health is the top bar
 
-A landscape board needs a strip for the gateway name, battery and clock anyway. So that strip **is** `health`.
+A landscape board needs a strip for the gateway name, battery and clock anyway. So that strip **is** `health` — and it costs no rows to say so.
 
 | Option            | Cost                              |
 | ----------------- | --------------------------------- |
@@ -52,8 +52,10 @@ A landscape board needs a strip for the gateway name, battery and clock anyway. 
 | ✅ **The top bar** | **nothing** — already chrome      |
 
 - 🎯 26 rows were already spent, so **all 146 remaining rows go to content**
-- 👀 Most visible option of the three — a blinking full-width strip is harder to miss than a rail down one edge
-- 🏷️ Needs no glyph to explain itself: the level word sits right on it
+- 🌑 **At `info` the bar stays dark** — a level-coloured edge, the word, the message. The board is calm at rest
+- 🚨 **`warning` and `critical` fill it** with the level colour in near-black ink, and blink it. A full-width strip is far harder to miss than a rail down one edge
+- 🏷️ Needs no glyph: the level word sits right on it, and the colour is the rest of the sentence
+- 📍 Same pixels either way — what changes is loudness, never position
 
 ---
 
@@ -76,12 +78,27 @@ A landscape board needs a strip for the gateway name, battery and clock anyway. 
 
 | Region     | Rows | Content                                                        |
 | ---------- | ---- | -------------------------------------------------------------- |
-| health bar | 26   | Level word, `gateway`, `health.message`, battery, clock, Wi-Fi — on the level colour |
+| health bar | 26   | Level word + message left; `gateway`, battery, clock, Wi-Fi right |
 | columns    | 146  | One per `metrics` row, same scale, left to right as sent        |
+
+Inside a column, top to bottom — 128 px wide, rows 26 → 172:
+
+| y   | h  | Content                                        |
+| --- | -- | ---------------------------------------------- |
+| 34  | 8  | `name`, ≤ 18 chars (the summary column in accent) |
+| 48  | 24 | 2xx per `bucket_unit` — the headline, size 3   |
+| 76  | 8  | Unit label                                      |
+| 92  | 8  | `p95`                                           |
+| 104 | 8  | `4xx` + rate                                    |
+| 116 | 8  | `5xx` + rate                                    |
+| 130 | 30 | `buckets`, 110 × 30                             |
+| 164 | 8  | Span caption — **on the summary column only**   |
 
 - 📏 **Same scale in every column.** Five graphs at five y-scales is not a comparison, it is five pictures — one ceiling across the row
 - 📋 Column order is `metrics` order, which is why [api.md §4](../../docs/api.md#4--metrics) asks for most-important-first and stable names
 - 🈳 Fewer than five rows leaves columns **empty**, never stretched. Four rows shown above, fifth slot unused
+- 🔵 The summary column carries a slightly lighter ground and an accent name, so the aggregate is not mistaken for a part
+- 🏷️ The span caption is drawn **once**, under the summary column — every column shares the clock, so five copies would be five lies waiting to disagree
 - 🎨 Palette → [device.md §6](../../docs/device.md#6--colours). This build leans on it harder: the level colour backs a 640 px strip, so the near-black ink rule is what makes one bar work on green, amber, red *and* grey
 
 ### 🔠 Text budget
