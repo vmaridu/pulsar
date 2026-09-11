@@ -153,16 +153,13 @@ pre.json .b{color:#c99bf5}pre.json .hl{background:#12303a;border-radius:3px}
   <span class="pill">every pixel inside the glass is a real draw call</span>
 </header>
 
-<p class="lede">A square with 1.8× the pixels of the stick, a speaker actually in the case, and touch.
+<p class="lede">A square 240 × 240 panel, a speaker actually in the case, and touch.
     Tap the <b>right half</b> for the next panel, the <b>left half</b> to go back, and the
     <b>footer</b> to change service. The PLUS key does the same as a right tap. Shake to refresh.
-  Payload follows <a href="api.md">api.md</a>; the other two screens are
-  <a href="ui-sticks3.html">M5StickS3</a> and <a href="ui-lcd349.html">3.49</a> /
-  <a href="ui-lcd154.html">1.54</a>.
-  Payload follows <a href="api.md">api.md</a>.
+  Payload follows <a href="../docs/api.md">api.md</a>.
 </p>
 
-  <span class="devnav"><a href="ui-sticks3.html">M5StickS3 · 135×240</a> <a href="ui-lcd349.html">S3-Touch-LCD-3.49 · 640×172</a> <b>S3-LCD-1.54 · 240×240</b></span>
+  <span class="devnav"><a href="ui-lcd349.html">S3-Touch-LCD-3.49 · 640×172</a> <b>S3-LCD-1.54 · 240×240</b></span>
 
 <div class="stage">
 
@@ -262,7 +259,7 @@ pre.json .b{color:#c99bf5}pre.json .hl{background:#12303a;border-radius:3px}
       </div>
       <p class="note" style="margin:11px 0 0">
         A failed poll never blanks the numbers and never beeps. It shows a grey banner blinking at the
-        <b style="color:var(--am)">warning</b> rate. See <a href="api.md">api.md</a>.
+        <b style="color:var(--am)">warning</b> rate. See <a href="../docs/api.md">api.md</a>.
       </p>
     </div>
 
@@ -332,7 +329,7 @@ const LV = {
 };
 
 /* ============================================================================
-   GFX — the M5GFX subset. Device pixels in, canvas pixels out.
+   GFX — the panel-library subset. Device pixels in, canvas pixels out.
    ========================================================================= */
 const MONO = getComputedStyle(document.documentElement).getPropertyValue('--mono').trim()
             || 'ui-monospace,monospace';
@@ -366,7 +363,7 @@ class GFX {
     g.moveTo(x0*S,y0*S); g.lineTo(x1*S,y1*S); g.lineTo(x2*S,y2*S); g.closePath(); g.fill(); }
 
   /* Built-in font: fixed 6x8 cell per character, glyph 5x7. Same metrics as
-     M5GFX's default font, so text that fits here fits on the panel.
+     the panel library's default font, so text that fits here fits on the panel.
      bold = the panel trick of drawing the string twice, 1px apart.          */
   text(str,x,y,size,c,align='l',bold=false){
     str = String(str);
@@ -455,7 +452,7 @@ function row(name, avg, p95, tot, p4, p5, ph, inc){
 }
 const j=(v,s=.08)=>v*(1+(Math.random()-.5)*s);
 
-const MAX_SERVICES = 3; // a stick holds at most 3 — see api.md §5
+const MAX_SERVICES = 3; // a device holds at most 3 — see api.md §5
 const CATALOG = [
   { name:'Payouts', url:'https://payouts.acme.io/v1/status',
     build(){ const inc = 0.30;
@@ -734,7 +731,7 @@ function drawSettings(g, now){
 }
 
 /* ============================================================================
-   Compositing: two sprites pushed at an offset — exactly what M5Canvas does
+   Compositing: two sprites pushed at an offset — exactly what the panel does
    ========================================================================= */
 const screenCv = document.getElementById('screen');
 const glass = document.getElementById('glass');
@@ -757,7 +754,7 @@ function frame(now){
   if (!st.screenOn){
     gS.fillScreen('#000000'); glass.classList.add('dark');
     document.getElementById('offMsg').innerHTML = st.power
-      ? 'SCREEN OFF<br>PRESS THE BLUE KEY' : 'POWERED OFF<br>HOLD THE LEFT KEY';
+      ? 'SCREEN OFF<br>TAP OR PRESS PLUS' : 'POWERED OFF<br>HOLD POWER';
     return;
   }
   glass.classList.remove('dark');
