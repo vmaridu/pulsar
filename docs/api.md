@@ -1,6 +1,8 @@
 # 📡 Pulsar gateway API
 
-## One `GET`, one JSON object, no device knowledge required.
+One `GET`, one JSON object, no device knowledge required.
+
+🖥️ Builds that consume it → **[lcd154](../lcd154/docs/readme.md)** · **[lcd349](../lcd349/docs/readme.md)**
 
 ## 1. 🔌 Endpoint
 
@@ -294,6 +296,35 @@ Clients keep the **last good payload** on screen and mark it held. A failed poll
 - 🔇 **Never silent either.** Stale numbers shown calmly read as good news
 - 🩶 The fault banner is visually distinct from a real `warning` — "I cannot reach you" and "you say you are degraded" have different owners
 - 🚫 Do not put error detail in a non-200 body. Clients read only the status
+
+---
+
+## 7. ⏱️ Polling
+
+- 🔁 Clients call **every 60 s**, plugged in or on battery
+- 📅 The clock is how much history an answer covers, **not** how often you are asked. A 30-minute span polled once a minute is intended
+- 🤝 Tolerate bursts: a person can **shake the device** to force a poll, rate-limited to one per 5 s. Cache; do not treat off-cadence as an error
+- ⏳ Never hold a request open for fresh data — answer in 5 s with what you have
+- 🕰️ `measured_at` is when the sample was taken. Serving a cached row? Send the cached row's time — clients dim numbers older than **twice the span**
+- 🎛️ `refresh_seconds` is clamped to **10–900 s** and treated as advice
+
+---
+
+## 8. ☑️ Backend checklist
+
+- [ ] `GET /v1/gateway_health` returns JSON under 4 KB in under 5 s
+- [ ] Missing or wrong `Authorization` → `401`
+- [ ] `gateway`, `measured_at`, `health` and a non-empty `metrics` always present
+- [ ] `metrics` holds 1–5 rows of one shape, summary first, then most important first
+- [ ] Every row carries all five `aggregates`, as numbers
+- [ ] Every row carries the same clock, and the newest bucket is complete
+- [ ] `buckets` oldest-first, exactly `bucket_count` values, `0` for any gap
+- [ ] `sum(buckets)` equals `2xx_count`
+- [ ] `health` in every response, and `level` returns to `info` when it clears
+- [ ] `name` values stable and stably ordered across polls
+- [ ] Lengths within [§5](#5--limits): 14 / 16 / 20
+- [ ] No `error_rate`, `request_count`, `all_count`, `window_minutes`, `null`, or stringified numbers
+- [ ] The device this feeds points at no more than 3 gateways
 
 ---
 

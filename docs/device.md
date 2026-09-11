@@ -2,7 +2,7 @@
 
 Everything that does not change with the display. Pixel-dependent things live with their build.
 
-📡 Contract → **[api.md](api.md)** · 🖥️ Builds → **[lcd154.md](lcd154.md)** · **[lcd349.md](lcd349.md)**
+📡 Contract → **[api.md](api.md)** · 🖥️ Builds → **[lcd154](../lcd154/docs/readme.md)** · **[lcd349](../lcd349/docs/readme.md)**
 
 ---
 

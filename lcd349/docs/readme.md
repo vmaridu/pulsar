@@ -2,8 +2,8 @@
 
 Waveshare **ESP32-S3-Touch-LCD-3.49**, run landscape. Every panel of a gateway is on screen at once — there is no cycle to walk.
 
-🔧 Shared behaviour → **[device.md](device.md)** · 📡 Contract → **[api.md](api.md)** · 🖥️ Other build → **[lcd154.md](lcd154.md)**
-🎨 Live mockup → **[../mockups/ui-lcd349.html](../mockups/ui-lcd349.html)**
+🔧 Shared behaviour → **[device.md](../../docs/device.md)** · 📡 Contract → **[api.md](../../docs/api.md)** · 🖥️ Other build → **[lcd154.md](../../lcd154/docs/readme.md)**
+🎨 Live mockup → **[../mockups/ui-lcd349.html](../mockups/device-ui.html)**
 
 ---
 
@@ -80,9 +80,9 @@ A landscape board needs a strip for the gateway name, battery and clock anyway. 
 | columns    | 146  | One per `metrics` row, same scale, left to right as sent        |
 
 - 📏 **Same scale in every column.** Five graphs at five y-scales is not a comparison, it is five pictures — one ceiling across the row
-- 📋 Column order is `metrics` order, which is why [api.md §4](api.md#4--metrics) asks for most-important-first and stable names
+- 📋 Column order is `metrics` order, which is why [api.md §4](../../docs/api.md#4--metrics) asks for most-important-first and stable names
 - 🈳 Fewer than five rows leaves columns **empty**, never stretched. Four rows shown above, fifth slot unused
-- 🎨 Palette → [device.md §6](device.md#6--colours). This build leans on it harder: the level colour backs a 640 px strip, so the near-black ink rule is what makes one bar work on green, amber, red *and* grey
+- 🎨 Palette → [device.md §6](../../docs/device.md#6--colours). This build leans on it harder: the level colour backs a 640 px strip, so the near-black ink rule is what makes one bar work on green, amber, red *and* grey
 
 ### 🔠 Text budget
 
@@ -92,7 +92,7 @@ A landscape board needs a strip for the gateway name, battery and clock anyway. 
 | 2    | 12 × 16 | **53**        | 10                 | health bar, headings |
 | 3    | 18 × 24 | **35**        | 7                  | the hero numbers     |
 
-- 📐 [api.md §5](api.md#5--limits) limits are set by the narrower build, so everything fits here with room over
+- 📐 [api.md §5](../../docs/api.md#5--limits) limits are set by the narrower build, so everything fits here with room over
 - ✅ The whole health line — level word, gateway, message — lands inside 53 characters at size 2
 
 ---
@@ -108,17 +108,17 @@ A landscape board needs a strip for the gateway name, battery and clock anyway. 
 | **Shake**         | Force a poll                  | —                         |
 
 - 🔄 The cycle is **gateways, not panels** — three gateways is three taps around the loop
-- 🤝 Shake rules are shared → [device.md §3](device.md#3--shake-to-refresh). They matter more here: this build gets nudged rather than picked up, so the three-jolt pattern does real work
+- 🤝 Shake rules are shared → [device.md §3](../../docs/device.md#3--shake-to-refresh). They matter more here: this build gets nudged rather than picked up, so the three-jolt pattern does real work
 
 ---
 
 ## 5. ➕ What this build adds
 
-Power, shake, speaker, portal and palette are shared → **[device.md](device.md)**. Particular to this one:
+Power, shake, speaker, portal and palette are shared → **[device.md](../../docs/device.md)**. Particular to this one:
 
 - 🧠 Sprite is 640 × 172 × 16 bpp = **220 KB**, twice the square build's. `fillScreen()` in `loop()` is the one call that costs you the frame here
 - ↔️ **No panel transition.** Everything is already on screen, so the only slide is sideways on gateway change — all five columns move together
-- 🔇 **The speaker is not fitted.** Nothing sounds until you add one, which makes [device.md §4](device.md#4--the-speaker) theoretical until you do
+- 🔇 **The speaker is not fitted.** Nothing sounds until you add one, which makes [device.md §4](../../docs/device.md#4--the-speaker) theoretical until you do
 - 🔋 An 18650 is a much bigger cell, so screen-off on battery is less about survival and more about not lighting a desk at night
 
 ---

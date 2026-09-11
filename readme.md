@@ -40,18 +40,20 @@ Authorization: Bearer <token>
 
 ## 📚 Docs
 
-| File                                    | Owns                                                      |
-| --------------------------------------- | --------------------------------------------------------- |
-| 📡 **[docs/api.md](docs/api.md)**       | The contract — endpoint, payload, every field, limits     |
-| 🔧 **[docs/device.md](docs/device.md)** | Shared behaviour — power, shake, speaker, config, palette |
-| 🖥️ `docs/`                              | One file per display — hardware, input, layout, checklist |
-| 🎨 `mockups/`                           | Interactive mockups running a real payload                |
+| Path                                    | Owns                                                       |
+| --------------------------------------- | ---------------------------------------------------------- |
+| 📡 **[docs/api.md](docs/api.md)**       | The contract — endpoint, payload, every field, limits      |
+| 🔧 **[docs/device.md](docs/device.md)** | Shared behaviour — power, shake, speaker, config, palette  |
+| 🖥️ `lcd154/` · `lcd349/`                | One folder per supported display                           |
+| ↳ `<display>/docs/readme.md`            | Hardware, input, screen layout, on-device checklist        |
+| ↳ `<display>/mockups/device-ui.html`    | Interactive mockup running a real payload                  |
+| ↳ `<display>/src/`                      | Firmware for that display                                  |
 
 ## 🚀 Getting started
 
 1. 🔧 Serve `GET /v1/gateway_health` against **[docs/api.md](docs/api.md)**
 2. 📶 Point a device at it over the Wi-Fi portal → **[docs/device.md](docs/device.md)**
-3. 🖼️ Open a mockup from `mockups/` to see it rendered before any hardware exists
+3. 🖼️ Open a display's `mockups/device-ui.html` to see it rendered before any hardware exists
 
 > ⚠️ Firmware is not in this repo yet. The contract and the layouts are what is settled.
 

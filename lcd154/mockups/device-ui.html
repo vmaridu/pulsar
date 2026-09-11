@@ -1,0 +1,767 @@
+<title>Pulsar · 240×240</title>
+<style>
+:root{
+  --bg:#07090e; --pane:#0b0f16; --line:#161c27; --line2:#232c3b;
+  --tx:#e6edf7; --dim:#7f8fa8; --dim2:#4d5c76;
+  --cy:#22d3ee; --gr:#22c55e; --am:#f5a524; --rd:#ff4d5e; --gy:#8aa0c0;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:var(--mono);font-size:12px;
+     -webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 20px 60px}
+
+header{display:flex;align-items:baseline;gap:14px;margin-bottom:4px}
+header h1{font-size:15px;font-weight:600;margin:0;letter-spacing:.02em}
+header .sub{color:var(--dim);font-size:11px}
+header .dot{color:var(--cy)}
+.lede{color:var(--dim);font-size:11.5px;line-height:1.7;margin:10px 0 22px;max-width:720px}
+.lede b{color:var(--tx);font-weight:500}
+.lede a{color:var(--cy);text-decoration:none;border-bottom:1px solid #14424e}
+.nav{display:flex;gap:6px;margin:-12px 0 24px}
+.nav a,.nav b{padding:5px 11px;border-radius:6px;border:1px solid var(--line);
+  color:var(--dim);text-decoration:none;font-size:11px;font-weight:400}
+.nav b{border-color:#14424e;background:#07222a;color:var(--cy)}
+.nav a:hover{border-color:var(--line2);color:var(--tx)}
+
+.stage{display:grid;grid-template-columns:auto 1fr;gap:26px;align-items:start}
+@media(max-width:900px){.stage{grid-template-columns:1fr}}
+
+/* ---------- device ---------- */
+.deviceCol{display:flex;flex-direction:column;gap:12px;align-items:center}
+.panel{position:relative;width:360px;height:360px;border-radius:14px;overflow:hidden;
+  background:#000;box-shadow:0 0 0 1px var(--line2),0 24px 60px -20px #000,0 0 60px -30px var(--cy);
+  cursor:pointer;user-select:none;transition:box-shadow .3s}
+.panel.blank{cursor:default}
+.panel canvas{display:block;width:360px;height:360px;image-rendering:pixelated}
+.panel .sheen{position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(150deg,rgba(255,255,255,.055),transparent 42%)}
+.panel .grid{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .2s;
+  background-image:linear-gradient(rgba(120,160,220,.14) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(120,160,220,.14) 1px,transparent 1px);
+  background-size:1.5px 1.5px}
+.panel.px .grid{opacity:1}
+.panel .zones{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .2s;
+  font-size:9px;color:#bcd;letter-spacing:.08em}
+.panel.zn .zones{opacity:1}
+.zone{position:absolute;border:1px dashed rgba(120,180,230,.5);background:rgba(34,211,238,.05);
+  display:flex;align-items:center;justify-content:center}
+.panel.shook{animation:shake .45s cubic-bezier(.36,.07,.19,.97)}
+@keyframes shake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)}
+  30%,50%,70%{transform:translateX(-7px)}40%,60%{transform:translateX(7px)}}
+.panel.beep{animation:beep .4s ease-in-out}
+@keyframes beep{25%{transform:scale(1.012)}75%{transform:scale(.996)}}
+.keys{display:flex;gap:8px}
+.key{border:1px solid var(--line2);background:var(--pane);color:var(--dim);border-radius:6px;
+  padding:6px 13px;font-family:var(--mono);font-size:10.5px;cursor:pointer;letter-spacing:.05em}
+.key:hover{border-color:#3b4a63;color:var(--tx)}
+.key:active{background:#131b28}
+.toggles{display:flex;gap:6px;margin-top:2px}
+.tg{border:1px solid var(--line);background:transparent;color:var(--dim2);border-radius:5px;
+  padding:4px 9px;font-family:var(--mono);font-size:10px;cursor:pointer}
+.tg.on{border-color:#14424e;color:var(--cy);background:#07222a}
+
+/* ---------- control rail ---------- */
+.rail{display:flex;flex-direction:column;gap:14px;min-width:0}
+.card{border:1px solid var(--line);border-radius:9px;background:var(--pane);padding:13px 14px}
+.card h3{margin:0 0 10px;font-size:10px;font-weight:500;color:var(--dim2);
+  letter-spacing:.14em;text-transform:uppercase}
+.row{display:flex;gap:7px;flex-wrap:wrap}
+.b{border:1px solid var(--line2);background:#0e131c;color:var(--dim);border-radius:6px;
+  padding:7px 11px;font-family:var(--mono);font-size:11px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:7px}
+.b:hover{border-color:#3b4a63;color:var(--tx)}
+.b.act{border-color:#14424e;background:#07222a;color:var(--cy)}
+.b kbd{border:1px solid var(--line);border-radius:3px;padding:0 4px;font-size:9px;color:var(--dim2)}
+.lvls{display:flex;gap:6px}
+.lv{flex:1;border:1px solid var(--line2);background:#0e131c;border-radius:6px;padding:7px 0;
+  text-align:center;font-family:var(--mono);font-size:10.5px;cursor:pointer;color:var(--dim);
+  letter-spacing:.06em}
+.lv[data-l=info].on{border-color:#1a6b3d;background:#071c11;color:var(--gr)}
+.lv[data-l=warning].on{border-color:#7a5510;background:#1d1404;color:var(--am)}
+.lv[data-l=critical].on{border-color:#7d2532;background:#1f070c;color:var(--rd)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:11px;margin-top:11px}
+.kv b{font-weight:400;color:var(--dim2)}
+.kv span{color:var(--tx);text-align:right}
+.meter{height:2px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:11px}
+.meter i{display:block;height:100%;width:0;background:var(--cy);transition:width .25s linear}
+.gws{display:flex;flex-direction:column;gap:6px}
+.gw{display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:6px;
+  padding:7px 10px;cursor:pointer;font-size:11px}
+.gw:hover{border-color:var(--line2)}
+.gw.sel{border-color:#14424e;background:#07222a}
+.gw .pip{width:6px;height:6px;border-radius:50%;flex:none}
+.gw .nm{flex:1;color:var(--tx)}
+.gw .ct{color:var(--dim2);font-size:10px}
+pre.json{margin:0;font-size:10.5px;line-height:1.6;color:#9fb2cc;max-height:330px;overflow:auto;
+  white-space:pre-wrap;word-break:break-word}
+pre.json .k{color:var(--cy)} pre.json .n{color:#e6edf7} pre.json .s{color:#a9e39a}
+.log{font-size:10.5px;line-height:1.75;color:var(--dim2);max-height:150px;overflow:auto}
+.log b{color:var(--dim);font-weight:400}
+.log .t{color:#3d4a5f;margin-right:7px}
+footer{margin-top:34px;color:var(--dim2);font-size:10.5px;line-height:1.8}
+footer a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--line2)}
+</style>
+
+<div class="wrap">
+
+<header>
+  <h1><span class="dot">⚡</span> Pulsar</h1>
+  <span class="sub">1.54″ IPS · 240 × 240 · ST7789 · CST816 touch</span>
+</header>
+
+<p class="lede">
+  Every pixel inside the glass is a real draw call at device scale — 6 × 8 font cell, RGB565
+  quantised, six fixed bands. Tap the <b>right half</b> for the next panel, the <b>left half</b>
+  to go back, the <b>footer</b> to change gateway, the <b>status strip</b> for setup.
+  Payload follows <a href="../../docs/api.md">api.md</a>; layout follows
+  <a href="../docs/readme.md">lcd154.md</a>.
+</p>
+
+<div class="nav">
+  <b>240 × 240 square</b>
+  <a href="../../lcd349/mockups/device-ui.html">640 × 172 bar</a>
+</div>
+
+<div class="stage">
+
+  <div class="deviceCol">
+    <div class="panel" id="panel">
+      <canvas id="screen" width="720" height="720"></canvas>
+      <div class="sheen"></div><div class="grid"></div>
+      <div class="zones">
+        <div class="zone" style="left:0;top:0;right:0;height:8.33%">STATUS</div>
+        <div class="zone" style="left:0;top:8.33%;width:50%;bottom:12.5%">PREV</div>
+        <div class="zone" style="right:0;top:8.33%;width:50%;bottom:12.5%">NEXT</div>
+        <div class="zone" style="left:0;bottom:0;right:0;height:12.5%">GATEWAY</div>
+      </div>
+    </div>
+    <div class="keys">
+      <button class="key" id="kPlus">PLUS</button>
+      <button class="key" id="kHold">PLUS ·  hold</button>
+      <button class="key" id="kPwr">PWR</button>
+    </div>
+    <div class="toggles">
+      <button class="tg" id="tgPx">pixel grid</button>
+      <button class="tg" id="tgZn">touch zones</button>
+    </div>
+  </div>
+
+  <div class="rail">
+
+    <div class="card">
+      <h3>Interact</h3>
+      <div class="row">
+        <button class="b" id="doNext">▸ next panel<kbd>→</kbd></button>
+        <button class="b" id="doPrev">◂ prev<kbd>←</kbd></button>
+        <button class="b" id="doGw">⇄ next gateway<kbd>g</kbd></button>
+        <button class="b" id="doShake">shake · refresh<kbd>s</kbd></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>health.level</h3>
+      <div class="lvls">
+        <div class="lv" data-l="info">INFO</div>
+        <div class="lv" data-l="warning">WARNING</div>
+        <div class="lv" data-l="critical">CRITICAL</div>
+      </div>
+      <div class="row" style="margin-top:9px">
+        <button class="b" id="doFault">simulate OFFLINE<kbd>f</kbd></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Power &amp; polling</h3>
+      <div class="row">
+        <button class="b act" id="doPwr">🔌 on USB<kbd>space</kbd></button>
+        <button class="b" id="doPoll">poll now<kbd>p</kbd></button>
+      </div>
+      <div class="meter"><i id="bar"></i></div>
+      <div class="kv">
+        <b>interval</b><span>60 s</span>
+        <b>next poll</b><span id="kNext">—</span>
+        <b>screen</b><span id="kScr">on</span>
+        <b>measured_at</b><span id="kMeas">—</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Gateways · max 3</h3>
+      <div class="gws" id="gws"></div>
+    </div>
+
+    <div class="card">
+      <h3>Response · <span id="jName" style="color:var(--cy)"></span></h3>
+      <pre class="json" id="json"></pre>
+    </div>
+
+    <div class="card">
+      <h3>Log</h3>
+      <div class="log" id="log"></div>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  Contract → <a href="../../docs/api.md">api.md</a> ·
+  Build → <a href="../docs/readme.md">lcd154.md</a> ·
+  Shared behaviour → <a href="../../docs/device.md">device.md</a>
+</footer>
+</div>
+
+<script>
+/* ==========================================================================
+   Pulsar · ESP32-S3-LCD-1.54 · 240 × 240
+   Device coords are 0..239. S is mockup upscale only.
+   Layout follows docs/lcd154.md · payload follows docs/api.md
+   ========================================================================== */
+const W = 240, H = 240, S = 3;
+
+/* --- six fixed bands ---------------------------------------------------- */
+const B = {
+  status: [0,   20],   // battery · clock · wi-fi
+  health: [20,  40],   // level word + one line of message
+  hero:   [60,  56],   // 2xx per minute — the headline
+  graph:  [116, 64],   // buckets, directly under the headline
+  stats:  [180, 30],   // p95 · 4xx · 5xx
+  foot:   [210, 30],   // gateway, panel name, position, fleet dots
+};
+
+/* --- palette, quantised to RGB565 like the panel ------------------------ */
+const q565 = hex => {
+  const v = parseInt(hex.slice(1), 16);
+  const R = ((v >> 16) & 255) & 0xF8, G = ((v >> 8) & 255) & 0xFC, Bl = (v & 255) & 0xF8;
+  return '#' + [R | (R >> 5), G | (G >> 6), Bl | (Bl >> 5)]
+    .map(x => x.toString(16).padStart(2, '0')).join('');
+};
+const C = {};
+for (const [k, v] of Object.entries({
+  bg:'#05070c', pane:'#0c1422', line:'#1c2740', line2:'#28344a',
+  tx:'#e6edf7', dim:'#7f8fa8', dim2:'#4d5c76',
+  cy:'#22d3ee', cyD:'#0a3a47',
+  gr:'#22c55e', grD:'#0b2c19', grI:'#071a10',
+  am:'#f5a524', amD:'#3a2a06', amI:'#221903',
+  rd:'#ff4d5e', rdD:'#42131c', rdI:'#280b11',
+  gy:'#8aa0c0', gyD:'#18202d', gyI:'#0e141d',
+  ink:'#04060a',
+})) C[k] = q565(v);
+
+/* level → word, bright, dark tint, idle tint */
+const LV = {
+  info:     { w:'INFO',     c:C.gr, d:C.grD, i:C.grI },
+  warning:  { w:'WARNING',  c:C.am, d:C.amD, i:C.amI },
+  critical: { w:'CRITICAL', c:C.rd, d:C.rdD, i:C.rdI },
+  fault:    { w:'OFFLINE',  c:C.gy, d:C.gyD, i:C.gyI },
+};
+const BLINK = { info:0, warning:700, critical:220, fault:700 };
+
+/* ==========================================================================
+   GFX — the panel-library subset. Device pixels in, canvas pixels out.
+   ========================================================================== */
+const MONO = 'ui-monospace,SFMono-Regular,Menlo,Consolas,monospace';
+
+class GFX {
+  constructor(cv){ this.x = cv.getContext('2d'); this.x.textBaseline = 'middle'; }
+  fillScreen(c){ this.x.fillStyle = c; this.x.fillRect(0, 0, W*S, H*S); }
+  fillRect(x, y, w, h, c){ this.x.fillStyle = c; this.x.fillRect(x*S, y*S, w*S, h*S); }
+  hLine(x, y, w, c){ this.fillRect(x, y, w, 1, c); }
+  vLine(x, y, h, c){ this.fillRect(x, 1*y, 1, h, c); }
+  px(x, y, c){ this.fillRect(x, y, 1, 1, c); }
+  circle(cx, cy, r, c){
+    const g = this.x; g.fillStyle = c; g.beginPath();
+    g.arc(cx*S + S/2, cy*S + S/2, r*S + S/2, 0, 6.2832); g.fill();
+  }
+  tri(x0,y0,x1,y1,x2,y2,c){
+    const g = this.x; g.fillStyle = c; g.beginPath();
+    g.moveTo(x0*S,y0*S); g.lineTo(x1*S,y1*S); g.lineTo(x2*S,y2*S); g.closePath(); g.fill();
+  }
+  /* Built-in font: fixed 6×8 cell, glyph 5×7. setTextSize(n) multiplies it.
+     Nothing wraps, nothing scrolls — the caller truncates.                  */
+  text(str, x, y, size, c, align = 'l', bold = false, track = 0){
+    str = String(str);
+    const cw = 6*size + track, w = str.length*cw - track;
+    if (align === 'c') x = Math.round(x - w/2);
+    if (align === 'r') x = x - w;
+    const g = this.x;
+    g.fillStyle = c;
+    g.font = `${bold ? 600 : 400} ${Math.round(7.4*size*S)}px ${MONO}`;
+    g.textAlign = 'center';
+    for (let i = 0; i < str.length; i++){
+      if (str[i] === ' ') continue;
+      const px = (x + i*cw + (6*size)/2)*S, py = (y + 4*size)*S;
+      g.fillText(str[i], px, py);
+      if (bold) g.fillText(str[i], px + S*0.5, py);
+    }
+    return w;
+  }
+  tw(str, size, track = 0){ return String(str).length*(6*size + track) - track; }
+}
+
+/* --- helpers ------------------------------------------------------------ */
+const clamp = (v,a,b) => v < a ? a : v > b ? b : v;
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+const sum = a => a.reduce((x,y) => x + y, 0);
+function compact(n){                       // 18420 → 18.4k · 2456789 → 2.5M
+  n = Math.max(0, Math.round(n));
+  if (n >= 1e7) return Math.round(n/1e6) + 'M';
+  if (n >= 1e6) return (n/1e6).toFixed(1) + 'M';
+  if (n >= 1e5) return Math.round(n/1e3) + 'k';
+  if (n >= 1e3) return (n/1e3).toFixed(1) + 'k';
+  return String(n);
+}
+const hhmm = d => String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+
+/* span helpers — everything on screen derives from the row's own clock */
+const UNIT_MIN = { second: 1/60, minute: 1, hour: 60 };
+const spanUnits = r => r.bucket_size * r.bucket_count;
+const spanMins  = r => spanUnits(r) * UNIT_MIN[r.bucket_unit];
+const rate      = r => r.aggregates['2xx_count'] / spanUnits(r);   // per bucket_unit
+function spanLabel(r){
+  const u = spanUnits(r), n = r.bucket_unit;
+  if (n === 'second' && u >= 60) return 'LAST ' + Math.round(u/60) + ' MIN';
+  return 'LAST ' + u + (n === 'second' ? ' SEC' : n === 'hour' ? ' HR' : ' MIN');
+}
+const unitLabel = r => '2XX / ' + (r.bucket_unit === 'second' ? 'SEC'
+                                 : r.bucket_unit === 'hour' ? 'HR' : 'MIN');
+function reqTotal(a){ return a['2xx_count'] + a['4xx_count'] + a['5xx_count']; }
+function pct(n, t){ return t ? n*100/t : 0; }
+
+/* ==========================================================================
+   Sample payloads — shaped exactly like docs/api.md
+   ========================================================================== */
+function series(base, from, dropTo, seed){
+  let s = seed, rnd = () => (s = (s*1664525 + 1013904223) % 4294967296) / 4294967296;
+  const out = [];
+  for (let i = 0; i < 30; i++){
+    let v = base * (0.97 + rnd()*0.06);
+    if (i >= from){ const t = (i - from) / (29 - from); v *= 1 - (1 - dropTo)*t; }
+    out.push(Math.max(0, Math.round(v)));
+  }
+  return out;
+}
+function row(name, buckets, c4, c5, avg, p95){
+  return {
+    name,
+    bucket_unit: 'minute', bucket_size: 1, bucket_count: 30,
+    aggregates: {
+      '2xx_count': sum(buckets),            // the invariant, by construction
+      '4xx_count': c4, '5xx_count': c5,
+      avg_latency_ms: avg, p95_latency_ms: p95,
+    },
+    buckets,
+  };
+}
+function overviewOf(parts, avg, p95){
+  const b = parts[0].buckets.map((_, i) => sum(parts.map(p => p.buckets[i])));
+  const g = k => sum(parts.map(p => p.aggregates[k]));
+  return row('Overview', b, g('4xx_count'), g('5xx_count'), avg, p95);
+}
+
+const payoutParts = [
+  row('Init Payout',      series(320, 20, 0.38, 7),   61,  44, 39, 165),
+  row('Disburse Payout',  series(200, 20, 0.34, 91),  74, 338, 74, 390),
+  row('Acct Validations', series(228, 20, 0.36, 313), 34,   7, 21,  62),
+];
+const fraudParts = [
+  row('Eval', series(410, 26, 0.86, 55), 122, 31, 24, 88),
+];
+
+const GW = [
+  {
+    gateway: 'Payouts',
+    health: { level: 'critical', message: '5xx 2.14% max 0.50%' },
+    metrics: [ overviewOf(payoutParts, 48, 210), ...payoutParts ],
+  },
+  {
+    gateway: 'Fraud VAS',
+    health: { level: 'info', message: 'error budget healthy' },
+    metrics: [ overviewOf(fraudParts, 24, 88), ...fraudParts ],
+  },
+];
+GW.forEach(g => { g.measured_at = Math.floor(Date.now()/1000); g.fault = null; });
+
+/* ==========================================================================
+   State
+   ========================================================================== */
+const st = {
+  gw: 0, row: 0,
+  screen: true, plugged: true, setup: false,
+  nextPoll: Date.now() + 60000, lastPoll: Date.now(),
+  slide: null,          // {axis:'x'|'y', dir:-1|1, t0}
+  heroFrom: 0, heroT0: 0,
+  sweepT0: 0,
+  blinkOn: true,
+};
+const g = new GFX(document.getElementById('screen'));
+const cur  = () => GW[st.gw];
+const curR = () => cur().metrics[st.row];
+const level = () => cur().fault ? 'fault' : cur().health.level;
+
+/* ==========================================================================
+   Bands
+   ========================================================================== */
+function drawStatus(){
+  const [y, h] = B.status;
+  g.fillRect(0, y, W, h, C.bg);
+
+  /* battery: 13×7 shell with a nub, filled by charge */
+  const bx = 9, by = y + 7, pctv = 0.82;
+  g.fillRect(bx, by, 13, 7, C.line2);
+  g.fillRect(bx + 1, by + 1, 11, 5, C.bg);
+  g.fillRect(bx + 1, by + 1, Math.round(11*pctv), 5, st.plugged ? C.cy : C.dim);
+  g.fillRect(bx + 13, by + 2, 1, 3, C.line2);
+  g.text('82%', bx + 18, y + 6, 1, C.dim2);
+
+  /* clock, centred */
+  g.text(hhmm(new Date()), W/2, y + 6, 1, C.dim, 'c');
+
+  /* wi-fi: three ascending bars, right */
+  const wx = W - 11;
+  for (let i = 0; i < 3; i++)
+    g.fillRect(wx + i*4 - 8, y + 12 - i*3, 2, 3 + i*3, i < 3 ? C.dim : C.dim2);
+
+  /* poll-in-flight hairline */
+  const busy = Date.now() - st.lastPoll < 420;
+  g.hLine(0, y + h - 1, W, busy ? C.cy : C.line);
+}
+
+function drawHealth(){
+  const [y, h] = B.health;
+  const L = LV[level()], lv = level();
+  const blinking = BLINK[lv] > 0;
+  const bg = blinking && st.blinkOn ? L.d : L.i;
+
+  g.fillRect(0, y, W, h, bg);
+  g.fillRect(0, y, 3, h, L.c);                      // level edge — the signal
+
+  const msg = cur().fault
+    ? { OFFLINE:'no route to host' }[L.w] || 'connection failed'
+    : cur().health.message;
+
+  g.text(L.w, 12, y + 8, 2, L.c, 'l', true);
+  g.text(msg.slice(0, 20), 12, y + 27, 1, lv === 'fault' ? C.dim : C.tx);
+  if (cur().fault) g.text('HELD', W - 10, y + 27, 1, C.dim2, 'r');
+}
+
+function drawHero(dy){
+  const [y, h] = B.hero;
+  const r = curR();
+  g.fillRect(0, y, W, h, C.bg);
+
+  /* count-up from the previous panel's value */
+  const t = clamp((Date.now() - st.heroT0) / 520, 0, 1);
+  const v = st.heroFrom + (rate(r) - st.heroFrom) * easeOut(t);
+  const big = compact(v);
+
+  g.text(big, 10, y + 6 + dy, 4, C.tx, 'l', true);
+  g.text(unitLabel(r), 11, y + 44 + dy, 1, C.dim2, 'l', false, 1);
+}
+
+function drawGraph(dy){
+  const [y, h] = B.graph;
+  g.fillRect(0, y, W, h, C.bg);
+
+  const r = curR(), b = r.buckets;
+  const L = LV[level()];
+  const X0 = 6, PW = 228, PH = 42, YB = y + 6 + PH + dy;
+  const body = level() === 'info' ? C.line : L.d;
+  const edge = level() === 'info' ? C.cy   : L.c;
+
+  let hi = 1;
+  for (const v of b) hi = Math.max(hi, v);
+  hi = hi * 1.14;                                   // 14 % headroom
+
+  const sweep = clamp((Date.now() - st.sweepT0) / 300, 0, 1);
+  const cols = Math.round(PW * easeOut(sweep));
+
+  for (let px = 0; px < cols; px++){
+    const pos = px * (b.length - 1) * 256 / (PW - 1);
+    const i = pos >> 8, fr = pos & 255;
+    const a = b[i], c = b[Math.min(i + 1, b.length - 1)];
+    const val = a + ((c - a) * fr >> 8);
+    const ph = Math.round(val * (PH - 1) / hi);
+    g.fillRect(X0 + px, YB - ph, 1, ph + 1, body);
+    g.px(X0 + px, YB - ph, edge);
+  }
+  g.hLine(X0, YB + 1, PW, C.line);
+  g.text(spanLabel(r), W - 8, y + h - 9 + dy, 1, C.dim2, 'r');
+}
+
+function drawStats(dy){
+  const [y, h] = B.stats;
+  const a = curR().aggregates, tot = reqTotal(a);
+  g.fillRect(0, y, W, h, C.bg);
+
+  const p4 = pct(a['4xx_count'], tot), p5 = pct(a['5xx_count'], tot);
+  const c5 = p5 >= 1 ? C.rd : p5 >= 0.5 ? C.am : C.tx;
+  const c4 = p4 >= 2 ? C.am : C.tx;
+
+  const col = [10, 88, 164];
+  const lab = ['P95', '4XX', '5XX'];
+  const val = [a.p95_latency_ms + 'ms', compact(a['4xx_count']), compact(a['5xx_count'])];
+  const sub = ['', p4.toFixed(2) + '%', p5.toFixed(2) + '%'];
+  const col3 = [C.tx, c4, c5];
+
+  for (let i = 0; i < 3; i++){
+    g.text(lab[i], col[i], y + 3 + dy, 1, C.dim2, 'l', false, 1);
+    const wv = g.text(val[i], col[i], y + 15 + dy, 1, col3[i], 'l', true);
+    if (sub[i]) g.text(sub[i], col[i] + wv + 5, y + 15 + dy, 1, C.dim2);
+  }
+}
+
+function drawFoot(){
+  const [y, h] = B.foot;
+  g.fillRect(0, y, W, h, C.pane);
+  g.hLine(0, y, W, C.line);
+
+  const gwName = cur().gateway.slice(0, 14).toUpperCase();
+  g.text(gwName, 10, y + 4, 1, C.dim2, 'l', false, 1);
+
+  const nm = curR().name.slice(0, 16);
+  g.text(nm, 10, y + 14, 2, C.tx, 'l', true);
+
+  /* fleet dots — one per configured gateway, coloured by its level */
+  const n = GW.length, dx = W - 10 - (n*7 - 3);
+  for (let i = 0; i < n; i++){
+    const l = GW[i].fault ? 'fault' : GW[i].health.level;
+    g.fillRect(dx + i*7, y + 5, 4, 4, i === st.gw ? LV[l].c : LV[l].d);
+  }
+  g.text((st.row + 1) + '/' + cur().metrics.length, W - 10, y + 18, 1, C.dim2, 'r');
+}
+
+function drawSetup(){
+  g.fillScreen(C.bg);
+  g.text('SETUP', 10, 10, 2, C.cy, 'l', true);
+  g.hLine(10, 32, W - 20, C.line);
+  let y = 44;
+  GW.forEach((gw, i) => {
+    g.fillRect(10, y, 4, 4, LV[gw.fault ? 'fault' : gw.health.level].c);
+    g.text(gw.gateway.slice(0, 16), 20, y - 1, 1, C.tx, 'l', true);
+    g.text(gw.metrics.length + ' panels', W - 10, y - 1, 1, C.dim2, 'r');
+    y += 16;
+  });
+  g.hLine(10, 190, W - 20, C.line);
+  g.text('HOLD PLUS FOR PORTAL', W/2, 200, 1, C.dim2, 'c');
+  g.text('Pulsar-Setup', W/2, 214, 1, C.dim, 'c');
+  g.text('192.168.4.1', W/2, 226, 1, C.dim, 'c');
+}
+
+/* ==========================================================================
+   Frame
+   ========================================================================== */
+function frame(){
+  const lv = level(), rate_ms = BLINK[lv];
+  st.blinkOn = rate_ms ? (Math.floor(Date.now() / rate_ms) % 2 === 0) : true;
+
+  if (!st.screen){
+    g.fillScreen('#000000');
+    g.text('TOUCH TO WAKE', W/2, 116, 1, '#101722', 'c');
+  } else if (st.setup){
+    drawSetup();
+  } else {
+    let dy = 0, dx = 0;
+    if (st.slide){
+      const t = clamp((Date.now() - st.slide.t0) / (st.slide.axis === 'x' ? 300 : 240), 0, 1);
+      const o = (1 - easeOut(t)) * st.slide.dir * (st.slide.axis === 'x' ? 34 : 20);
+      if (st.slide.axis === 'x') dx = o; else dy = o;
+      if (t >= 1) st.slide = null;
+    }
+    g.fillScreen(C.bg);
+    drawStatus();
+    drawHealth();
+    drawHero(dy + dx);
+    drawGraph(dy + dx);
+    drawStats(dy + dx);
+    drawFoot();
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ==========================================================================
+   Behaviour
+   ========================================================================== */
+const $ = s => document.querySelector(s);
+const panel = $('#panel');
+
+function log(msg){
+  const el = $('#log');
+  const t = new Date().toTimeString().slice(0, 8);
+  el.insertAdjacentHTML('afterbegin', `<div><span class="t">${t}</span>${msg}</div>`);
+  while (el.children.length > 40) el.lastChild.remove();
+}
+
+function wake(){
+  if (!st.screen){ st.screen = true; st.wakeUntil = Date.now() + 60000; log('screen on'); }
+  else if (!st.plugged) st.wakeUntil = Date.now() + 60000;
+  sync();
+}
+function beginHero(){ st.heroFrom = rate(curR()); st.heroT0 = Date.now(); }
+
+function nextPanel(){
+  wake(); if (st.setup){ st.setup = false; return sync(); }
+  beginHero();
+  const n = cur().metrics.length;
+  if (st.row + 1 < n){ st.row++; st.slide = { axis:'y', dir: 1, t0: Date.now() }; }
+  else { st.row = 0; st.gw = (st.gw + 1) % GW.length; st.slide = { axis:'x', dir: 1, t0: Date.now() }; }
+  st.sweepT0 = Date.now(); sync();
+}
+function prevPanel(){
+  wake(); if (st.setup){ st.setup = false; return sync(); }
+  beginHero();
+  if (st.row > 0){ st.row--; st.slide = { axis:'y', dir: -1, t0: Date.now() }; }
+  else { st.gw = (st.gw + GW.length - 1) % GW.length; st.row = cur().metrics.length - 1;
+         st.slide = { axis:'x', dir: -1, t0: Date.now() }; }
+  st.sweepT0 = Date.now(); sync();
+}
+function nextGateway(){
+  wake(); st.setup = false; beginHero();
+  st.gw = (st.gw + 1) % GW.length; st.row = 0;
+  st.slide = { axis:'x', dir: 1, t0: Date.now() }; st.sweepT0 = Date.now();
+  log('gateway → <b>' + cur().gateway + '</b>'); sync();
+}
+
+/* one poll: shift every series by one bucket, keep sum == 2xx_count */
+function poll(force){
+  st.lastPoll = Date.now();
+  st.nextPoll = Date.now() + 60000;
+  GW.forEach(gw => {
+    gw.measured_at = Math.floor(Date.now() / 1000);
+    gw.metrics.slice(1).forEach(r => {
+      const b = r.buckets, last = b[b.length - 1];
+      b.shift(); b.push(Math.max(0, Math.round(last * (0.94 + Math.random()*0.12))));
+      r.aggregates['2xx_count'] = sum(b);
+    });
+    const ov = gw.metrics[0], parts = gw.metrics.slice(1);
+    ov.buckets = parts[0].buckets.map((_, i) => sum(parts.map(p => p.buckets[i])));
+    ov.aggregates['2xx_count'] = sum(ov.buckets);
+  });
+  st.sweepT0 = Date.now(); beginHero();
+  log(force ? 'shake → poll <b>200</b>' : 'poll <b>200</b> · ' + cur().gateway);
+  sync();
+}
+
+function setLevel(l){
+  cur().fault = null;
+  cur().health.level = l;
+  cur().health.message = l === 'info'     ? 'error budget healthy'
+                       : l === 'warning'  ? '5xx 0.68% max 0.50%'
+                                          : '5xx 2.14% max 0.50%';
+  if (l !== 'info'){ panel.classList.remove('beep'); void panel.offsetWidth;
+                     panel.classList.add('beep');
+                     log('speaker · ' + (l === 'critical' ? '4 tones' : '2 tones') + ' on transition'); }
+  log('health.level → <b>' + l + '</b>'); sync();
+}
+
+/* --- wiring ------------------------------------------------------------- */
+panel.addEventListener('click', e => {
+  if (!st.screen) return wake();
+  const r = panel.getBoundingClientRect();
+  const y = (e.clientY - r.top) / r.height * H;
+  const x = (e.clientX - r.left) / r.width * W;
+  if (y < B.status[1]) { st.setup = !st.setup; wake(); log('status tap → setup'); return sync(); }
+  if (y >= B.foot[0])  return nextGateway();
+  x < W/2 ? prevPanel() : nextPanel();
+});
+
+$('#doNext').onclick = nextPanel;
+$('#doPrev').onclick = prevPanel;
+$('#doGw').onclick   = nextGateway;
+$('#kPlus').onclick  = nextPanel;
+$('#kHold').onclick  = () => { st.setup = true; wake(); log('PLUS held → Wi-Fi portal'); sync(); };
+$('#doShake').onclick = () => {
+  panel.classList.remove('shook'); void panel.offsetWidth; panel.classList.add('shook');
+  setTimeout(() => panel.classList.remove('shook'), 470);
+  wake(); poll(true);
+};
+$('#doPoll').onclick = () => poll(false);
+$('#doFault').onclick = () => {
+  cur().fault = cur().fault ? null : 'OFFLINE';
+  log(cur().fault ? 'fetch fault · <b>OFFLINE</b> · numbers held' : 'recovered · 200');
+  sync();
+};
+$('#kPwr').onclick = $('#doPwr').onclick = () => {
+  st.plugged = !st.plugged;
+  st.screen = st.plugged ? true : st.screen;
+  st.wakeUntil = Date.now() + 60000;
+  log(st.plugged ? 'USB power · screen always on' : 'on battery · screen sleeps in 60 s');
+  sync();
+};
+document.querySelectorAll('.lv').forEach(el => el.onclick = () => setLevel(el.dataset.l));
+$('#tgPx').onclick = e => { panel.classList.toggle('px'); e.target.classList.toggle('on'); };
+$('#tgZn').onclick = e => { panel.classList.toggle('zn'); e.target.classList.toggle('on'); };
+
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (k === 'arrowright') nextPanel();
+  else if (k === 'arrowleft') prevPanel();
+  else if (k === 'g') nextGateway();
+  else if (k === 's') $('#doShake').click();
+  else if (k === 'p') poll(false);
+  else if (k === 'f') $('#doFault').click();
+  else if (k === ' ') { e.preventDefault(); $('#doPwr').click(); }
+  else return;
+  e.preventDefault();
+});
+
+/* --- side panel --------------------------------------------------------- */
+function jsonView(gw){
+  const r = gw.metrics.map(m => ({
+    name: m.name,
+    bucket_unit: m.bucket_unit, bucket_size: m.bucket_size, bucket_count: m.bucket_count,
+    aggregates: m.aggregates,
+    buckets: m.buckets,
+  }));
+  const o = { gateway: gw.gateway, measured_at: gw.measured_at,
+              health: gw.health, metrics: r };
+  return JSON.stringify(o, null, 2)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/"([^"]+)":/g, '"<span class="k">$1</span>":')
+    .replace(/: "([^"]*)"/g, ': "<span class="s">$1</span>"');
+}
+
+function sync(){
+  const gw = cur();
+  $('#kScr').textContent  = st.screen ? 'on' : 'off';
+  $('#kMeas').textContent = new Date(gw.measured_at * 1000).toTimeString().slice(0, 8);
+  $('#doPwr').textContent = st.plugged ? '🔌 on USB' : '🔋 on battery';
+  $('#doPwr').classList.toggle('act', st.plugged);
+  $('#doFault').classList.toggle('act', !!gw.fault);
+  document.querySelectorAll('.lv').forEach(el =>
+    el.classList.toggle('on', !gw.fault && el.dataset.l === gw.health.level));
+  $('#jName').textContent = gw.gateway;
+  $('#json').innerHTML = jsonView(gw);
+
+  $('#gws').innerHTML = GW.map((g2, i) => {
+    const l = g2.fault ? 'fault' : g2.health.level;
+    const col = { info:'var(--gr)', warning:'var(--am)', critical:'var(--rd)', fault:'var(--gy)' }[l];
+    return `<div class="gw ${i === st.gw ? 'sel' : ''}" data-i="${i}">
+      <span class="pip" style="background:${col}"></span>
+      <span class="nm">${g2.gateway}</span>
+      <span class="ct">${g2.metrics.length} panels</span></div>`;
+  }).join('');
+  document.querySelectorAll('.gw').forEach(el => el.onclick = () => {
+    st.gw = +el.dataset.i; st.row = 0; beginHero();
+    st.slide = { axis:'x', dir:1, t0: Date.now() }; st.sweepT0 = Date.now(); sync();
+  });
+}
+
+/* --- clocks ------------------------------------------------------------- */
+setInterval(() => {
+  const left = Math.max(0, st.nextPoll - Date.now());
+  $('#bar').style.width = (100 - left / 600) + '%';
+  $('#kNext').textContent = Math.ceil(left / 1000) + ' s';
+  if (left <= 0) poll(false);
+  if (!st.plugged && st.screen && st.wakeUntil && Date.now() > st.wakeUntil){
+    st.screen = false; log('60 s idle → screen off'); sync();
+  }
+}, 250);
+
+/* --- go ----------------------------------------------------------------- */
+st.heroFrom = rate(curR());
+st.sweepT0 = Date.now();
+log('boot · ' + GW.length + ' gateways configured');
+sync();
+frame();
+</script>
