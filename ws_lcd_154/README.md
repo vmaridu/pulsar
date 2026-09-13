@@ -124,6 +124,13 @@ Everything above uploads straight from the IDE. To hand someone a file instead �
 second board without installing anything, or flash from a machine with no IDE at all —
 export a `.bin` once and reuse it.
 
+### Skipping Arduino entirely
+
+Don't want to install any of §1–4 at all? Grab a ready-made [`ws_lcd_154.merged.bin`](#)
+from the project's releases — someone else already ran the export below — and jump
+straight to **flashing that file with `esptool`** further down. `esptool` (a small
+Python tool) is the only thing this needs: no IDE, no board package, no libraries.
+
 ### From the IDE (no new tools)
 
 1. Set the board menu exactly as in [§4](#4--board-settings--the-two-that-matter) — the export

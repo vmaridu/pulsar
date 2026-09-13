@@ -67,7 +67,11 @@ listed is **future use** and must be documented as "future use", never silently 
 - ⏱️ **Every hold is 2 s**, keys and glass alike, and shows a filling ring with the
   action named inside so it can be abandoned
 - 🔕 **Mute never survives a restart** — RAM only. (One exception: a brown-out reset
-  starts muted, so a sagging supply cannot loop the sound)
+  starts muted, so a sagging supply cannot loop the sound.) It also clears itself on
+  its own after a configurable timeout (5 m–24 h, or never; default 30 m), set on the
+  setup page → [device.md §5](docs/device.md#5--configuration)
+- 🔔 **`warning` and any connection fault get a short, quiet notice sound**, not the
+  full `critical` alert — the two are never mistaken for each other by ear alone
 - 🌑 **Display off is the panel only.** Polling, alerts and the speaker keep running —
   a critical still sounds with the screen dark
 - 🔙 Off the main screen, a glass tap returns to it

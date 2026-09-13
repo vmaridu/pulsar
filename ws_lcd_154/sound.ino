@@ -1,29 +1,35 @@
 /* ===========================================================================
-   Sound — the boot-intro hum and the critical alert, and mute.
+   Sound — the boot-intro hum, the critical alert, the subtler notice, and
+   mute.
 
    The boot intro (intro.ino) hums low while the pulsar turns,
    swelling in step with the beams, then stops with the animation — silent
-   for the "PULSAR" screen and the cross-fade after it. Once running, a
-   500 ms alert sound rides every `critical` alert flash — started in the
-   same frame the flash is drawn, ending as it ends. Warning and no
-   connection flash silently; only critical sounds.
+   for the "PULSAR" screen and the cross-fade after it. Once running, one of
+   two sounds rides every alert flash — started in the same frame the flash
+   is drawn, ending as it ends: `critical` gets the full 500 ms alert below;
+   `warning` and any connection fault (OFFLINE, NOT FOUND, NO ACCESS, every
+   banner api.md §6 names) get a short, quiet notice instead — enough to
+   turn a head, not enough to sound like an outage. `info` stays silent.
 
    The alert is a stressed dip, pitched where this speaker can play it: a
    tone falling fast from 920 to 560 Hz with two harmonics for body, a 14 Hz
    shiver on top, a short thump on the attack and a soft 1.76 kHz glint. It
-   fades to nothing at 500 ms.
+   fades to nothing at 500 ms. The notice is one soft tone, well under the
+   alert's volume, a fifth of its length — a nudge, not an alarm.
 
-   Both are rendered once at boot, in float maths only — the S3's FPU is
-   single precision, and double maths (anything touching PI or a plain
+   All three are rendered once at boot, in float maths only — the S3's FPU
+   is single precision, and double maths (anything touching PI or a plain
    sin()) runs in software, slow enough to starve a core. Then a 250 Hz
    high-pass: the speaker cannot move lower, and trying only rattles and
    pulls current.
 
-   Double-tap the right key (BOOT) to silence every sound this build makes,
-   hum and alert alike — double-tap again to bring it back. Mute lives in
-   RAM only, so a restart comes back with sound — except straight after a
-   brown-out reset, when it starts muted so a weak supply cannot loop, and
-   so the intro hum can't be what tips it over again on the very next boot.
+   Double-tap the right key (BOOT) to silence every sound this build makes —
+   double-tap again to bring it back. Mute clears itself three ways: the
+   double-tap, a restart (RAM only, so it's always back after one — except
+   straight after a brown-out reset, which starts muted so a weak supply
+   cannot loop, and so the intro hum can't be what tips it over again on the
+   very next boot), or the configured timeout elapsing on its own (set on
+   the setup page, default 30 minutes, `0` = never times out).
 
    Past the intro, sound does not care what is on screen, or whether the
    panel is even awake — RIGHT tap sleeps the display and a critical still
@@ -44,6 +50,9 @@ static I2SClass i2s;
 #define INTRO_HUM_HZ    85.0f  /* fundamental, plus one octave up for body — a small
                                   speaker cannot really move 85 Hz, but the octave
                                   and the high-pass below give it something to ride */
+#define NOTICE_MS       220    /* a fifth of the alert's length — a nudge, not an alarm */
+#define NOTICE_PEAK    0.35f   /* well under the alert's 0.85 — quiet on purpose */
+#define NOTICE_HZ      660.0f  /* one plain tone, no sweep, no harmonics past a touch of body */
 #define HIGHPASS_HZ     250
 #define PA_IDLE_MS     6000    /* the amp stays on this long after a sound, so the next
                                   one is not clipped by its start-up; then it sleeps */
@@ -54,8 +63,11 @@ static int16_t*     alertBuf  = NULL;
 static int           alertLen = 0;
 static int16_t*     introBuf  = NULL;
 static int           introLen = 0;
+static int16_t*     noticeBuf = NULL;
+static int           noticeLen = 0;
 static int16_t*     playBuf   = NULL;   /* what the task is asked to play next */
 static int           playLen  = 0;
+static uint32_t      muteT0   = 0;      /* millis() mute was last engaged — soundTick() below */
 
 /* a drum kick: a sine sweeping down from fEnd+fSweep to fEnd, decaying */
 static float kick(float tau, float fEnd, float fSweep, float k, float decay){
@@ -77,6 +89,21 @@ static float alertSample(float t){
   const float release = t > 0.38f ? 0.5f + 0.5f * cosf(0.5f * TAU_F * (t - 0.38f) / (T - 0.38f)) : 1;
   const float s = attack * release * (0.42f * body * shiver + 0.35f * knock + 0.08f * glint);
   return tanhf(1.6f * s) / tanhf(1.6f);
+}
+
+/* One sample of the notice, t in seconds from its start. A single soft tone
+   with a touch of its own octave for body, quick in and quicker out — the
+   opposite of the alert's urgency on purpose. Rides `warning` and any
+   connection fault; `critical` keeps the stronger alert above instead, and
+   the two never play together — alertTick() (ws_lcd_154.ino) picks one. */
+static float noticeSample(float t){
+  const float T = NOTICE_MS / 1000.0f;
+  if (t < 0 || t >= T) return 0;
+  const float ph = TAU_F * NOTICE_HZ * t;
+  const float tone = sinf(ph) + 0.15f * sinf(2 * ph);
+  const float attack  = t < 0.02f ? t / 0.02f : 1;
+  const float release = t > T - 0.08f ? (T - t) / 0.08f : 1;
+  return attack * release * tone;
 }
 
 /* The boot-intro hum, one sample at a time, t in seconds from the intro's
@@ -191,14 +218,19 @@ void soundBegin(){
 
   /* a brown-out means the supply sagged — do not let this sound loop it.
      The toast itself waits until after bootIntro() — nothing is on screen
-     yet for it to appear over (setup(), ws_lcd_154.ino). */
+     yet for it to appear over (setup(), ws_lcd_154.ino). Counts as the mute
+     being "engaged now" too, so it still auto-expires on the same timer. */
   if (esp_reset_reason() == ESP_RST_BROWNOUT){
     soundMuted = true;
+    muteT0 = millis();
     LOG("sound", "muted - the last reset was a brown-out (weak supply). Double-tap RIGHT to unmute");
   }
 
   introBuf = renderSound(introSample, (int)(I_ANIM_END * 1000), INTRO_PEAK, &introLen);
   if (!introBuf) LOG("boot", "audio: intro hum alloc FAILED - boot intro will be silent");
+
+  noticeBuf = renderSound(noticeSample, NOTICE_MS, NOTICE_PEAK, &noticeLen);
+  if (!noticeBuf) LOG("boot", "audio: notice buffer alloc FAILED - warning/fault sound disabled");
 }
 
 /* called by render() in the frame a critical flash first shows */
@@ -207,9 +239,27 @@ void alertSound(){ requestSound(alertBuf, alertLen); }
 /* called once, right as bootIntro() (intro.ino) starts drawing screen 1 */
 void introSound(){ requestSound(introBuf, introLen); }
 
-/* RIGHT double-tap. RAM only — every restart comes back with sound. */
+/* called by render() in the frame a warning or fault flash first shows —
+   never in the same frame as alertSound(), alertTick() picks one or the other */
+void noticeSound(){ requestSound(noticeBuf, noticeLen); }
+
+/* RIGHT double-tap. Also cleared by a restart, or by cfg.muteTimeoutMin
+   elapsing on its own — soundTick() below. */
 void toggleMute(){
   soundMuted = !soundMuted;
-  LOGF("sound", "%s", soundMuted ? "muted until restart" : "on");
+  if (soundMuted) muteT0 = millis();
+  LOGF("sound", "%s", soundMuted ? "muted" : "on");
   showToast(soundMuted ? "SOUND OFF" : "SOUND ON");
+}
+
+/* Checked every loop(). cfg.muteTimeoutMin is minutes, 0 = never — set on
+   the setup page, config.ino owns the store. A mute that started at boot
+   (the brown-out case above) is timed exactly the same way.              */
+void soundTick(){
+  if (!soundMuted || !cfg.muteTimeoutMin) return;
+  if (millis() - muteT0 < (uint32_t)cfg.muteTimeoutMin * 60000UL) return;
+  soundMuted = false;
+  LOGF("sound", "mute auto-expired after %u minute%s", (unsigned)cfg.muteTimeoutMin,
+       cfg.muteTimeoutMin == 1 ? "" : "s");
+  showToast("SOUND ON");
 }

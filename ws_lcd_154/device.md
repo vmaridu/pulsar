@@ -241,25 +241,20 @@ Hold **LEFT** 2 s. The board raises a WPA2 access point named after itself, answ
 
 ## 5. 🔔 Alert sound and mute
 
-- 🔴 **Critical only.** While the response is `critical`, a 500 ms sound plays with every flash — started in the same frame the flash is drawn, faded to nothing exactly as the flash ends. `warning` and no connection flash silently
+- 🔴 **`critical` gets the full alert; `warning` and any connection fault get a
+  shorter, quieter notice instead.** Whichever it is, it plays with every flash —
+  started in the same frame the flash is drawn, faded to nothing exactly as the
+  flash ends. `info` stays silent
 - 🌑 **It plays with the panel asleep**, and on the settings screen, and anywhere else. The speaker is for when you are not looking
-- 📉 **A stressed dip, pitched where this speaker can play it:** a tone falling fast from **920 to 560 Hz** with two harmonics for body, a 14 Hz shiver on top, a short thump on the attack and a soft 1.76 kHz glint
-- 🔈 An earlier version dipped 260 → 180 Hz. A laptop plays that; this speaker cannot move below a few hundred hertz, so on the board the dip never happened — only the top of the sound came through
-- ⚙️ **Rendered once at boot, in float maths only**, into a 500 ms buffer — the S3's FPU is single precision, and double maths runs in software, slow enough to starve a core. Then a **250 Hz high-pass**: the speaker cannot move lower, and trying only rattles and distorts
-- 🔊 Codec volume **74 / 100** (−1.5 dB; the scale is logarithmic, 75 is 0 dB), peaks at **85 %** of full scale — just under the ~75 ceiling where a small cell starts to sag. The amp stays on between flashes while a critical lasts, and switches off 6 s after the last sound
+- 📉 **The alert is a stressed dip, pitched where this speaker can play it:** a tone falling fast from **920 to 560 Hz** with two harmonics for body, a 14 Hz shiver on top, a short thump on the attack and a soft 1.76 kHz glint. 500 ms, peaking at 85 % of full scale
+- 🔔 **The notice is one plain tone at 660 Hz**, a touch of its own octave for body, quick in and quicker out — 220 ms, peaking at just 35 % of full scale. Deliberately nothing like the alert: a nudge, not an alarm
+- 🔈 An earlier version of the alert dipped 260 → 180 Hz. A laptop plays that; this speaker cannot move below a few hundred hertz, so on the board the dip never happened — only the top of the sound came through
+- ⚙️ **Both rendered once at boot, in float maths only** — the S3's FPU is single precision, and double maths runs in software, slow enough to starve a core. Then a **250 Hz high-pass**: the speaker cannot move lower, and trying only rattles and distorts
+- 🔊 Codec volume **74 / 100** (−1.5 dB; the scale is logarithmic, 75 is 0 dB) — just under the ~75 ceiling where a small cell starts to sag. The amp stays on between flashes while an alert lasts, and switches off 6 s after the last sound
 - 🔕 **Double-tap RIGHT** to silence every sound; double-tap again to bring it back. The screen says `SOUND OFF` / `SOUND ON` for a moment, and a small crossed speaker sits in the STATUS band while muted
-- 🔄 **Mute is RAM only** — every restart, power-on or reset comes back with sound. One exception: straight after a **brown-out reset** it starts muted, so a weak supply cannot be looped by the sound
+- 🔄 **Mute clears itself three ways**: the double-tap; a restart (RAM only, so every power-on or reset comes back with sound — except straight after a **brown-out reset**, which starts muted so a weak supply cannot loop the sound); or a configured timeout elapsing on its own — 5 m / 10 m / 30 m / 1 h / 6 h / 12 h / 24 h / never, set on the setup page, default 30 m → [device.md §5](../docs/device.md#5--configuration)
 - 🔇 No codec answering on I²C → no sound, everything else works
-- 🧩 `sound.ino` in the sketch folder, no extra library. `ESP_I2S` ships with the ESP32 core; the ES8311 driver (`es8311.cpp/.h`, Espressif, Apache-2.0) sits beside it
-
-| Audio signal         | GPIO                       |
-| -------------------- | -------------------------- |
-| Speaker amp enable   | 7                          |
-| I²S MCLK             | 8                          |
-| I²S BCLK             | 9                          |
-| I²S LRCK             | 10                         |
-| I²S DOUT → ES8311    | 12                         |
-| ES8311 on I²C `0x18` | 42 / 41, shared with touch |
+- 🧩 `sound.ino` in the sketch folder, no extra library. `ESP_I2S` ships with the ESP32 core; the ES8311 driver (`es8311.cpp/.h`, Espressif, Apache-2.0) sits beside it. Exact GPIOs → [`ws_lcd_154.ino`](ws_lcd_154.ino)
 
 ---
 

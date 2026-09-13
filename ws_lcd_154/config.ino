@@ -11,6 +11,7 @@
                k   API key — the bearer token, or the public X-Api-Key
                s   API secret — set it and requests are signed instead
                ca  one pasted PEM root, optional, empty = TLS unverified
+               mt  minutes until a mute auto-clears; 0 = never — sound.ino
 
        "wifi"  v   layout version; a blob written by an older struct is
                    dropped rather than read back as nonsense
@@ -109,6 +110,11 @@ void configLoad(){
     p.getString("k",  cfg.key,    sizeof cfg.key);
     p.getString("s",  cfg.secret, sizeof cfg.secret);
     p.getString("ca", cfg.ca,     sizeof cfg.ca);
+    /* the default (30) is what getUShort returns when "mt" was never written
+       at all — a fresh board, or one upgraded from before this existed —
+       never confused with a user explicitly choosing "never" (0), which
+       only ever gets stored by an actual save.                            */
+    cfg.muteTimeoutMin = p.getUShort("mt", 30);
     p.end();
   } else {
     LOG("cfg", "no \"gw\" namespace yet - first boot, nothing configured");
@@ -139,6 +145,8 @@ void configLoad(){
        cfg.key[0] ? (configSigned() ? "signed (key + secret)" : "bearer token") : "NONE",
        configTlsVerified() ? ", TLS root pinned" : ", TLS NOT VERIFIED (no CA pasted)");
   LOGF("cfg", "%u saved network%s", (unsigned)cfg.nnets, cfg.nnets == 1 ? "" : "s");
+  if (cfg.muteTimeoutMin) LOGF("cfg", "mute auto-clears after %u minutes", (unsigned)cfg.muteTimeoutMin);
+  else                    LOG("cfg", "mute auto-clear: never (only a double-tap or a restart clears it)");
   for (int i = 0; i < cfg.nnets; i++){
     const WifiNet& w = cfg.nets[i];
     LOGF("cfg", "  %d. \"%s\" %s%s", i + 1, w.ssid, secName(w.security),
@@ -154,6 +162,7 @@ bool configSave(){
     ok &= p.putString("k",  cfg.key)    > 0 || cfg.key[0]    == 0;
     ok &= p.putString("s",  cfg.secret) > 0 || cfg.secret[0] == 0;
     ok &= p.putString("ca", cfg.ca)     > 0 || cfg.ca[0]     == 0;
+    ok &= p.putUShort("mt", cfg.muteTimeoutMin) > 0;
     p.end();
   } else { ok = false; }
 
@@ -184,6 +193,7 @@ void configJson(JsonDocument& doc){
   doc["caSet"]     = cfg.ca[0]     != 0;
   doc["signed"]    = configSigned();
   doc["maxNets"]   = MAX_NETWORKS;
+  doc["muteTimeoutMin"] = cfg.muteTimeoutMin;
 
   JsonArray arr = doc["nets"].to<JsonArray>();
   for (int i = 0; i < cfg.nnets; i++){
@@ -239,6 +249,23 @@ bool configApplyJson(JsonObjectConst in, char* err, size_t errcap){
   else keepOrSet(next.secret, sizeof next.secret, in["secret"], cfg.secret);
   if (in["caClear"] | false) next.ca[0] = 0;
   else keepOrSet(next.ca, sizeof next.ca, in["ca"], cfg.ca);
+
+  /* ---- how long a mute lasts on its own. The setup page only ever offers
+     this fixed set (sound.ino's mute, cleared by a double-tap, a restart,
+     or this many minutes — 0 meaning never); reject anything else outright
+     rather than store a number the page could never have actually sent.  */
+  {
+    const long mt = in["muteTimeoutMin"] | 30;
+    static const long ALLOWED[] = { 0, 5, 10, 30, 60, 360, 720, 1440 };
+    bool validMt = false;
+    for (size_t i = 0; i < sizeof(ALLOWED) / sizeof(ALLOWED[0]); i++)
+      if (mt == ALLOWED[i]){ validMt = true; break; }
+    if (!validMt){
+      snprintf(err, errcap, "%ld is not a valid mute timeout", mt);
+      return false;
+    }
+    next.muteTimeoutMin = (uint16_t)mt;
+  }
 
   /* ---- networks, in the order the page listed them: that order IS the
      priority, so the array is the preference list and nothing else needs

@@ -109,6 +109,7 @@ Leave the API key and secret empty too; this server does not check them.
 
 | Section     | What it does                                                                           |
 | ----------- | --------------------------------------------------------------------------------------- |
+| **Devices** | Every device that has polled this session, by `X-Device-Mac` — a green dot while it's polled in the last 2 minutes, poll count, last outcome. In memory only: last 10 devices, last 500 polls each, gone when the process stops |
 | **Alert**   | Sets `alert.level` and `alert.message` for the next poll. `warning`/`critical` are what make a device's whole screen flash; `critical` also sounds. The message box is pre-filled with a sensible default per level — edit it if you want something else, 20 characters max |
 | **Metrics** | One card per screen. Each has a live sparkline of its current `buckets` and a pattern dropdown — pick one and hit **Apply** to reshape that row's graph. the aggregate tiles' shares recompute to match automatically |
 | **Faults**  | Makes the **next** poll misbehave instead of succeeding — a slow response, a non-200 status, broken JSON, or a payload missing something the contract requires. Stays armed until you clear it, so you can watch a device retry against the same problem more than once |

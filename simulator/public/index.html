@@ -90,6 +90,24 @@ input.msg{width:100%;background:var(--panel);border:1px solid var(--line2);color
   background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
 .log div{white-space:pre-wrap;word-break:break-word}
 
+/* devices: one compact row each — a dot, who, where, how much, how recent */
+.devices{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.drow{display:grid;grid-template-columns:10px 1fr auto;gap:12px;align-items:center;
+  padding:10px 14px;border-bottom:1px solid var(--line)}
+.drow:last-child{border-bottom:none}
+.drow:nth-child(odd){background:#070a11}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--dim2);flex:none}
+.dot.on{background:var(--gr);box-shadow:0 0 0 0 rgba(92,242,46,.55);animation:pulse 1.8s ease-out infinite}
+@keyframes pulse{
+  0%{box-shadow:0 0 0 0 rgba(92,242,46,.5)}
+  70%{box-shadow:0 0 0 6px rgba(92,242,46,0)}
+  100%{box-shadow:0 0 0 0 rgba(92,242,46,0)}
+}
+.drow .who{font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.drow .who .sub{color:var(--dim2);font-size:9.5px;letter-spacing:.05em;margin-left:8px}
+.drow .meta{color:var(--dim);font-size:10px;text-align:right;white-space:nowrap}
+.devices-empty{padding:16px 14px;color:var(--dim2);font-size:11px;text-align:center}
+
 footer{color:var(--dim2);font-size:10.5px;line-height:1.8;padding-top:6px;border-top:1px solid var(--line)}
 footer a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--line2)}
 </style>
@@ -109,6 +127,13 @@ footer a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--lin
   device polls <code id="epUrl">http://localhost:4180/v1/gateway_health</code>
   <button id="copyEp">copy</button>
 </div>
+
+<section>
+  <h2>Devices</h2>
+  <p class="hint">Every device that has polled this session, identified by <code>X-Device-Mac</code> —
+    last 10, up to 500 polls remembered each, all of it gone when this process stops.</p>
+  <div class="devices" id="devices"></div>
+</section>
 
 <section>
   <h2>Alert</h2>
@@ -353,7 +378,36 @@ function renderLog() {
   $('#log').innerHTML = state.log.map((l) => `<div>${l.replace(/</g, '&lt;')}</div>`).join('');
 }
 
+function fmtAgo(ms) {
+  const s = Math.max(0, Math.floor((Date.now() - ms) / 1000));
+  if (s < 3) return 'now';
+  if (s < 60) return s + 's ago';
+  const m = Math.floor(s / 60);
+  if (m < 60) return m + 'm ago';
+  return Math.floor(m / 60) + 'h ago';
+}
+function esc(s) { return String(s == null ? '' : s).replace(/</g, '&lt;'); }
+function renderDevices(devices) {
+  const box = $('#devices');
+  if (!devices.length) {
+    box.innerHTML = '<div class="devices-empty">No device has polled this session yet.</div>';
+    return;
+  }
+  box.innerHTML = devices.map((d) => {
+    const who = esc(d.id || d.mac || '(unidentified)');
+    const sub = [d.mac !== d.id ? d.mac : null, d.board].filter(Boolean).map(esc).join(' · ') || esc(d.ip);
+    const last = d.recent[0];
+    const outcome = last ? (last.label === 'ok' ? '' : ` · <span class="warn">${esc(last.label)}</span>`) : '';
+    return `<div class="drow">
+      <span class="dot${d.active ? ' on' : ''}"></span>
+      <span class="who">${who}<span class="sub">${sub}</span></span>
+      <span class="meta">${d.pollCount} poll${d.pollCount === 1 ? '' : 's'}${outcome} · ${fmtAgo(d.lastSeen)}</span>
+    </div>`;
+  }).join('');
+}
+
 async function loadState() { state = await api('GET', '/api/state'); }
+async function loadDevices() { renderDevices((await api('GET', '/api/devices')).devices); }
 
 $$('#lvls .lvl').forEach((el) => el.onclick = () => {
   pending.level = el.dataset.l;
@@ -402,10 +456,11 @@ $('#epUrl').textContent = location.origin + '/v1/gateway_health';
   await loadState();
   renderControls();
   syncApplyButton();
+  await loadDevices();
 })();
 
-/* background: live sparkline/stat/log refresh only — never the form controls */
-setInterval(async () => { await loadState(); renderLiveReadouts(); }, 4000);
+/* background: live sparkline/stat/log/devices refresh only — never the form controls */
+setInterval(async () => { await loadState(); renderLiveReadouts(); await loadDevices(); }, 4000);
 </script>
 </body>
 </html>

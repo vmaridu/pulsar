@@ -16,6 +16,7 @@ Accept: application/json
 - 🧩 **Serve every screen from this one endpoint.** If your backend fronts several platforms, merge them here and tag each row with `gateway` → [§4](#4--metrics)
 - 🔒 HTTPS only — plain HTTP hands the token to the network
 - 🔑 `Authorization` required unless HMAC is configured → [appendix](#-appendix--hmac)
+- 🏷️ Every request also carries `X-Device-Id`, `X-Device-Mac` and `X-Device-Board` — not part of the contract, and a real backend owes them nothing back. They exist so something on the other end (the [simulator](../simulator), a log line, a fleet of test rigs) can tell devices apart by more than source IP
 
 | Response | Must be                                      |
 | -------- | -------------------------------------------- |

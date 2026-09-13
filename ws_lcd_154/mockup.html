@@ -279,9 +279,10 @@ const LV = {
 };
 /* One alert pattern for warning, critical and no connection alike: the WHOLE
    SCREEN flashes the level colour for 500 ms, once every 3 s — every band, not
-   a stripe. Only critical adds a sound, exactly as long as the flash.      */
-const FLASHES = { info:false, warning:true, critical:true, fault:true };
-const SOUNDS  = { info:false, warning:false, critical:true, fault:false };
+   a stripe. `critical` gets the full alert; `warning` and `fault` get a
+   shorter, quieter notice instead — never both, and `info` gets neither.  */
+const FLASHES = { info:false, warning:true,  critical:true,  fault:true  };
+const SOUNDS  = { info:null,  warning:'notice', critical:'alert', fault:'notice' };
 const ALERT_FLASH_MS = 500;   // synced to st.screenT0, not a free-running clock — see frame()
 
 /* ==========================================================================
@@ -986,11 +987,15 @@ function drawIntroOver(I, t, f){
 /* ==========================================================================
    Sound and mute — the same synth as ws_lcd_154/sound.ino. The boot intro
    hums low while the pulsar turns, then stops with the animation.
-   Once running, a critical alert adds 500 ms riding each flash, ending as
-   the flash ends. Double-tap BOOT to mute either; a restart (power off,
-   then on) brings sound back.
+   Once running, one of two sounds rides each flash, ending as it ends:
+   `critical` gets the full 500 ms alert; `warning` and `fault` get a
+   shorter, quieter notice. Double-tap BOOT to mute any of them; a restart
+   (power off, then on) brings sound back — real hardware also clears a
+   mute on its own after a configured timeout, set on the setup page, not
+   simulated here.
    ========================================================================== */
-const AUDIO_RATE = 16000, SOUND_PEAK = 0.85, INTRO_PEAK = 0.72, INTRO_HUM_HZ = 85, HIGHPASS_HZ = 250;
+const AUDIO_RATE = 16000, SOUND_PEAK = 0.85, INTRO_PEAK = 0.72, INTRO_HUM_HZ = 85,
+      NOTICE_MS = 220, NOTICE_PEAK = 0.35, NOTICE_HZ = 660, HIGHPASS_HZ = 250;
 /* a drum kick: a sine sweeping down from fEnd+fSweep to fEnd, decaying */
 function kick(tau, fEnd, fSweep, k, decay){
   if (tau < 0 || tau > decay * 7) return 0;
@@ -1008,6 +1013,17 @@ function alertSample(t){
   const release = t > 0.38 ? 0.5 + 0.5 * Math.cos(Math.PI * (t - 0.38) / (T - 0.38)) : 1;
   const s = attack * release * (0.42 * body * shiver + 0.35 * knock + 0.08 * glint);
   return Math.tanh(1.6 * s) / Math.tanh(1.6);
+}
+/* one soft tone, quick in and quicker out — a nudge, not an alarm. Rides
+   `warning` and any connection fault; `critical` keeps the alert instead. */
+function noticeSample(t){
+  const T = NOTICE_MS / 1000;
+  if (t < 0 || t >= T) return 0;
+  const ph = 2 * Math.PI * NOTICE_HZ * t;
+  const tone = Math.sin(ph) + 0.15 * Math.sin(2 * ph);
+  const attack  = t < 0.02 ? t / 0.02 : 1;
+  const release = t > T - 0.08 ? (T - t) / 0.08 : 1;
+  return attack * release * tone;
 }
 /* the boot-intro hum, t in seconds from the intro's start — a low tone plus
    its octave for body, swelling every time a beam sweeps past top, the same
@@ -1037,7 +1053,7 @@ function renderSound(sample, lenMs, peak){
   for (let i = 0; i < n; i++) out[i] *= peak / pk;
   return out;
 }
-let actx = null, alertBuf = null, introBuf = null, audioNoted = false;
+let actx = null, alertBuf = null, introBuf = null, noticeBuf = null, audioNoted = false;
 function playPCM(getBuf, setBuf){
   if (st.muted) return;
   try {
@@ -1058,6 +1074,15 @@ function alertSound(){
     alertBuf = actx.createBuffer(1, pcm.length, AUDIO_RATE);
     alertBuf.getChannelData(0).set(pcm);
     return alertBuf;
+  });
+}
+/* rides a warning or fault flash — never the same flash as alertSound() */
+function noticeSound(){
+  playPCM(() => noticeBuf, () => {
+    const pcm = renderSound(noticeSample, NOTICE_MS, NOTICE_PEAK);
+    noticeBuf = actx.createBuffer(1, pcm.length, AUDIO_RATE);
+    noticeBuf.getChannelData(0).set(pcm);
+    return noticeBuf;
   });
 }
 /* called once, right as startIntro() begins screen 1 */
@@ -1279,7 +1304,10 @@ function frame(){
   }
   /* The sound rides the flash, and runs whatever is on screen and whether or
      not the panel is awake — the speaker is for when you are not looking.  */
-  if (st.flashOn && !st.wasFlash && SOUNDS[lv]) alertSound();
+  if (st.flashOn && !st.wasFlash){
+    if (SOUNDS[lv] === 'alert') alertSound();
+    else if (SOUNDS[lv] === 'notice') noticeSound();
+  }
   st.wasFlash = st.flashOn;
   holdOverlay();
   drawToast();
@@ -1356,7 +1384,7 @@ function setLevel(l){
                                           : '5xx 2.14% max 0.50%';
   if (l !== 'info'){ panel.classList.remove('beep'); void panel.offsetWidth;
                      panel.classList.add('beep');
-                     log('speaker · ' + (l === 'critical' ? '4 tones' : '2 tones') + ' on transition'); }
+                     log('speaker · ' + (SOUNDS[l] || 'no') + ' sound on the next flash'); }
   log('alert.level → <b>' + l + '</b>'); sync();
 }
 
@@ -1437,6 +1465,10 @@ $('#doPoll').onclick = () => poll(true);
 $('#doIntro').onclick = () => { st.view = 'main'; st.screenT0 = Date.now(); startIntro(); };
 $('#doFault').onclick = () => {
   SNAP.fault = SNAP.fault ? null : 'OFFLINE';
+  if (SNAP.fault){
+    panel.classList.remove('beep'); void panel.offsetWidth; panel.classList.add('beep');
+    log('speaker · ' + SOUNDS.fault + ' sound on the next flash');
+  }
   log(SNAP.fault ? 'GET /v1/gateway_health <b>failed</b> · OFFLINE · numbers held' : 'recovered · 200');
   sync();
 };

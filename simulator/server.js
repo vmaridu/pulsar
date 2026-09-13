@@ -123,6 +123,60 @@ function logHit(line) {
   console.log(`[${t}] ${line}`);
 }
 
+/* ------------------------------------------------------------- devices
+   In memory only — no file, nothing survives a restart, on purpose. Keyed
+   by X-Device-Mac (falling back to X-Device-Id, then source IP, so curl
+   and the mockups still show up as *something* while testing). At most
+   MAX_DEVICES tracked at once, least-recently-seen evicted first; each
+   device keeps at most MAX_HISTORY of its own polls, oldest trimmed.     */
+const MAX_DEVICES = 10;
+const MAX_HISTORY = 500;
+const ACTIVE_MS = 2 * 60 * 1000;      // "connected" dot: seen in the last 2 minutes
+const DEVICES = new Map();
+
+function touchDevice(req) {
+  const mac   = req.headers['x-device-mac']   || null;
+  const id    = req.headers['x-device-id']    || null;
+  const board = req.headers['x-device-board'] || null;
+  const ip    = (req.socket.remoteAddress || '').replace(/^::ffff:/, '');
+  const key   = mac || id || ip || 'unknown';
+  const now   = Date.now();
+
+  let d = DEVICES.get(key);
+  if (!d) {
+    if (DEVICES.size >= MAX_DEVICES) {
+      let oldestKey = null, oldestSeen = Infinity;
+      for (const [k, v] of DEVICES) if (v.lastSeen < oldestSeen) { oldestSeen = v.lastSeen; oldestKey = k; }
+      if (oldestKey !== null) DEVICES.delete(oldestKey);
+    }
+    d = { key, mac, id, board, ip, firstSeen: now, lastSeen: now, pollCount: 0, history: [] };
+    DEVICES.set(key, d);
+  }
+  d.mac = mac || d.mac;
+  d.id = id || d.id;
+  d.board = board || d.board;
+  d.ip = ip || d.ip;
+  d.lastSeen = now;
+  return d;
+}
+function recordPoll(dev, status, label) {
+  if (!dev) return;
+  dev.pollCount++;
+  dev.history.unshift({ t: Date.now(), status, label });
+  if (dev.history.length > MAX_HISTORY) dev.history.length = MAX_HISTORY;
+}
+function devicesJSON() {
+  const now = Date.now();
+  return [...DEVICES.values()]
+    .sort((a, b) => b.lastSeen - a.lastSeen)
+    .map((d) => ({
+      mac: d.mac, id: d.id, board: d.board, ip: d.ip,
+      firstSeen: d.firstSeen, lastSeen: d.lastSeen, pollCount: d.pollCount,
+      active: now - d.lastSeen < ACTIVE_MS,
+      recent: d.history.slice(0, 20),
+    }));
+}
+
 /* ------------------------------------------------------- bucket patterns
    Each one is a shape for a 30-point series, base-scaled. A "label" ships
    alongside for the UI so a person sees what each button does without
@@ -215,10 +269,12 @@ function readBody(req) {
 }
 
 function handleGatewayHealth(req, res) {
+  const dev = touchDevice(req);
   const fault = STATE.fault ? FAULTS[STATE.fault] : null;
 
   if (fault && fault.kind === 'delay') {
     logHit(`GET /v1/gateway_health -> delaying ${fault.ms}ms (${fault.label})`);
+    recordPoll(dev, 200, fault.label);
     setTimeout(() => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(buildPayload()));
@@ -227,54 +283,63 @@ function handleGatewayHealth(req, res) {
   }
   if (fault && fault.kind === 'status') {
     logHit(`GET /v1/gateway_health -> ${fault.code} (${fault.label})`);
+    recordPoll(dev, fault.code, fault.label);
     res.writeHead(fault.code, Object.assign({ 'Content-Type': 'text/plain' }, fault.headers || {}));
     res.end('');
     return;
   }
   if (fault && fault.kind === 'redirect') {
     logHit(`GET /v1/gateway_health -> 302 (${fault.label})`);
+    recordPoll(dev, 302, fault.label);
     res.writeHead(302, { Location: '/v1/gateway_health' });
     res.end('');
     return;
   }
   if (fault && fault.kind === 'malformed') {
     logHit(`GET /v1/gateway_health -> 200 malformed body (${fault.label})`);
+    recordPoll(dev, 200, fault.label);
     const body = JSON.stringify(buildPayload());
     send(res, 200, body.slice(0, Math.floor(body.length * 0.6)), {}); // truncated, invalid JSON
     return;
   }
   if (fault && fault.kind === 'missing-alert') {
     logHit(`GET /v1/gateway_health -> 200, no "alert" (${fault.label})`);
+    recordPoll(dev, 200, fault.label);
     const p = buildPayload(); delete p.alert;
     sendJSON(res, 200, p);
     return;
   }
   if (fault && fault.kind === 'missing-gateway') {
     logHit(`GET /v1/gateway_health -> 200, row 0 missing "gateway" (${fault.label})`);
+    recordPoll(dev, 200, fault.label);
     const p = buildPayload(); delete p.metrics[0].gateway;
     sendJSON(res, 200, p);
     return;
   }
   if (fault && fault.kind === 'null-aggregates') {
     logHit(`GET /v1/gateway_health -> 200, row 0 aggregates:null (${fault.label})`);
+    recordPoll(dev, 200, fault.label);
     const p = buildPayload(); p.metrics[0].aggregates = null;
     sendJSON(res, 200, p);
     return;
   }
   if (fault && fault.kind === 'sparse-aggregates') {
     logHit(`GET /v1/gateway_health -> 200, row 0 aggregates trimmed to 1 (${fault.label})`);
+    recordPoll(dev, 200, fault.label);
     const p = buildPayload(); p.metrics[0].aggregates = p.metrics[0].aggregates.slice(0, 1);
     sendJSON(res, 200, p);
     return;
   }
   if (fault && fault.kind === 'empty-metrics') {
     logHit(`GET /v1/gateway_health -> 200, metrics:[] (${fault.label})`);
+    recordPoll(dev, 200, fault.label);
     const p = buildPayload(); p.metrics = [];
     sendJSON(res, 200, p);
     return;
   }
   if (fault && fault.kind === 'oversized') {
     logHit(`GET /v1/gateway_health -> 200, padded past 4 KB (${fault.label})`);
+    recordPoll(dev, 200, fault.label);
     const p = buildPayload();
     p._padding = 'x'.repeat(5000);
     sendJSON(res, 200, p);
@@ -282,10 +347,14 @@ function handleGatewayHealth(req, res) {
   }
 
   logHit('GET /v1/gateway_health -> 200');
+  recordPoll(dev, 200, 'ok');
   sendJSON(res, 200, buildPayload());
 }
 
 async function handleApi(req, res, pathname) {
+  if (pathname === '/api/devices' && req.method === 'GET') {
+    return sendJSON(res, 200, { devices: devicesJSON(), activeMs: ACTIVE_MS, maxDevices: MAX_DEVICES });
+  }
   if (pathname === '/api/state' && req.method === 'GET') {
     return sendJSON(res, 200, {
       alert: STATE.alert,

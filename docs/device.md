@@ -62,20 +62,24 @@ first of all, so a looping board names its own cause. Never logged: frames.
 
 ## 3. 🔔 What it speaks
 
-Only `critical` has a sound, and it rides the same clock as the flash — they
-start and end together.
+Every non-`info` level has a sound, and it rides the same clock as the flash
+— they start and end together. `critical` gets a stronger alert; `warning`
+and any connection fault get a shorter, quieter notice instead, so the two
+are never mistaken for each other by ear alone.
 
 | Level          | Screen  | Sound                                                       |
 | -------------- | ------- | -------------------------------------------------------------- |
 | 🟢 `info`      | steady  | none                                                            |
-| 🟠 `warning`   | flashes | none                                                            |
-| 🔴 `critical`  | flashes | a short alert, every flash                                      |
-| 🩶 fetch fault | flashes | none — a dropped connection must not sound like an outage       |
+| 🟠 `warning`   | flashes | a short, quiet notice, every flash                              |
+| 🔴 `critical`  | flashes | a stronger alert, every flash                                   |
+| 🩶 fetch fault | flashes | the same quiet notice as `warning`                               |
 
 A double-tap on the mute control silences every sound and brings it back with
-the same gesture. Mute lives in RAM only — a restart always comes back with
-sound, except straight after a brown-out reset, which starts muted so a
-sagging supply can't loop the sound that caused it.
+the same gesture. Mute also clears itself two other ways: a restart (RAM
+only — always back after one, except straight after a brown-out reset,
+which starts muted so a sagging supply can't loop the sound that caused it),
+or a configured timeout elapsing on its own, set on the setup page →
+[§5](#5--configuration).
 
 ---
 
@@ -106,6 +110,9 @@ password shown only on its screen — and open the page it serves at
 - Up to **six Wi-Fi networks**, in priority order, including
   WPA2-Enterprise and captive-portal sign-in
 - An optional pasted **CA root**, for a backend behind a private certificate
+- **How long a mute lasts** — 5 m / 10 m / 30 m / 1 h / 6 h / 12 h / 24 h, or
+  never — before it clears itself on top of the usual double-tap and restart
+  → [§3](#3--what-it-speaks). Defaults to 30 minutes
 
 A stored secret never comes back to the page — it reports that one exists,
 never what it is, and leaving the field empty on save means "keep it." Save

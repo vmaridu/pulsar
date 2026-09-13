@@ -97,6 +97,24 @@ cursor:pointer}
 </section>
 
 <section>
+  <h2>Sound</h2>
+  <label>Mute auto-clears after
+    <select id="muteTimeout">
+      <option value="5">5 minutes</option>
+      <option value="10">10 minutes</option>
+      <option value="30">30 minutes</option>
+      <option value="60">1 hour</option>
+      <option value="360">6 hours</option>
+      <option value="720">12 hours</option>
+      <option value="1440">24 hours</option>
+      <option value="0">Never (only a double-tap or a restart)</option>
+    </select></label>
+  <p class="hint">Double-tap the right key to mute every sound. It always clears on a
+     restart — this is the <em>other</em> way it clears, on its own, so a mute from
+     last week can't silence a real critical today.</p>
+</section>
+
+<section>
   <h2>Wi-Fi networks</h2>
   <p class="hint">Top of the list wins. The device joins the highest one it can
      actually see, and if none of them are in range it simply keeps trying — that
@@ -261,6 +279,7 @@ function load(keep){
     $('secret').placeholder = c.secretSet ? 'saved - leave blank to keep' : 'none - bearer token mode';
     $('ca').placeholder     = c.caSet ? 'saved - leave blank to keep'
                                       : '-----BEGIN CERTIFICATE-----';
+    $('muteTimeout').value = String(c.muteTimeoutMin != null ? c.muteTimeoutMin : 30);
     st.nets = c.nets || [];
     draw();
     if (!keep) say(c.url ? 'Pointing at ' + c.url : 'No endpoint set yet.', c.url ? '' : 'bad');
@@ -288,9 +307,10 @@ function save(reboot){
     secretClear: $('secretClear').checked,
     ca: $('ca').value.trim(),
     caClear: $('caClear').checked,
+    muteTimeoutMin: parseInt($('muteTimeout').value, 10),
     nets: nets
   };
-  say('Saving&hellip;');
+  say('Saving…');
   fetch('/api/config', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -304,7 +324,7 @@ function save(reboot){
       load(true);
       return;
     }
-    say('Saved. Restarting&hellip; watch the device screen.', 'good');
+    say('Saved. Restarting… watch the device screen.', 'good');
     fetch('/api/reboot', {method: 'POST'}).catch(function(){});
   }).catch(function(e){ say('Save failed: ' + e, 'bad'); });
 }
@@ -317,7 +337,7 @@ function scan(){
     if (s.error){ say(s.error, 'bad'); return; }
     if (s.scanning){
       if (++scanTries > 14){ say('The scan is taking too long.', 'bad'); return; }
-      say('Scanning&hellip;');
+      say('Scanning…');
       setTimeout(scan, 1200);
       return;
     }

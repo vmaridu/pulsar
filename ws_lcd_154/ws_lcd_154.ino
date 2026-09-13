@@ -215,12 +215,13 @@ struct WifiNet {
    X-Api-Key and the secret signs each request — api.md §1 and its HMAC
    appendix. Two fields, no third field to contradict them.               */
 struct Config {
-  char    url[LEN_URL];              /* the full URL to poll, exactly as configured */
-  char    key[LEN_KEY];
-  char    secret[LEN_KEY];
-  char    ca[LEN_CA];                /* optional PEM root; empty = TLS unverified */
-  WifiNet nets[MAX_NETWORKS];
-  uint8_t nnets;
+  char     url[LEN_URL];              /* the full URL to poll, exactly as configured */
+  char     key[LEN_KEY];
+  char     secret[LEN_KEY];
+  char     ca[LEN_CA];                /* optional PEM root; empty = TLS unverified */
+  WifiNet  nets[MAX_NETWORKS];
+  uint8_t  nnets;
+  uint16_t muteTimeoutMin;            /* minutes until a mute clears itself; 0 = never — sound.ino */
 };
 static Config cfg;
 
@@ -288,12 +289,13 @@ static constexpr uint16_t C_RD    = rgb(0xff2626);   /* bright red, nothing mixe
 static constexpr uint16_t C_GY    = rgb(0x8aa0c0);
 static constexpr uint16_t C_INK   = rgb(0x04060a);   /* words printed on a level colour */
 
-/* level → word, solid colour, dark shade, flashes, sounds */
-struct Level { const char* word; uint16_t c, dark; bool flashes, sounds; };
-static const Level LV_INFO  = { "INFO",     C_GR, rgb(0x12380c), false, false };
-static const Level LV_WARN  = { "WARNING",  C_OR, rgb(0x3d1c00), true,  false };
-static const Level LV_CRIT  = { "CRITICAL", C_RD, rgb(0x4a0c0c), true,  true  };
-static const Level LV_FAULT = { "OFFLINE",  C_GY, rgb(0x18202d), true,  false };
+/* level → word, solid colour, dark shade, flashes, sounds (the full alert),
+   soft (the quieter notice instead — never both on the same level) */
+struct Level { const char* word; uint16_t c, dark; bool flashes, sounds, soft; };
+static const Level LV_INFO  = { "INFO",     C_GR, rgb(0x12380c), false, false, false };
+static const Level LV_WARN  = { "WARNING",  C_OR, rgb(0x3d1c00), true,  false, true  };
+static const Level LV_CRIT  = { "CRITICAL", C_RD, rgb(0x4a0c0c), true,  true,  false };
+static const Level LV_FAULT = { "OFFLINE",  C_GY, rgb(0x18202d), true,  false, true  };
 
 /* One alert pattern for warning, critical and no connection alike: the WHOLE
    screen flashes the level colour for the first ALERT_FLASH_MS of every new
@@ -701,7 +703,9 @@ void        drawSettings();
 /* sound.ino */
 void        alertSound();
 void        introSound();
+void        noticeSound();
 void        soundBegin();
+void        soundTick();
 void        toggleMute();
 
 /* wifi.ino */
@@ -724,14 +728,17 @@ static void render(){
   cv->flush();
 }
 
-/* The alert sound rides the flash, and runs whether or not the panel is awake
-   and whatever screen is up — the point of the speaker is to reach you when
-   you are not looking at it.                                              */
+/* The alert sound (or the quieter notice) rides the flash, and runs whether
+   or not the panel is awake and whatever screen is up — the point of the
+   speaker is to reach you when you are not looking at it.                */
 static void alertTick(){
   static bool wasFlash = false;
   const Level& L = levelNow();
   const bool flash = alertFlash(L);
-  if (flash && !wasFlash && L.sounds) alertSound();       /* sound.ino */
+  if (flash && !wasFlash){
+    if (L.sounds)     alertSound();     /* sound.ino — critical only */
+    else if (L.soft)  noticeSound();    /* sound.ino — warning, and any connection fault */
+  }
   wasFlash = flash;
 }
 
@@ -818,6 +825,7 @@ void loop(){
   hotspotTick();            /* hotspot.ino — serves the setup page while the AP is up */
   cycleTick();              /* 5 s per screen, refetch when the loop wraps — net.ino */
   alertTick();
+  soundTick();              /* auto-clears a mute once its configured timeout elapses — sound.ino */
   render();                 /* ~25 fps; the alert flash and the count-up need it */
   delay(28);
 }

@@ -217,45 +217,169 @@ static bool parseSnapshot(const char* body){
 
 /* ------------------------------------------------------------------ fetch */
 
+/* One line off the stream, CRLF (or bare LF) stripped, bounded by `cap` and
+   by `deadline` (an absolute millis()). Used only for chunk-size lines and
+   the trailer after a chunk's data — never for the JSON itself, so a few
+   bytes at a time is not a performance concern.                          */
+static bool readStreamLine(WiFiClient* s, char* out, size_t cap, uint32_t deadline){
+  size_t n = 0;
+  for (;;){
+    if ((int32_t)(millis() - deadline) > 0) return false;
+    if (!s->available()){
+      if (!s->connected()) return false;
+      delay(2);
+      continue;
+    }
+    const int c = s->read();
+    if (c < 0) continue;
+    if (c == '\r') continue;
+    if (c == '\n'){ out[n] = 0; return true; }
+    if (n + 1 < cap) out[n++] = (char)c;    /* an absurd line just gets truncated, never overrun */
+  }
+}
+
+/* HTTP chunked transfer-encoding, decoded by hand: hex size, CRLF, that many
+   bytes, CRLF, repeat until a zero-size chunk, then whatever trailer headers
+   follow up to the blank line that ends them. Same ceiling and "refuse, do
+   not truncate" rule as the Content-Length path below.                    */
+static bool fetchChunkedBody(WiFiClient* s, char* buf, size_t cap, size_t* outLen, uint32_t deadline){
+  size_t n = 0;
+  char line[24];
+  for (;;){
+    if (!readStreamLine(s, line, sizeof line, deadline)){
+      LOG("net", "chunked body: timed out or connection closed reading a chunk size");
+      *outLen = n;
+      return false;
+    }
+    char* semi = strchr(line, ';');           /* chunk-extensions — legal, always ignorable here */
+    if (semi) *semi = 0;
+    char* end = nullptr;
+    const long size = strtol(line, &end, 16);
+    if (end == line || size < 0){
+      LOGF("net", "chunked body: not a valid chunk-size line: \"%s\"", line);
+      *outLen = n;
+      return false;
+    }
+    if (size == 0) break;                     /* the terminating chunk */
+    if (n + (size_t)size > cap){
+      LOGF("net", "chunked body: over the %u byte limit, refusing it", (unsigned)cap);
+      *outLen = n;
+      return false;
+    }
+    size_t got = 0;
+    while (got < (size_t)size){
+      if ((int32_t)(millis() - deadline) > 0){
+        LOG("net", "chunked body: timed out mid-chunk");
+        *outLen = n;
+        return false;
+      }
+      const int avail = s->available();
+      if (avail <= 0){
+        if (!s->connected()){ LOG("net", "chunked body: connection closed mid-chunk"); *outLen = n; return false; }
+        delay(4);
+        continue;
+      }
+      size_t want = (size_t)size - got;
+      if ((size_t)avail < want) want = (size_t)avail;
+      const int r = s->readBytes(buf + n + got, want);
+      if (r <= 0) break;
+      got += (size_t)r;
+    }
+    if (got != (size_t)size){
+      LOG("net", "chunked body: fewer bytes arrived than the chunk declared");
+      *outLen = n;
+      return false;
+    }
+    n += got;
+    if (!readStreamLine(s, line, sizeof line, deadline)){   /* the CRLF after this chunk's data */
+      LOG("net", "chunked body: timed out reading the chunk's trailing CRLF");
+      *outLen = n;
+      return false;
+    }
+  }
+  for (;;){                                   /* optional trailer headers, ended by a blank line */
+    if (!readStreamLine(s, line, sizeof line, deadline)) break;
+    if (!line[0]) break;
+  }
+  *outLen = n;
+  return true;
+}
+
 /* Read the body with a hard ceiling, so a backend that answers with a
    gigabyte cannot take the board down. api.md §5 caps a real body at 4 KB;
    anything past NET_MAX_BODY is refused rather than truncated, because half
-   a JSON document is not a smaller JSON document.                         */
+   a JSON document is not a smaller JSON document.
+
+   Two wire shapes are handled, because both are common and neither is
+   this device's business to reject: a declared Content-Length, or
+   Transfer-Encoding: chunked with no length declared at all — a plain
+   `readBytes()` loop over the latter hands the parser raw chunk-size lines
+   and a trailing "0" instead of JSON, which reads as "InvalidInput" and is
+   nothing to do with the JSON itself. Content-Encoding (gzip et al.) is
+   refused outright: this device has no decompressor, and parsing compressed
+   bytes as text would fail just as confusingly.                          */
 static bool fetchBody(HTTPClient& http, char** body, size_t* len){
   static char buf[NET_MAX_BODY + 1];          /* one poll at a time — no need for two */
   *body = buf; *len = 0;
 
-  const int declared = http.getSize();
-  if (declared > NET_MAX_BODY){
-    LOGF("net", "body says it is %d bytes - over the %d limit, refusing to read it",
-         declared, NET_MAX_BODY);
-    return false;
-  }
   WiFiClient* s = http.getStreamPtr();
   if (!s){ LOG("net", "no stream to read the body from"); return false; }
 
-  size_t n = 0;
-  const uint32_t t0 = millis();
-  while (n < NET_MAX_BODY && millis() - t0 < FETCH_MS){
-    if (declared >= 0 && n >= (size_t)declared) break;
-    const int avail = s->available();
-    if (avail <= 0){
-      if (!s->connected()) break;
-      delay(4);
-      continue;
-    }
-    size_t want = NET_MAX_BODY - n;
-    if ((size_t)avail < want) want = (size_t)avail;
-    const int got = s->readBytes(buf + n, want);
-    if (got <= 0) break;
-    n += (size_t)got;
-  }
-  buf[n] = 0;
-  *len = n;
-  if (n >= NET_MAX_BODY){
-    LOGF("net", "body hit the %d byte ceiling - refusing it", NET_MAX_BODY);
+  const String encoding = http.header("Content-Encoding");
+  if (encoding.length()){
+    LOGF("net", "body is Content-Encoding: %s - this device only reads plain JSON, cannot decode it",
+         encoding.c_str());
     return false;
   }
+
+  const uint32_t deadline = millis() + FETCH_MS;
+  size_t n = 0;
+  bool ok;
+
+  if (http.header("Transfer-Encoding").equalsIgnoreCase("chunked")){
+    ok = fetchChunkedBody(s, buf, NET_MAX_BODY, &n, deadline);
+  } else {
+    const int declared = http.getSize();
+    if (declared > NET_MAX_BODY){
+      LOGF("net", "body says it is %d bytes - over the %d limit, refusing to read it",
+           declared, NET_MAX_BODY);
+      return false;
+    }
+    while (n < NET_MAX_BODY && (int32_t)(millis() - deadline) <= 0){
+      if (declared >= 0 && n >= (size_t)declared) break;
+      const int avail = s->available();
+      if (avail <= 0){
+        if (!s->connected()) break;
+        delay(4);
+        continue;
+      }
+      size_t want = NET_MAX_BODY - n;
+      if ((size_t)avail < want) want = (size_t)avail;
+      const int got = s->readBytes(buf + n, want);
+      if (got <= 0) break;
+      n += (size_t)got;
+    }
+    ok = true;                       /* the ceiling check right below still applies */
+  }
+
+  if (!ok || n >= NET_MAX_BODY){
+    if (n >= NET_MAX_BODY) LOGF("net", "body hit the %d byte ceiling - refusing it", NET_MAX_BODY);
+    buf[n < NET_MAX_BODY ? n : NET_MAX_BODY] = 0;
+    *len = n;
+    return false;
+  }
+
+  /* A leading UTF-8 BOM is legal UTF-8 but not legal JSON — some backends'
+     JSON serializers add one without asking. Strip it before the parser
+     ever sees it, rather than fail on three bytes that carry no data.    */
+  if (n >= 3 && (uint8_t)buf[0] == 0xEF && (uint8_t)buf[1] == 0xBB && (uint8_t)buf[2] == 0xBF){
+    LOG("net", "body starts with a UTF-8 BOM - stripped before parsing");
+    memmove(buf, buf + 3, n - 3);
+    n -= 3;
+  }
+
+  buf[n] = 0;
+  *len = n;
   if (n > 4096) LOGF("net", "body is %u bytes - api.md caps it at 4 KB", (unsigned)n);
   return n > 0;
 }
@@ -326,9 +450,13 @@ bool netFetch(){
   http.setReuse(false);
   /* header() only answers for headers asked for in advance. Retry-After is
      what a 429 carries (api.md §7); Content-Type/-Length are logged on every
-     response so a bad-data poll shows exactly what came back and why.      */
-  static const char* wanted[] = { "Retry-After", "Content-Type", "Content-Length", "Server" };
-  http.collectHeaders(wanted, 4);
+     response so a bad-data poll shows exactly what came back and why;
+     Transfer-Encoding/Content-Encoding are what fetchBody() reads to decide
+     how to read the body at all — chunked framing and a compressed body
+     both look like "bad data" to the JSON parser if read as plain bytes.  */
+  static const char* wanted[] = { "Retry-After", "Content-Type", "Content-Length", "Server",
+                                   "Transfer-Encoding", "Content-Encoding" };
+  http.collectHeaders(wanted, 6);
   const char* warn = https ? (configTlsVerified() ? "" : " [TLS NOT VERIFIED - no CA pasted]")
                            : " [PLAIN HTTP - the key is readable on the wire]";
   LOGF("net", "poll -> %s%s", url, warn);
@@ -344,8 +472,25 @@ bool netFetch(){
   }
 
   http.addHeader("Accept", "application/json");
+  /* Asked for plainly so a well-behaved backend never compresses a body this
+     device has no decompressor for — fetchBody() still checks and refuses
+     Content-Encoding outright if one shows up anyway.                     */
+  http.addHeader("Accept-Encoding", "identity");
+  /* Not part of api.md's contract — a real backend owes this device nothing
+     back for these — but the simulator (and anything else that wants to
+     tell devices apart) can key off them instead of just source IP.       */
+  char macStr[18];
+  snprintf(macStr, sizeof macStr, "%02X:%02X:%02X:%02X:%02X:%02X",
+           macAddr[0], macAddr[1], macAddr[2], macAddr[3], macAddr[4], macAddr[5]);
+  http.addHeader("X-Device-Id",    deviceName);
+  http.addHeader("X-Device-Mac",   macStr);
+  http.addHeader("X-Device-Board", "ws_lcd_154");
   LOG("net", "> GET (path + query from the URL above)");
   LOG("net", ">   Accept: application/json");
+  LOG("net", ">   Accept-Encoding: identity");
+  LOGF("net", ">   X-Device-Id: %s", deviceName);
+  LOGF("net", ">   X-Device-Mac: %s", macStr);
+  LOG("net", ">   X-Device-Board: ws_lcd_154");
   if (configSigned()){
     /* A signature over a 1970 timestamp is a request the backend must reject
        — api.md's appendix rejects anything older than 60 s — so say why
