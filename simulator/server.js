@@ -43,8 +43,8 @@ function levelFor(name, share) {
 }
 
 /* ------------------------------------------------------------- the model
-   Same shape, same numbers, as ws_lcd_154/net.ino's embedded payload — so
-   a device pointed at either one shows the same thing to start with.
+   Same shape, same numbers, as docs/api.md §2's example object — Orders
+   and Payments, the same buckets and aggregates.
    Position 0 of `aggregates` is the heading (2XX); the rest fill the four
    BODY slots.                                                            */
 function row(gateway, name, buckets, c4, c5, avg, p95) {

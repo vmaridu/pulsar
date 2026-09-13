@@ -111,7 +111,7 @@ The standard map → [device.md §2](../docs/device.md#2--input--the-standard-ma
 | Input                | Tap                  | Double-tap              | Hold 2 s                     |
 | -------------------- | -------------------- | ----------------------- | ---------------------------- |
 | **Glass** · a column | _future use_         | _future use_            | **Force refresh**            |
-| **Glass** · top bar  | **Settings** on/off  | _future use_            | **Hotspot** — placeholder    |
+| **Glass** · top bar  | **Settings** on/off  | _future use_            | **Setup hotspot**            |
 | **PWR**              | _future use_         | _future use_            | **Power off** · from off: on |
 | **BOOT**             | **Display on / off** | **Sound mute / unmute** | _future use_                 |
 
