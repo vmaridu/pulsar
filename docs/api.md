@@ -2,7 +2,7 @@
 
 One `GET`, one JSON object, no device knowledge required.
 
-🖥️ Builds that consume it → **[lcd154](../lcd154/docs/readme.md)** · **[lcd349](../lcd349/docs/readme.md)**
+🖥️ Builds that consume it → **[ws_lcd_154](../ws_lcd_154/device.md)** · **[ws_lcd_349](../ws_lcd_349/device.md)**
 
 ## 1. 🔌 Endpoint
 
@@ -12,267 +12,260 @@ Authorization: Bearer <token>
 Accept: application/json
 ```
 
-- 🔗 **One URL per gateway.** The URL _is_ the id — no gateway id is sent, no query params
+- 🔗 **One URL per device**, plain — no id, no query params
+- 🧩 **Serve every screen from this one endpoint.** If your backend fronts several platforms, merge them here and tag each row with `gateway` → [§4](#4--metrics)
 - 🔒 HTTPS only — plain HTTP hands the token to the network
 - 🔑 `Authorization` required unless HMAC is configured → [appendix](#-appendix--hmac)
 
 | Response | Must be                                      |
 | -------- | -------------------------------------------- |
 | Status   | `200` + `Content-Type: application/json`     |
-| Size     | **≤ 4 KB** (a full 5-row payload is ~1.7 KB) |
+| Size     | **≤ 4 KB** (a full 5-row payload is ~2.6 KB) |
 | Time     | **≤ 5 s** — clients time out                 |
 
 ---
 
 ## 2. 📦 The object
 
-````json
+```json
 {
-  "gateway": "Payouts",
   "measured_at": 1770000100,
-  "health": {
-    "level": "critical",
-    "message": "5xx 2.14% max 0.50%"
+  "alert": {
+    "level": "info",
+    "message": "error budget healthy"
   },
   "metrics": [
     {
-      "name": "Overview",
-      "bucket_unit": "minute",
+      "gateway": "Orders",
+      "name": "Created",
+      "bucket_unit": "m",
       "bucket_size": 1,
       "bucket_count": 30,
-      "aggregates": {
-        "2xx_count": 17862,
-        "4xx_count": 169,
-        "5xx_count": 389,
-        "avg_latency_ms": 48,
-        "p95_latency_ms": 210
-      },
+      "buckets_value_type": "total_count",
       "buckets": [
-        656, 662, 652, 658, 664, 654, 660, 650, 656, 660, 656, 662, 652, 658,
-        664, 654, 659, 649, 655, 659, 654, 619, 569, 534, 500, 448, 414, 363,
-        329, 292
+        649, 625, 606, 646, 647, 632, 636, 610, 640, 616, 607, 641, 621, 633,
+        633, 613, 614, 611, 607, 627, 648, 609, 630, 627, 632, 610, 631, 618,
+        630, 634
+      ],
+      "aggregates": [
+        { "name": "2XX", "primary_value": 18659, "secondary_value": 99.34, "secondary_unit": "%" },
+        { "name": "4XX", "primary_value": 109,   "secondary_value": 0.58,  "secondary_unit": "%" },
+        { "name": "5XX", "primary_value": 15,    "secondary_value": 0.08,  "secondary_unit": "%" },
+        { "name": "AVG", "primary_value": 42,  "primary_unit": "ms" },
+        { "name": "P95", "primary_value": 180, "primary_unit": "ms" }
       ]
     },
     {
-      "name": "Init Payout",
-      "bucket_unit": "minute",
+      "gateway": "Payments",
+      "name": "Paid",
+      "bucket_unit": "m",
       "bucket_size": 1,
       "bucket_count": 30,
-      "aggregates": {
-        "2xx_count": 6421,
-        "4xx_count": 61,
-        "5xx_count": 44,
-        "avg_latency_ms": 39,
-        "p95_latency_ms": 165
-      },
+      "buckets_value_type": "total_count",
       "buckets": [
-        236, 233, 234, 231, 238, 230, 237, 228, 236, 232, 236, 232, 234, 230,
-        238, 229, 237, 227, 235, 232, 237, 222, 211, 195, 189, 166, 160, 136,
-        129, 111
-      ]
-    },
-    {
-      "name": "Disburse Payout",
-      "bucket_unit": "minute",
-      "bucket_size": 1,
-      "bucket_count": 30,
-      "aggregates": {
-        "2xx_count": 5288,
-        "4xx_count": 74,
-        "5xx_count": 338,
-        "avg_latency_ms": 74,
-        "p95_latency_ms": 390
-      },
-      "buckets": [
-        200, 202, 199, 201, 203, 200, 201, 198, 200, 201, 200, 202, 199, 201,
-        203, 200, 201, 198, 200, 200, 194, 179, 161, 147, 134, 117, 106, 91, 80,
-        70
-      ]
-    },
-    {
-      "name": "Acct Validations",
-      "bucket_unit": "minute",
-      "bucket_size": 1,
-      "bucket_count": 30,
-      "aggregates": {
-        "2xx_count": 6153,
-        "4xx_count": 34,
-        "5xx_count": 7,
-        "avg_latency_ms": 21,
-        "p95_latency_ms": 62
-      },
-      "buckets": [
-        220, 227, 219, 226, 223, 224, 222, 224, 220, 227, 220, 228, 219, 227,
-        223, 225, 221, 224, 220, 227, 223, 218, 197, 192, 177, 165, 148, 136,
-        120, 111
+        488, 490, 468, 496, 484, 469, 502, 489, 480, 470, 484, 500, 490, 481,
+        480, 495, 481, 480, 476, 500, 483, 470, 488, 468, 494, 483, 486, 487,
+        480, 483
+      ],
+      "aggregates": [
+        { "name": "2XX", "primary_value": 14467, "secondary_value": 99.6, "secondary_unit": "%" },
+        { "name": "4XX", "primary_value": 51,    "secondary_value": 0.35, "secondary_unit": "%" },
+        { "name": "5XX", "primary_value": 7,     "secondary_value": 0.05, "secondary_unit": "%" },
+        { "name": "AVG", "primary_value": 71,  "primary_unit": "ms" },
+        { "name": "P95", "primary_value": 310, "primary_unit": "ms" }
       ]
     }
   ]
-}```
+}
+```
 
-| Field             | Type   | Req | What it is                                              |
+Two rows, two `gateway` names — a backend that fronts both **Orders** and
+**Payments** merged them into the one response this device shows.
+
+| Field             | Type   | Req | What it is                                             |
 | ----------------- | ------ | --- | ------------------------------------------------------- |
-| `gateway`         | string | ✅  | Name a person reads, **≤ 14** chars                     |
 | `measured_at`     | number | ✅  | Unix seconds you **measured** — not when you answered   |
-| `health`          | object | ✅  | Your verdict right now → [§3](#3--health)               |
-| `metrics`         | array  | ✅  | **1–5 rows**, first is the whole gateway → [§4](#4--metrics) |
+| `alert`           | object | ✅  | Your verdict right now → [§3](#3--alert)                |
+| `metrics`         | array  | ✅  | **1–5 rows** ("screens"), each names its own `gateway` → [§4](#4--metrics) |
 | `refresh_seconds` | number | ➖  | Suggested poll rate, advice only → [§7](#7--polling)    |
 
+- 🚫 **No root `gateway`.** The word only ever appears per row → [§4](#4--metrics) — a device doesn't have "a" gateway any more than it has "a" metric, it shows whatever the backend sends
 - 🚫 No top-level window — **each row carries its own clock**
-- 🚫 No separate `overview` — it is `metrics[0]`, conventionally named `Overview`; **position** makes it the summary, never the name
+- 🚫 No separate `overview` — a row happens to be the summary by **position** (`metrics[0]`), never by name
 - 🚫 Never send `null` — omit the field instead. Unknown fields are ignored
 
 ### 🪶 Minimum valid response
 
 ```json
 {
-  "gateway": "Fraud VAS",
   "measured_at": 1770000100,
-  "health": { "level": "info", "message": "all systems nominal" },
+  "alert": { "level": "info", "message": "all systems nominal" },
   "metrics": [
     {
-      "name": "Overview",
-      "aggregates": {
-        "2xx_count": 95865,
-        "4xx_count": 298,
-        "5xx_count": 77,
-        "avg_latency_ms": 18,
-        "p95_latency_ms": 42
-      }
+      "gateway": "Payments",
+      "name": "Paid",
+      "aggregates": [
+        { "name": "2XX", "primary_value": 95865 }
+      ]
     }
   ]
-}```
+}
+```
 
-- `gateway` + `measured_at` + `health` + one row is the floor
+- `measured_at` + `alert` + one row (with its own `gateway` and at least one tile) is the floor
 - No `buckets` → no graph · No clock → thirty 1-minute buckets
 
 ---
 
-## 3. 🩺 `health`
+## 3. 🚨 `alert`
 
 Exactly one, never an array. **Always sent** — including when everything is fine.
 
-| Field     | Type   | Req | Rule                                    |
-| --------- | ------ | --- | --------------------------------------- |
-| `level`   | string | ✅  | `info` · `warning` · `critical`         |
-| `message` | string | ✅  | **≤ 20** chars, one line, every level   |
+| Field     | Type   | Req | Rule                                  |
+| --------- | ------ | --- | ------------------------------------- |
+| `level`   | string | ✅  | `info` · `warning` · `critical`       |
+| `message` | string | ✅  | **≤ 20** chars, one line, every level |
 
-| `level`     | Means                                   | Client                        |
-| ----------- | --------------------------------------- | ----------------------------- |
-| 🟢 `info`    | Nothing to act on — the resting state   | Green, steady, silent         |
-| 🟡 `warning` | Degraded                                | Amber, slow blink, **sounds** |
-| 🔴 `critical`| Broken                                  | Red, fast blink, **sounds**   |
+| `level`      | Means                                 | Client                   |
+| ------------ | ------------------------------------- | ------------------------ |
+| 🟢 `info`     | Nothing to act on — the resting state | Green, steady, silent    |
+| 🟠 `warning`  | Degraded                              | Orange, flashes, silent  |
+| 🔴 `critical` | Broken                                | Red, flashes, **sounds** |
+
+- 🖥️ **The verdict belongs to the response, not to a row.** Clients flash the **whole screen** on `warning` and `critical`, whichever metric happens to be showing
 
 ---
 
 ## 4. 📊 `metrics`
 
-Every entry is the same object. `metrics[0]` is the whole gateway; the rest are parts of it.
+Every entry is the same object. `metrics[0]` is the summary; the rest are parts of it. Each is one **screen** on the device — up to 5 screens, the whole product.
 
-| Field          | Type     | Req | What it is                                     |
-| -------------- | -------- | --- | ---------------------------------------------- |
-| `name`         | string   | ✅  | What the row covers, **≤ 16** chars            |
-| `bucket_unit`  | string   | ➖  | `second`·`minute`·`hour` — default `minute`    |
-| `bucket_size`  | number   | ➖  | Units per bucket — default **1**, whole only   |
-| `bucket_count` | number   | ➖  | Buckets in the row — default **30**, max **30** |
-| `aggregates`   | object   | ✅  | The span reduced to numbers                    |
-| `buckets`      | number[] | ➖  | The span spread back over time                 |
+| Field                | Type     | Req | What it is                                                                            |
+| -------------------- | -------- | --- | ------------------------------------------------------------------------------------- |
+| `gateway`            | string   | ✅  | Which platform this row came from, **≤ 14** chars — required, no top-level fallback   |
+| `name`               | string   | ✅  | **≤ 16** chars — IS the FOOTER text, no separate label. Plain ASCII, stable across polls |
+| `bucket_unit`        | string   | ➖  | `s`·`m`·`h` — default `m`                                                             |
+| `bucket_size`        | number   | ➖  | Units per bucket — default **1**, whole only                                          |
+| `bucket_count`       | number   | ➖  | Buckets in the row — default **30**, max **30**                                       |
+| `buckets_value_type` | string   | ➖  | What one bucket counts — only `total_count`. **Required whenever `buckets` is sent**  |
+| `buckets`            | number[] | ➖  | The span spread back over time                                                        |
+| `aggregates`         | array    | ✅  | **1–5 stat tiles** for this screen's BODY band → [below](#-aggregates--tiles)          |
 
-- 📐 **Cap is 5 rows.** Anything past the fifth is dropped — an attention limit, not a rendering one
-- 🧭 3 gateways × 5 panels = **15 screens**, the whole product
+### 🏷️ `gateway` on a row
+
+There is no root `gateway` — the device doesn't have one, only rows do. `gateway` on a row says which platform a number actually came from; the client prints it in the FOOTER beside the row's `name`.
+
+- 🪧 **Required on every row.** There is nothing to fall back to
+- 🟰 Rows may name **different** gateways — Orders and Payments in one response is the ordinary case, not an edge case. The merge happens in your backend; the device just shows what it's given
+
+### 📐 The rest
+
+- 📐 **Cap is 5 rows** — the metric **screens**, not to be confused with the up-to-5 **tiles** inside each row's `aggregates` ([below](#-aggregates--tiles)). Anything past the fifth row is dropped — an attention limit, not a rendering one
 - 📋 Order: summary first, then **most important first**
-- 🔤 `name` values are plain ASCII Title Case and **stable across polls** — clients hold position by index
+- 🔤 `name` **is** the FOOTER text — no separate label. Clients hold position by it, so keep it stable across polls even though it's user-facing
 - ⚖️ Rows after the first should roughly reconcile with it
 - 👁️ **Everything you send is displayed.** There is no field a client accepts and quietly ignores — if you want to add one, there is nowhere to put it
 
 ### ⏱️ The clock — `bucket_*`
 
-````
-
+```
 span = bucket_size × bucket_count (in bucket_unit)
-
 ```
 
-| `unit`   | `size` | `count` | Row covers | Caption drawn |
-| -------- | ------ | ------- | ---------- | ------------- |
-| `minute` | 1      | 30      | 30 minutes | `LAST 30 MIN` |
-| `minute` | 5      | 12      | 1 hour     | `LAST 60 MIN` |
-| `second` | 10     | 30      | 5 minutes  | `LAST 5 MIN`  |
-| `hour`   | 1      | 24      | 1 day      | `LAST 24 HR`  |
+| `unit` | `size` | `count` | Row covers | Caption drawn beside the heading |
+| ------ | ------ | ------- | ---------- | ---------------------------------- |
+| `m`    | 1      | 30      | 30 minutes | `30M`                              |
+| `m`    | 5      | 12      | 1 hour     | `60M`                              |
+| `s`    | 10     | 30      | 5 minutes  | `5M` — 300 s compacts to minutes   |
+| `h`    | 1      | 24      | 1 day      | `24H`                              |
 
-- 🎚️ Three fields, not one `window_minutes` — one number says *how long*, never *how finely*
+- 🎚️ Three fields, not one `window_minutes` — one number says _how long_, never _how finely_
 - 🌍 **Governs the whole row**, not just the graph. A row with no `buckets` still needs it: the span is the divisor under the biggest number on screen
-- 🔤 Units singular and lowercase. Anything else reads as `minute`
-- 🤝 Send the **same clock in every row** — panels are drawn side by side, and two resolutions is a comparison that lies
+- 🔤 **`bucket_unit` is a single lowercase letter** — `s` · `m` · `h`. Anything else reads as `m`
+- 🖥️ **The client computes and draws the span itself** — `30M`, `5M`, `24H` — beside the heading tile, in the slot that tile's own `secondary_value` would otherwise sit in. Not sent on the wire; nothing to keep in sync
+- 🤝 Send the **same clock in every row** — screens are compared one after another, and two resolutions is a comparison that lies
 - 🏁 The newest bucket **ends at `measured_at`**; buckets are contiguous and equal; the oldest starts one span earlier
 - ⛔ **Never send a bucket still filling.** A third-full bucket draws as a cliff and fakes an incident every poll — end at the last complete one
 - 🕐 Clock-aligned boundaries (`:00`, `:01`) are nice, not required
 
-### 🧮 `aggregates`
+### 🧮 `aggregates` — tiles
 
-| Field            | Req | Means                                   | Do about it                            |
-| ---------------- | --- | --------------------------------------- | -------------------------------------- |
-| `2xx_count`      | ✅  | It worked                               | Nothing. The number worth watching     |
-| `4xx_count`      | ✅  | The caller got it wrong                 | Someone else's bug, or a drifting client |
-| `5xx_count`      | ✅  | **You** got it wrong                    | **This is what raises the level**      |
-| `avg_latency_ms` | ✅  | Mean over the span, whole ms            | Watch against `p95`, not alone         |
-| `p95_latency_ms` | ✅  | 95 % were faster than this, ms          | The tail is what people feel           |
+Each row's `aggregates` is an array of **1–5 tiles**, not a fixed object — one tile per interesting number, not one field per status code. **Position 0 is the heading** (the big number at the top of the screen); tiles 1–4 fill the four BODY slots, in order. A row with fewer than 5 tiles just leaves the remaining slots blank.
 
-- ➕ Counts are **sums** — two rows' counts add up and the answer is true
-- 🚫 Mean and percentile are **not** — two p95s never average into a p95. Compute each row from its own requests, never from its children
-- 🎯 The three counts are **disjoint**; 1xx and 3xx are not counted at all
-- 🚫 No `all_count`, `total_count` or `error_count` — derived, and an "all" would be neither the sum nor the traffic you served
-- 0️⃣ No traffic = three zeros, not a missing block. Zero is a fact
-- ⏲️ Latency is whole milliseconds, never seconds, never `"210ms"`. `p95 ≥ avg`, always
+| Field             | Type   | Req | What it is                                                        |
+| ----------------- | ------ | --- | ------------------------------------------------------------------ |
+| `name`            | string | ✅  | **≤ 5 chars.** IS the text actually drawn — no separate label. Full formatting rules → [AGENTS.md](../AGENTS.md#10--aggregate-tile-formatting) |
+| `primary_value`   | number | ✅  | The tile's headline number                                        |
+| `primary_unit`    | string | ➖  | `ms` · `s` · `%` · omitted for a plain count                      |
+| `secondary_value` | number | ➖  | A second number beside the first — meaning is the tile's choice   |
+| `secondary_unit`  | string | ➖  | Same rules as `primary_unit`, independent of it                   |
 
-### 📈 `buckets`
-
-`2xx_count` per bucket — **counts, not rates**.
-
+```json
+"aggregates": [
+  { "name": "2XX", "primary_value": 18659, "secondary_value": 99.34, "secondary_unit": "%" },
+  { "name": "4XX", "primary_value": 109,   "secondary_value": 0.58,  "secondary_unit": "%" },
+  { "name": "5XX", "primary_value": 15,    "secondary_value": 0.08,  "secondary_unit": "%" },
+  { "name": "AVG", "primary_value": 42,  "primary_unit": "ms" },
+  { "name": "P95", "primary_value": 180, "primary_unit": "ms" }
+]
 ```
 
-sum(buckets) = 17862 = 2xx_count ✅
-bucket_size × bucket_count = 1 × 30 = 30 minutes
-2xx_count / (1 × 30) = 595 = the headline, 2xx per minute
-buckets[i] / bucket_size = 2xx per minute in bucket i
+- 🎯 **`secondary_value`'s meaning is per-tile**, decided by whoever populates it — a share of some meaningful whole, a second raw number (`P95` beside `AVG`), or something else. The schema doesn't constrain which
+- 🕰️ **One exception: tile 0's own `secondary_value` is never drawn.** The heading's secondary slot always shows the row's own span instead — `30M`, computed client-side from `bucket_size × bucket_count × bucket_unit` → [§4 clock](#-the-clock--bucket_). Send it if you like for a client that doesn't follow this convention; this build never shows it
+- 🔁 **This is the one place a derived number may be sent** — a `secondary_value` like `99.34` above is computed, and that's fine here. Nothing else in this response is ever derived
+- 🧩 **A client that gets fewer than 5 tiles just leaves the remaining slots blank** — never an error, never a crash. 1–5 is the whole valid range, not just 5
+- 0️⃣ No traffic = tiles with `0`, not a missing array. Zero is a fact
+- ⏲️ Latency values are whole milliseconds; the client rescales to `s` for display past 9999 — AGENTS.md's formatting guideline, not this doc's
+- 💯 A `%` value is rounded to **2 decimal places at the source**, never sent longer — AGENTS.md §10
 
+### 📈 `buckets` + `buckets_value_type`
+
+`buckets_value_type` names what one bucket counts. **`total_count` is the only type defined** — each bucket is the `total_count` of its slice of the span, **counts, not rates**.
+
+```
+buckets_value_type = "total_count"
+bucket_size × bucket_count = 1 × 30 = 30 minutes
+buckets[i] / bucket_size = requests per minute in bucket i
+the "2XX" tile's primary_value / (1 × 30) = 622 = 2XX per minute
 ```
 
 - ⬅️ **Oldest first**, newest last. No timestamps — the clock places them
 - 📏 Exactly `bucket_count` long. Short is zero-padded at the old end, long is cut to the newest
 - 0️⃣ **A gap is a zero.** No traffic, no data, exporter restarted, row younger than the span — all `0`. Never `null`, never a hole, never a short array
-- 🟰 **`sum(buckets)` must equal `2xx_count`.** Same requests, two resolutions — derive both from one query or they drift
-- 2️⃣ **2xx only, not configurable.** No `metric` field, no 4xx/5xx series. Totals here would leave the graph flat while the headline collapsed
-- 🚫 Omit for a row with no graph. A row with three points looks broken
+- 🏷️ **Send `buckets_value_type` whenever you send `buckets`.** A client that meets a type it does not know draws no graph rather than guess — the numbers still show
+- 1️⃣ One series per row. No 2xx / 4xx / 5xx series yet — a new series is a new `buckets_value_type`, never a second array
+- 🚫 Omit both for a row with no graph. A row with three points looks broken
 
-### 🚫 Nothing derived is ever sent
+### 🚫 Nothing else is ever derived
 
-| Shown          | Client computes                             |
-| -------------- | ------------------------------------------- |
-| 2xx throughput | `2xx_count / (bucket_size × bucket_count)`  |
-| total requests | `2xx_count + 4xx_count + 5xx_count`         |
-| 4xx / 5xx rate | `count / total`                             |
-| the span label | `bucket_size × bucket_count` in `bucket_unit` |
+Past a tile's own `secondary_value` ([above](#-aggregates--tiles)), nothing on the wire is computed from something else already on the wire.
+
+| Shown           | Client computes                               |
+| --------------- | ---------------------------------------------- |
+| a tile's throughput | `primary_value / (bucket_size × bucket_count)` |
+| the span label  | `bucket_size × bucket_count` in `bucket_unit`  |
 
 - 🚫 No `error_rate`, `request_count`, `throughput`, `rps`, `window_minutes`
-- 🔢 Counts go **raw** — `18420`, not `"18.4k"`. Clients compact them; you do not know how much room they have
+- 🔢 Numbers go **raw** — `18783`, not `"18.8k"`. Compaction and unit rescaling are the client's job → [AGENTS.md](../AGENTS.md#10--aggregate-tile-formatting)
 - ⚠️ A wrong clock silently scales the biggest number on screen. It is not a label
 
 ---
 
 ## 5. 📏 Limits
 
-| Thing             | Limit            | Why                                   |
-| ----------------- | ---------------- | ------------------------------------- |
-| `gateway`         | **14** chars     | Rendered as the headline              |
-| `name`            | **16** chars     | One label line                        |
-| `health.message`  | **20** chars     | One line, never wrapped, every level  |
-| `metrics`         | **5** entries    | Summary + at most four parts          |
-| `bucket_count`    | **30**           | The graph is 228 px wide              |
-| `bucket_size`     | ≥ **1**          | Whole units only                      |
-| `buckets`         | = `bucket_count` | Short padded, long cut                |
-| body              | **4 KB**         | Parsed on small hardware              |
-| gateways / device | **3**            | 3 × 5 = 15 screens. A deployment rule, not enforced over the wire |
+| Thing                | Limit            | Why                                  |
+| -------------------- | ---------------- | ------------------------------------ |
+| `gateway`            | **14** chars     | Rendered in the FOOTER               |
+| row `name`           | **16** chars     | One FOOTER line — IS the text drawn  |
+| `alert.message`      | **20** chars     | One line, never wrapped, every level |
+| `metrics`            | **5** entries    | 5 screens — summary + four parts     |
+| `aggregates`         | **1–5** entries  | Up to 5 tiles per screen — heading + up to four body slots |
+| tile `name`          | **5** chars      | One BODY tile line — IS the text drawn |
+| `bucket_count`       | **30**           | The graph is 228 px wide             |
+| `bucket_size`        | ≥ **1**          | Whole units only                     |
+| `buckets`            | = `bucket_count` | Short padded, long cut               |
+| `buckets_value_type` | `total_count`    | The only series type defined so far  |
+| body                 | **4 KB**         | Parsed on small hardware             |
 
 - ✂️ Clients **truncate, never wrap and never scroll**. Anything longer is cut without warning
 
@@ -282,31 +275,46 @@ buckets[i] / bucket_size = 2xx per minute in bucket i
 
 Clients keep the **last good payload** on screen and mark it held. A failed poll must never look like a healthy zero.
 
-| Status        | Shown as    | Client does                              |
-| ------------- | ----------- | ---------------------------------------- |
-| `200`         | `health`    | Parse, cache, render                     |
+| Status        | Shown as    | Client does                               |
+| ------------- | ----------- | ----------------------------------------- |
+| `200`         | `alert`     | Parse, cache, render                      |
 | `3xx`         | `REDIRECT`  | **Not followed** — fix the configured URL |
-| `401` / `403` | `NO ACCESS` | Keep the last payload                    |
-| `404`         | `NOT FOUND` | Keep the last payload                    |
-| `429`         | `THROTTLED` | Back off a cycle, honours `Retry-After`  |
-| `5xx`         | `BACKEND`   | Retry next cycle                         |
-| timeout / DNS | `OFFLINE`   | Keep the last payload                    |
+| `401` / `403` | `NO ACCESS` | Keep the last payload                     |
+| `404`         | `NOT FOUND` | Keep the last payload                     |
+| `429`         | `THROTTLED` | Back off a cycle, honours `Retry-After`   |
+| `5xx`         | `BACKEND`   | Retry next cycle                          |
+| timeout / DNS | `OFFLINE`   | Keep the last payload                     |
 
-- 🟡 **Every fault gets warning treatment** — blinks at the warning rate, never the critical rate, never a beep. A Wi-Fi roam must not look like an outage
+- 🟠 **Every fault gets alert treatment** — it flashes on the same 5 s pattern as `warning` and `critical`, but never sounds. A Wi-Fi roam must not sound like an outage
 - 🔇 **Never silent either.** Stale numbers shown calmly read as good news
 - 🩶 The fault banner is visually distinct from a real `warning` — "I cannot reach you" and "you say you are degraded" have different owners
+- 🪵 **Every outcome is logged on the device's serial port**, status and error text alike → [device.md §4](device.md#4--logging)
 - 🚫 Do not put error detail in a non-200 body. Clients read only the status
 
 ---
 
 ## 7. ⏱️ Polling
 
-- 🔁 Clients call **every 60 s**, plugged in or on battery
-- 📅 The clock is how much history an answer covers, **not** how often you are asked. A 30-minute span polled once a minute is intended
-- 🤝 Tolerate bursts: a person can **shake the device** to force a poll, rate-limited to one per 5 s. Cache; do not treat off-cadence as an error
+The device shows each metric for **5 s** and refetches when the cycle wraps, so the poll rate follows the number of rows you send:
+
+```
+poll interval = max(30, metric_count × 5) seconds
+```
+
+| Rows | Cycle | Polls every |
+| ---- | ----- | ----------- |
+| 1    | 5 s   | **30 s**    |
+| 3    | 15 s  | **30 s**    |
+| 5    | 25 s  | **30 s**    |
+| 8    | 40 s  | **40 s**    |
+
+- 🛑 **Never faster than 30 s**, whatever the row count — the monitor must never become the incident
+- 📅 The clock is how much history an answer covers, **not** how often you are asked. A 30-minute span polled every 30 s is intended
+- 🤝 Tolerate an off-cadence request: a person can **hold the touch glass 2 s** to force a poll. Cache; do not treat it as an error
 - ⏳ Never hold a request open for fresh data — answer in 5 s with what you have
 - 🕰️ `measured_at` is when the sample was taken. Serving a cached row? Send the cached row's time — clients dim numbers older than **twice the span**
 - 🎛️ `refresh_seconds` is clamped to **10–900 s** and treated as advice
+- 🌑 **The screen going dark changes nothing.** Polling and alerts carry on
 
 ---
 
@@ -314,17 +322,19 @@ Clients keep the **last good payload** on screen and mark it held. A failed poll
 
 - [ ] `GET /v1/gateway_health` returns JSON under 4 KB in under 5 s
 - [ ] Missing or wrong `Authorization` → `401`
-- [ ] `gateway`, `measured_at`, `health` and a non-empty `metrics` always present
+- [ ] `measured_at`, `alert` and a non-empty `metrics` always present
+- [ ] No root `gateway` — every row carries its own, naming the platform it came from
 - [ ] `metrics` holds 1–5 rows of one shape, summary first, then most important first
-- [ ] Every row carries all five `aggregates`, as numbers
+- [ ] Every row carries 1–5 `aggregates` tiles, position 0 the heading
+- [ ] Every tile carries `name` (≤ 5 chars, IS the text drawn) and `primary_value`; units are `ms`/`s`/`%`/omitted
 - [ ] Every row carries the same clock, and the newest bucket is complete
 - [ ] `buckets` oldest-first, exactly `bucket_count` values, `0` for any gap
-- [ ] `sum(buckets)` equals `2xx_count`
-- [ ] `health` in every response, and `level` returns to `info` when it clears
-- [ ] `name` values stable and stably ordered across polls
-- [ ] Lengths within [§5](#5--limits): 14 / 16 / 20
-- [ ] No `error_rate`, `request_count`, `all_count`, `window_minutes`, `null`, or stringified numbers
-- [ ] The device this feeds points at no more than 3 gateways
+- [ ] Every row with `buckets` sends `"buckets_value_type": "total_count"`
+- [ ] `alert` in every response, and `level` returns to `info` when it clears
+- [ ] `name` values stable and stably ordered across polls, even though they're also what's drawn
+- [ ] Lengths within [§5](#5--limits): gateway 14 / name 16 / message 20 / tile name 5
+- [ ] Nothing computed on the wire except a tile's own `secondary_value` — no `error_rate`, `request_count`, `all_count`, `window_minutes`, `platform`, `null`, or stringified numbers
+- [ ] Survives being asked every 30 s, for ever
 
 ---
 
@@ -339,13 +349,10 @@ Only when a static bearer token is unacceptable. Same endpoint, different header
 | `X-Signature` | hex HMAC-SHA256             |
 
 ```
-
 string_to_sign = "GET" + "\n" + path + "\n" + timestamp + "\n" + body
 signature = hex( HMAC-SHA256(secret, string_to_sign) )
-
 ```
 
 - `GET` has an empty body
 - Reject timestamps older than **60 s**
 - The client needs a real clock — plan for one that just booted with no RTC
-```

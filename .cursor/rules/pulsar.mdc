@@ -1,0 +1,10 @@
+---
+description: Pulsar working agreement — bands, input map, single gateway, logging, module layout
+alwaysApply: true
+---
+
+All working rules for this repo live in one place, shared with Claude Code:
+
+@AGENTS.md
+
+Do not add rules to this file — edit `AGENTS.md` instead.

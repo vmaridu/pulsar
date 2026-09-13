@@ -3,7 +3,7 @@
 :root{
   --bg:#07090e; --pane:#0b0f16; --line:#161c27; --line2:#232c3b;
   --tx:#e6edf7; --dim:#7f8fa8; --dim2:#4d5c76;
-  --cy:#22d3ee; --gr:#22c55e; --am:#f5a524; --rd:#ff4d5e; --gy:#8aa0c0;
+  --cy:#22d3ee; --gr:#22c55e; --or:#ff7a00; --rd:#ff4d5e; --gy:#8aa0c0;
   --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
 }
 *{box-sizing:border-box}
@@ -41,8 +41,8 @@ header .dot{color:var(--cy)}
 .panel.zn .zones{opacity:1}
 .zone{position:absolute;border:1px dashed rgba(120,180,230,.5);background:rgba(34,211,238,.05);
   display:flex;align-items:center;justify-content:center}
-.panel.shook{animation:shake .45s cubic-bezier(.36,.07,.19,.97)}
-@keyframes shake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)}
+.panel.shook{animation:shakeAnim .45s cubic-bezier(.36,.07,.19,.97)}
+@keyframes shakeAnim{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)}
   30%,50%,70%{transform:translateX(-7px)}40%,60%{transform:translateX(7px)}}
 .panel.beep{animation:beep .4s ease-in-out}
 @keyframes beep{25%{transform:scale(1.006)}75%{transform:scale(.998)}}
@@ -69,21 +69,13 @@ header .dot{color:var(--cy)}
   text-align:center;font-family:var(--mono);font-size:10.5px;cursor:pointer;color:var(--dim);
   letter-spacing:.06em}
 .lv[data-l=info].on{border-color:#1a6b3d;background:#071c11;color:var(--gr)}
-.lv[data-l=warning].on{border-color:#7a5510;background:#1d1404;color:var(--am)}
+.lv[data-l=warning].on{border-color:#7a3a0a;background:#1d0e04;color:var(--or)}
 .lv[data-l=critical].on{border-color:#7d2532;background:#1f070c;color:var(--rd)}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:11px;margin-top:11px}
 .kv b{font-weight:400;color:var(--dim2)}
 .kv span{color:var(--tx);text-align:right}
 .meter{height:2px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:11px}
 .meter i{display:block;height:100%;width:0;background:var(--cy);transition:width .25s linear}
-.gws{display:flex;flex-direction:column;gap:6px}
-.gw{display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:6px;
-  padding:7px 10px;cursor:pointer;font-size:11px}
-.gw:hover{border-color:var(--line2)}
-.gw.sel{border-color:#14424e;background:#07222a}
-.gw .pip{width:6px;height:6px;border-radius:50%;flex:none}
-.gw .nm{flex:1;color:var(--tx)}
-.gw .ct{color:var(--dim2);font-size:10px}
 pre.json{margin:0;font-size:10.5px;line-height:1.6;color:#9fb2cc;max-height:300px;overflow:auto;
   white-space:pre-wrap;word-break:break-word}
 pre.json .k{color:var(--cy)} pre.json .s{color:#a9e39a}
@@ -102,15 +94,15 @@ footer a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--lin
 </header>
 
 <p class="lede">
-  A <b>column board</b>: every panel of a gateway side by side at one shared scale, so you read
-  <i>across</i> to find the problem instead of stepping through. The health bar is the chrome that
-  was going to be there anyway, so it costs nothing. Tap the <b>right of the bar</b> to change
-  gateway, the <b>left of the bar</b> for setup. Payload follows
-  <a href="../../docs/api.md">api.md</a>; layout follows <a href="../docs/readme.md">this build's doc</a>.
+  A <b>column board</b>: every metric side by side at one shared scale, so you read
+  <i>across</i> to find the problem instead of stepping through. One endpoint, but a backend can
+  merge several platforms into it; each column names the <b>gateway</b> its numbers came from. The
+  top bar is the chrome that was going to be there anyway, so <b>STATUS</b> and <b>ALERT</b> share
+  it — and an alert flashes <b>the whole board</b>, bar and columns alike. Tap the <b>left of the
+  bar</b> for settings.
 </p>
 
 <div class="nav">
-  <a href="../../lcd154/mockups/device-ui.html">240 × 240 square</a>
   <b>640 × 172 bar</b>
 </div>
 
@@ -119,9 +111,9 @@ footer a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--lin
     <canvas id="screen" width="1280" height="344"></canvas>
     <div class="sheen"></div><div class="grid"></div>
     <div class="zones">
-      <div class="zone" style="left:0;top:0;width:62%;height:15.1%">SETUP</div>
-      <div class="zone" style="right:0;top:0;width:38%;height:15.1%">NEXT GATEWAY</div>
-      <div class="zone" style="left:0;top:15.1%;right:0;bottom:0">COLUMNS · READ ACROSS</div>
+      <div class="zone" style="left:0;top:0;width:62%;height:15.1%">SETTINGS</div>
+      <div class="zone" style="right:0;top:0;width:38%;height:15.1%">FUTURE USE</div>
+      <div class="zone" style="left:0;top:15.1%;right:0;bottom:0">COLUMNS · READ ACROSS · HOLD 2 S TO REFRESH</div>
     </div>
   </div>
   <div class="toggles">
@@ -136,11 +128,11 @@ footer a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--lin
   <div class="card">
     <h3>Interact</h3>
     <div class="row">
-      <button class="b" id="doGw">⇄ next gateway<kbd>g</kbd></button>
-      <button class="b" id="doShake">shake · refresh<kbd>s</kbd></button>
-      <button class="b" id="doSetup">▤ setup<kbd>b</kbd></button>
+      <button class="b" id="doDisp">🌑 display on / off<kbd>d</kbd></button>
+      <button class="b" id="doMute">🔕 mute<kbd>m</kbd></button>
+      <button class="b" id="doSetup">▤ settings<kbd>b</kbd></button>
     </div>
-    <h3 style="margin-top:15px">health.level</h3>
+    <h3 style="margin-top:15px">alert.level</h3>
     <div class="lvls">
       <div class="lv" data-l="info">INFO</div>
       <div class="lv" data-l="warning">WARNING</div>
@@ -160,14 +152,16 @@ footer a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--lin
     </div>
     <div class="meter"><i id="bar"></i></div>
     <div class="kv">
-      <b>interval</b><span>60 s</span>
+      <b>interval</b><span id="kInt">—</span>
       <b>next poll</b><span id="kNext">—</span>
-      <b>screen</b><span id="kScr">on</span>
+      <b>display</b><span id="kScr">on</span>
       <b>columns</b><span id="kCols">—</span>
       <b>measured_at</b><span id="kMeas">—</span>
     </div>
-    <h3 style="margin-top:15px">Gateways · max 3</h3>
-    <div class="gws" id="gws"></div>
+    <p class="calNote" style="margin:10px 0 0;color:var(--dim2);font-size:11px;line-height:1.5">
+      max(30, metrics × 5) seconds. This board shows every metric at once, so there is no
+      cycle to walk — only the poll.
+    </p>
   </div>
 
   <div class="card">
@@ -180,9 +174,9 @@ footer a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--lin
 </div>
 
 <footer>
-  Contract → <a href="../../docs/api.md">api.md</a> ·
-  Build → <a href="../docs/readme.md">readme.md</a> ·
-  Shared behaviour → <a href="../../docs/device.md">device.md</a>
+  One gateway · one endpoint · four bands — STATUS and ALERT share the top bar, the columns are
+  BODY and FOOTER. Contract in docs/api.md · build in ws_lcd_349/device.md · shared behaviour in
+  docs/device.md.
 </footer>
 </div>
 
@@ -190,14 +184,22 @@ footer a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--lin
 /* ==========================================================================
    Pulsar · ESP32-S3-Touch-LCD-3.49 · 640 × 172 landscape
    Device coords are 0..639 × 0..171. S is mockup upscale only.
-   Layout follows lcd349/docs/readme.md · payload follows docs/api.md
+   Layout follows ws_lcd_349/device.md · payload follows docs/api.md
    ========================================================================== */
 const W = 640, H = 172, S = 2;
 
-/* --- regions ------------------------------------------------------------ */
-const BAR   = [0, 26];        // health bar — the chrome that is the alarm
+/* --- regions -------------------------------------------------------------
+   The four named bands, folded onto a landscape board:
+     STATUS + ALERT  share the top bar — the chrome that is also the alarm
+     BODY            the columns
+     FOOTER          each column's own gateway line, under its graph        */
+const BAR   = [0, 26];
 const COLS  = [26, 146];      // five fixed slots, 128 px each
 const NCOL  = 5, CW = 128;
+
+/* the poll: max(30, metrics × 5) seconds. Every metric is already on screen,
+   so there is no 5 s cycle to walk here — only the interval it implies.   */
+const SCREEN_MS = 5000, POLL_MIN_MS = 30000;
 
 /* --- palette, quantised to RGB565 like the panel ------------------------ */
 const q565 = hex => {
@@ -212,7 +214,7 @@ for (const [k, v] of Object.entries({
   tx:'#e6edf7', dim:'#7f8fa8', dim2:'#4d5c76',
   cy:'#22d3ee', cyD:'#0a3a47',
   gr:'#22c55e', grD:'#0b2c19', grI:'#071a10',
-  am:'#f5a524', amD:'#3a2a06', amI:'#221903',
+  or:'#ff7a00', orD:'#3d1c00', orI:'#221003',
   rd:'#ff4d5e', rdD:'#42131c', rdI:'#280b11',
   gy:'#8aa0c0', gyD:'#18202d', gyI:'#0e141d',
   ink:'#04060a',
@@ -220,11 +222,16 @@ for (const [k, v] of Object.entries({
 
 const LV = {
   info:     { w:'INFO',     c:C.gr, d:C.grD, i:C.grI },
-  warning:  { w:'WARNING',  c:C.am, d:C.amD, i:C.amI },
+  warning:  { w:'WARNING',  c:C.or, d:C.orD, i:C.orI },
   critical: { w:'CRITICAL', c:C.rd, d:C.rdD, i:C.rdI },
   fault:    { w:'OFFLINE',  c:C.gy, d:C.gyD, i:C.gyI },
 };
-const BLINK = { info:0, warning:700, critical:220, fault:700 };
+/* one alert pattern for warning, critical and a fetch fault: a 500 ms flash every 5 s.
+   This board shows every metric at once — no per-screen cycle to lock the phase
+   to — so it stays a free-running clock, just now sharing the same period as the
+   5 s cycle the other builds turn on.                                          */
+const FLASHES = { info:false, warning:true, critical:true, fault:true };
+const ALERT_EVERY_MS = 5000, ALERT_FLASH_MS = 500;   // harmonised with the 5 s cycle other builds run
 
 /* ==========================================================================
    GFX — the panel-library subset. Device pixels in, canvas pixels out.
@@ -268,79 +275,116 @@ function compact(n){
   if (n >= 1e3) return (n/1e3).toFixed(1) + 'k';
   return String(n);
 }
-const hhmm = d => String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
-const UNIT_MIN = { second: 1/60, minute: 1, hour: 60 };
+/* status clock: MM/DD hh:mm AM of measured_at — the time of the reading,
+   not the time now                                                         */
+const p2 = n => String(n).padStart(2, '0');
+function clockText(){
+  const d = new Date(SNAP.measured_at * 1000), h = d.getHours();
+  return `${p2(d.getMonth() + 1)}/${p2(d.getDate())} ${p2(h % 12 || 12)}:${p2(d.getMinutes())} ${h < 12 ? 'AM' : 'PM'}`;
+}
 const spanUnits = r => r.bucket_size * r.bucket_count;
-const rate = r => r.aggregates['2xx_count'] / spanUnits(r);
+const rate = r => r.aggregates[0].primary_value / spanUnits(r);   // tile 0 is always the heading
+const tileByName = (r, n) => r.aggregates.find(t => t.name === n);
 function spanLabel(r){
   const u = spanUnits(r), n = r.bucket_unit;
-  if (n === 'second' && u >= 60) return 'LAST ' + Math.round(u/60) + ' MIN';
-  return 'LAST ' + u + (n === 'second' ? ' SEC' : n === 'hour' ? ' HR' : ' MIN');
+  if (n === 's' && u >= 60) return 'LAST ' + Math.round(u/60) + ' MIN';
+  return 'LAST ' + u + (n === 's' ? ' SEC' : n === 'h' ? ' HR' : ' MIN');
 }
-const unitLabel = r => '2XX / ' + (r.bucket_unit === 'second' ? 'SEC'
-                                 : r.bucket_unit === 'hour' ? 'HR' : 'MIN');
-const reqTotal = a => a['2xx_count'] + a['4xx_count'] + a['5xx_count'];
-const pct = (n, t) => t ? n*100/t : 0;
+const unitLabel = r => (r.aggregates[0] ? r.aggregates[0].name : '') + ' / ' +
+                       (r.bucket_unit === 's' ? 'SEC' : r.bucket_unit === 'h' ? 'HR' : 'MIN');
+const pct = (n, t) => t ? Math.round((n * 100 / t) * 100) / 100 : 0;
 const fit = (s, n) => String(s).length > n ? String(s).slice(0, n-1) + '…' : String(s);
+/* A response can mix rows from more than one platform — join the distinct
+   `gateway` names actually present, in first-seen order.                  */
+function joinGateways(){
+  const seen = [];
+  for (const m of SNAP.metrics) if (!seen.includes(m.gateway)) seen.push(m.gateway);
+  return seen.join(', ') || '-';
+}
 
 /* ==========================================================================
    Sample payloads — shaped exactly like docs/api.md
    ========================================================================== */
-function series(base, from, dropTo, seed){
-  let s = seed, rnd = () => (s = (s*1664525 + 1013904223) % 4294967296) / 4294967296;
-  const out = [];
-  for (let i = 0; i < 30; i++){
-    let v = base * (0.97 + rnd()*0.06);
-    if (i >= from){ const t = (i - from) / (29 - from); v *= 1 - (1 - dropTo)*t; }
-    out.push(Math.max(0, Math.round(v)));
-  }
-  return out;
+/* One tile — see the aggregate-tile guideline in AGENTS.md. `name` IS the
+   text drawn (<= 5 chars) — no separate label.                          */
+function mkTile(name, primary_value, primary_unit, secondary_value, secondary_unit){
+  const t = { name, primary_value };
+  if (primary_unit) t.primary_unit = primary_unit;
+  if (secondary_value !== undefined){ t.secondary_value = secondary_value; if (secondary_unit) t.secondary_unit = secondary_unit; }
+  return t;
 }
-function row(name, buckets, c4, c5, avg, p95){
-  return { name, bucket_unit:'minute', bucket_size:1, bucket_count:30,
-    aggregates:{ '2xx_count': sum(buckets), '4xx_count': c4, '5xx_count': c5,
-                 avg_latency_ms: avg, p95_latency_ms: p95 },
-    buckets };
+/* No root `gateway` — api.md only carries the word per row. This backend
+   merges two platforms into one response: Orders and Payments. This board
+   only draws the heading (rate), P95, 4XX and 5XX — narrower than
+   ws_lcd_154, so AVG is sent but simply not one of this board's lines.   */
+function row(gateway, name, buckets, c4, c5, avg, p95){
+  const total = sum(buckets);
+  const c2 = total - c4 - c5;
+  return { gateway, name, bucket_unit:'m', bucket_size:1, bucket_count:30,
+    buckets_value_type:'total_count', buckets,
+    aggregates: [
+      mkTile('2XX', c2, null, pct(c2, total), '%'),
+      mkTile('4XX', c4, null, pct(c4, total), '%'),
+      mkTile('5XX', c5, null, pct(c5, total), '%'),
+      mkTile('AVG', avg, 'ms'),
+      mkTile('P95', p95, 'ms'),
+    ] };
 }
-function overviewOf(parts, avg, p95){
-  const b = parts[0].buckets.map((_, i) => sum(parts.map(p => p.buckets[i])));
-  const g = k => sum(parts.map(p => p.aggregates[k]));
-  return row('Overview', b, g('4xx_count'), g('5xx_count'), avg, p95);
+/* buckets are the only source of truth for scale; 2XX (and its share)
+   follow whatever the series did, 4XX/5XX counts hold steady, only their
+   shares move.                                                          */
+function retotal(r){
+  const total = sum(r.buckets);
+  const t2 = tileByName(r, '2XX'), t4 = tileByName(r, '4XX'), t5 = tileByName(r, '5XX');
+  t2.primary_value = total - t4.primary_value - t5.primary_value;
+  t2.secondary_value = pct(t2.primary_value, total);
+  t4.secondary_value = pct(t4.primary_value, total);
+  t5.secondary_value = pct(t5.primary_value, total);
 }
-const payoutParts = [
-  row('Init Payout',      series(320, 20, 0.38, 7),   61,  44, 39, 165),
-  row('Disburse Payout',  series(200, 20, 0.34, 91),  74, 338, 74, 390),
-  row('Acct Validations', series(228, 20, 0.36, 313), 34,   7, 21,  62),
+/* Same numbers as net.ino's PAYLOAD and the ws_lcd_154 mockup — see docs/api.md. */
+const parts = [
+  row('Orders',   'Created',    [649,625,606,646,647,632,636,610,640,616,607,641,621,633,633,
+                                  613,614,611,607,627,648,609,630,627,632,610,631,618,630,634], 109, 15, 42, 180),
+  row('Orders',   'Dispatched', [304,302,302,291,302,296,313,291,309,302,302,300,285,298,289,
+                                  287,285,306,302,303,314,302,291,313,288,293,303,299,290,292],  40,  5, 55, 230),
+  row('Orders',   'Cancelled',  [ 40, 39, 41, 37, 40, 38, 38, 40, 41, 39, 37, 39, 39, 40, 39,
+                                   38, 41, 38, 39, 40, 37, 38, 40, 39, 40, 37, 38, 40, 39, 38],  11,  2, 61, 240),
+  row('Payments', 'Paid',       [488,490,468,496,484,469,502,489,480,470,484,500,490,481,480,
+                                  495,481,480,476,500,483,470,488,468,494,483,486,487,480,483],  51,  7, 71, 310),
+  row('Payments', 'Declined',   [ 27, 26, 28, 27, 28, 26, 27, 27, 27, 26, 28, 27, 27, 26, 27,
+                                   28, 27, 26, 27, 28, 27, 26, 27, 27, 26, 28, 27, 27, 28, 26],   9,  2, 68, 260),
 ];
-const fraudParts = [ row('Eval', series(410, 26, 0.86, 55), 122, 31, 24, 88) ];
 
-const GW = [
-  { gateway:'Payouts',   health:{ level:'critical', message:'5xx 2.14% max 0.50%' },
-    metrics:[ overviewOf(payoutParts, 48, 210), ...payoutParts ] },
-  { gateway:'Fraud VAS', health:{ level:'info', message:'error budget healthy' },
-    metrics:[ overviewOf(fraudParts, 24, 88), ...fraudParts ] },
-];
-GW.forEach(g => { g.measured_at = Math.floor(Date.now()/1000); g.fault = null; });
+/* One endpoint. One response. Every metric names the gateway it came from,
+   since this backend merges two platforms into it.                       */
+const SNAP = {
+  alert: { level:'info', message:'error budget healthy' },
+  metrics: parts,
+  measured_at: Math.floor(Date.now()/1000),
+  fault: null,
+};
 
 /* ==========================================================================
    State + render
    ========================================================================== */
-const st = { gw:0, screen:true, plugged:true, setup:false, speaker:false,
-             nextPoll:Date.now()+60000, lastPoll:Date.now(),
-             slide:null, sweepT0:Date.now(), blinkOn:true, wakeUntil:0 };
+const st = { screen:true, plugged:true, setup:false, speaker:false, muted:false,
+             nextPoll:Date.now()+POLL_MIN_MS, lastPoll:Date.now(),
+             slide:null, sweepT0:Date.now(), blinkOn:true };
 const g = new GFX(document.getElementById('screen'));
-const cur = () => GW[st.gw];
-const level = () => cur().fault ? 'fault' : cur().health.level;
+const cur = () => SNAP;
+const level = () => SNAP.fault ? 'fault' : SNAP.alert.level;
+/* max(30, metrics × 5) seconds — never ask a backend faster than 30 s */
+const pollInterval = () => Math.max(POLL_MIN_MS, SNAP.metrics.length * SCREEN_MS);
 
-/* --- the health bar: chrome that is the alarm --------------------------- */
+/* --- the top bar: chrome that is also the alarm --------------------------- */
 function drawBar(){
   const [y, h] = BAR;
   const lv = level(), L = LV[lv];
   const loud = lv === 'warning' || lv === 'critical' || lv === 'fault';
-  const blink = BLINK[lv] > 0 && st.blinkOn;
+  const blink = FLASHES[lv] && st.blinkOn;
 
-  /* At rest the bar stays dark. Loud levels fill it and blink — same pixels,
-     different loudness, which is the whole rule.                            */
+  /* At rest the bar stays dark. Loud levels tint it and flash it full for
+     500 ms every 5 s — same pixels, different loudness, which is the rule.  */
   const bgc = !loud ? C.pane : blink ? L.c : L.d;
   const ink = !loud ? L.c : blink ? C.ink : L.c;
   const sub = !loud ? C.dim : blink ? C.ink : C.dim;
@@ -352,58 +396,82 @@ function drawBar(){
   let x = 12;
   x += g.text(L.w, x, y + 5, 2, ink, 'l', true) + 12;
   g.vLine(x - 6, y + 7, 12, loud ? sub : C.line2);
-  const msg = cur().fault ? 'no route to host' : cur().health.message;
+  const msg = SNAP.fault ? 'no route to host' : SNAP.alert.message;
   g.text(fit(msg, 20), x, y + 9, 1, sub);
 
-  /* right cluster: gateway · battery · clock · wi-fi */
+  /* right cluster — the STATUS half: gateway · mute · battery · clock · wi-fi */
   let rx = W - 12;
   for (let i = 0; i < 3; i++) g.fillRect(rx - 10 + i*4, y + 16 - i*3, 2, 3 + i*3, sub);
   rx -= 20;
-  g.text(hhmm(new Date()), rx, y + 9, 1, sub, 'r'); rx -= 38;
+  g.text(clockText(), rx, y + 9, 1, sub, 'r'); rx -= 20;
+  if (st.plugged) drawChargeIcon(rx - 6, y + 3, sub);
+  rx -= 12;
   g.text('82%', rx, y + 9, 1, sub, 'r'); rx -= 26;
-  g.text(fit(cur().gateway, 14).toUpperCase(), rx, y + 9, 1, ink, 'r', true, 1);
-  if (cur().fault) g.text('HELD', rx - 100, y + 9, 1, sub, 'r');
+  if (st.muted){ g.text('MUTED', rx, y + 9, 1, sub, 'r'); rx -= 36; }
+  g.text(fit(joinGateways(), 14).toUpperCase(), rx, y + 9, 1, ink, 'r', true, 1);
+  if (SNAP.fault) g.text('HELD', rx - 100, y + 9, 1, sub, 'r');
+}
+/* a small blocky lightning bolt — the explicit "charging" tell. This
+   board's GFX has no tri()/line(), just rects, so it's built from those. */
+function drawChargeIcon(x, y, c){
+  g.fillRect(x + 3, y,     2, 3, c);
+  g.fillRect(x + 1, y + 3, 4, 1, c);
+  g.fillRect(x + 2, y + 4, 2, 3, c);
+  g.fillRect(x,     y + 7, 4, 1, c);
+  g.fillRect(x + 1, y + 8, 2, 2, c);
 }
 
 /* --- one column --------------------------------------------------------- */
-function drawColumn(i, r, ceiling, dx){
+/* The alert covers the WHOLE board, columns included: while the flash is on,
+   every column takes the level colour and every foreground on it goes to
+   near-black ink — the device flashes, not a stripe of it.                */
+function colTheme(){
+  const lv = level(), L = LV[lv];
+  if (!(FLASHES[lv] && st.blinkOn)) return { lit:false, bg:C.bg, pane:C.pane,
+    tx:C.tx, dim:C.dim, dim2:C.dim2, rule:C.line, rule2:C.line2, accent:C.cy };
+  return { lit:true, bg:L.c, pane:L.c, tx:C.ink, dim:C.ink, dim2:C.ink,
+           rule:L.d, rule2:L.d, accent:C.ink };
+}
+
+function drawColumn(i, r, ceiling, dx, th){
   const x0 = i*CW + dx, [cy, ch] = COLS;
   if (x0 + CW < 0 || x0 > W) return;
 
   /* the summary column carries a slightly lighter ground */
-  g.fillRect(x0, cy, CW, ch, i === 0 ? C.pane : C.bg);
-  if (i > 0) g.vLine(x0, cy + 6, ch - 12, C.line);
+  g.fillRect(x0, cy, CW, ch, i === 0 ? th.pane : th.bg);
+  if (i > 0) g.vLine(x0, cy + 6, ch - 12, th.rule);
 
   if (!r){                                            // unused slot, no reflow
-    g.text('—', x0 + CW/2, cy + ch/2 - 4, 1, C.line2, 'c');
+    g.text('—', x0 + CW/2, cy + ch/2 - 4, 1, th.rule2, 'c');
     return;
   }
-  const a = r.aggregates, tot = reqTotal(a), L = LV[level()];
+  const L = LV[level()];
+  const t4 = tileByName(r, '4XX'), t5 = tileByName(r, '5XX'), tp95 = tileByName(r, 'P95');
   const px = x0 + 9;
 
-  g.text(fit(r.name, 18), px, cy + 8, 1, i === 0 ? C.cy : C.dim, 'l', i === 0);
+  g.text(fit(r.name, 18), px, cy + 8, 1, i === 0 ? th.accent : th.dim, 'l', i === 0);
 
-  const sweep = clamp((Date.now() - st.sweepT0) / 300, 0, 1);
-  g.text(compact(rate(r)), px, cy + 22, 3, C.tx, 'l', true);
-  g.text(unitLabel(r), px, cy + 50, 1, C.dim2, 'l', false, 1);
+  const sweep = clamp((Date.now() - st.sweepT0) / 900, 0, 1);     // graph sweep-in
+  g.text(compact(rate(r)), px, cy + 22, 3, th.tx, 'l', true);
+  g.text(unitLabel(r), px, cy + 50, 1, th.dim2, 'l', false, 1);
 
-  const p4 = pct(a['4xx_count'], tot), p5 = pct(a['5xx_count'], tot);
-  const c5 = p5 >= 1 ? C.rd : p5 >= 0.5 ? C.am : C.tx;
-  const c4 = p4 >= 2 ? C.am : C.tx;
+  const p4 = t4.secondary_value, p5 = t5.secondary_value;
+  const c5 = th.lit ? th.tx : p5 >= 1 ? C.rd : p5 >= 0.5 ? C.or : C.tx;
+  const c4 = th.lit ? th.tx : p4 >= 2 ? C.or : C.tx;
   const line = (lab, val, sub, col, yy) => {
-    g.text(lab, px, yy, 1, C.dim2, 'l', false, 1);
+    g.text(lab, px, yy, 1, th.dim2, 'l', false, 1);
     const w = g.text(val, px + 26, yy, 1, col, 'l', true);
-    if (sub) g.text(sub, x0 + CW - 9, yy, 1, C.dim2, 'r');
+    if (sub) g.text(sub, x0 + CW - 9, yy, 1, th.dim2, 'r');
   };
-  line('P95', a.p95_latency_ms + 'ms', '',                  C.tx, cy + 66);
-  line('4XX', compact(a['4xx_count']), p4.toFixed(2) + '%', c4,   cy + 78);
-  line('5XX', compact(a['5xx_count']), p5.toFixed(2) + '%', c5,   cy + 90);
+  line(tp95.name, tp95.primary_value + 'ms', '',                C.tx, cy + 66);
+  line(t4.name,   compact(t4.primary_value), p4.toFixed(2) + '%', c4,   cy + 78);
+  line(t5.name,   compact(t5.primary_value), p5.toFixed(2) + '%', c5,   cy + 90);
 
   /* graph — one shared ceiling across every column, or it is not a comparison */
   const GX = px, GW_ = CW - 18, GH = 30, YB = cy + 104 + GH;   // 130..160, label 164..171
   const b = r.buckets;
-  const body = level() === 'info' ? C.line : L.d;
-  const edge = level() === 'info' ? C.cy   : L.c;
+  const body = th.lit ? th.rule : level() === 'info' ? C.line : L.d;
+  const edge = th.lit ? th.tx   : level() === 'info' ? C.cy   : L.c;
   const cols = Math.round(GW_ * easeOut(sweep));
   for (let p = 0; p < cols; p++){
     const pos = p * (b.length - 1) * 256 / (GW_ - 1);
@@ -413,34 +481,44 @@ function drawColumn(i, r, ceiling, dx){
     g.fillRect(GX + p, YB - ph, 1, ph + 1, body);
     g.px(GX + p, YB - ph, edge);
   }
-  g.hLine(GX, YB + 1, GW_, C.line);
-  if (i === 0) g.text(spanLabel(r), GX, YB + 4, 1, C.dim2);
+  g.hLine(GX, YB + 1, GW_, th.rule);
+  /* FOOTER — the row's own gateway, so a merged backend still says which
+     platform this column came from. The span caption rides the summary. */
+  g.text(fit(r.gateway.toUpperCase(), 12), GX, YB + 4, 1, th.dim2);
+  if (i === 0) g.text(spanLabel(r), x0 + CW - 9, YB + 4, 1, th.dim2, 'r');
 }
 
 function drawSetup(){
   g.fillScreen(C.bg);
-  g.text('SETUP', 14, 10, 2, C.cy, 'l', true);
+  g.text('SETTINGS', 14, 10, 2, C.cy, 'l', true);
   g.hLine(14, 32, W - 28, C.line);
-  GW.forEach((gw, i) => {
-    const x = 14 + i*210;
-    g.fillRect(x, 46, 4, 4, LV[gw.fault ? 'fault' : gw.health.level].c);
-    g.text(fit(gw.gateway, 16), x + 12, 45, 1, C.tx, 'l', true);
-    g.text(gw.metrics.length + ' panels · 30 × 1 min', x + 12, 58, 1, C.dim2);
-  });
+
+  g.text('GATEWAYS', 14, 44, 1, C.dim2);
+  g.fillRect(14, 60, 4, 4, LV[level()].c);
+  g.text(fit(joinGateways(), 16), 26, 59, 1, C.tx, 'l', true);
+  g.text(SNAP.metrics.length + ' metrics · 30 × 1 min', 26, 72, 1, C.dim2);
+  g.text('POLL EVERY ' + Math.round(pollInterval()/1000) + ' S', 26, 85, 1, C.dim2);
+
+  g.text('DEVICE', 330, 44, 1, C.dim2);
+  g.text('pulsar-3fa2c1  ·  192.168.1.42', 330, 59, 1, C.tx);
+  g.text('SOUND ' + (st.muted ? 'MUTED' : 'ON') + '  ·  DISPLAY ' + (st.screen ? 'ON' : 'OFF'),
+         330, 72, 1, C.dim2);
+
   g.hLine(14, 118, W - 28, C.line);
-  g.text('HOLD THE GATEWAY BLOCK FOR THE PORTAL', 14, 130, 1, C.dim2);
-  g.text('Pulsar-Setup  ·  192.168.4.1', 14, 144, 1, C.dim);
+  g.text('HOLD THE LEFT OF THE BAR 2 S FOR THE HOTSPOT', 14, 130, 1, C.dim2);
+  g.text('pulsar-3fa2c1  ·  192.168.4.1', 14, 144, 1, C.dim);
   g.text(st.speaker ? 'SPEAKER FITTED' : 'NO SPEAKER ON MX1.25 — ALERTS ARE SILENT',
-         W - 14, 144, 1, st.speaker ? C.gr : C.am, 'r');
+         W - 14, 144, 1, st.speaker ? C.gr : C.or, 'r');
 }
 
 function frame(){
-  const lv = level(), ms = BLINK[lv];
-  st.blinkOn = ms ? (Math.floor(Date.now() / ms) % 2 === 0) : true;
+  const lv = level();
+  st.blinkOn = FLASHES[lv] && Date.now() % ALERT_EVERY_MS < ALERT_FLASH_MS;
 
   if (!st.screen){
+    /* the display is off — the poll and the alerts never stopped */
     g.fillScreen('#000000');
-    g.text('TOUCH TO WAKE', W/2, 84, 1, '#101722', 'c');
+    g.text('DISPLAY OFF', W/2, 84, 1, '#101722', 'c');
   } else if (st.setup){
     drawSetup();
   } else {
@@ -450,12 +528,13 @@ function frame(){
       dx = (1 - easeOut(t)) * st.slide.dir * 46;
       if (t >= 1) st.slide = null;
     }
-    g.fillScreen(C.bg);
-    const rows = cur().metrics;
+    const th = colTheme();
+    g.fillScreen(th.bg);
+    const rows = SNAP.metrics;
     let ceiling = 1;
     for (const r of rows) for (const v of r.buckets) ceiling = Math.max(ceiling, v);
     ceiling *= 1.14;
-    for (let i = 0; i < NCOL; i++) drawColumn(i, rows[i], ceiling, dx);
+    for (let i = 0; i < NCOL; i++) drawColumn(i, rows[i], ceiling, dx, th);
     drawBar();
   }
   requestAnimationFrame(frame);
@@ -472,39 +551,38 @@ function log(msg){
   el.insertAdjacentHTML('afterbegin', `<div><span class="t">${t}</span>${msg}</div>`);
   while (el.children.length > 40) el.lastChild.remove();
 }
-function wake(){
-  if (!st.screen){ st.screen = true; log('screen on'); }
-  if (!st.plugged) st.wakeUntil = Date.now() + 60000;
+/* BOOT tap on the real board — the panel only. The poll and the alerts
+   carry on, and a critical still sounds in the dark.                      */
+function displayToggle(){
+  st.screen = !st.screen;
+  log('display <b>' + (st.screen ? 'on' : 'off') + '</b>'
+      + (st.screen ? '' : ' · still polling, a critical still sounds'));
   sync();
 }
-function nextGateway(){
-  wake(); st.setup = false;
-  st.gw = (st.gw + 1) % GW.length;
-  st.slide = { dir: 1, t0: Date.now() }; st.sweepT0 = Date.now();
-  log('gateway → <b>' + cur().gateway + '</b> · ' + cur().metrics.length + ' columns');
+/* BOOT double-tap. RAM only — a restart always comes back with sound. */
+function toggleMute(){
+  st.muted = !st.muted;
+  log('sound <b>' + (st.muted ? 'off' : 'on') + '</b>' + (st.muted ? ' until restart' : ''));
   sync();
 }
 function poll(force){
-  st.lastPoll = Date.now(); st.nextPoll = Date.now() + 60000;
-  GW.forEach(gw => {
-    gw.measured_at = Math.floor(Date.now() / 1000);
-    gw.metrics.slice(1).forEach(r => {
-      const b = r.buckets, last = b[b.length - 1];
-      b.shift(); b.push(Math.max(0, Math.round(last * (0.94 + Math.random()*0.12))));
-      r.aggregates['2xx_count'] = sum(b);
-    });
-    const ov = gw.metrics[0], parts = gw.metrics.slice(1);
-    ov.buckets = parts[0].buckets.map((_, i) => sum(parts.map(p => p.buckets[i])));
-    ov.aggregates['2xx_count'] = sum(ov.buckets);
+  st.lastPoll = Date.now(); st.nextPoll = Date.now() + pollInterval();
+  SNAP.measured_at = Math.floor(Date.now() / 1000);
+  /* every column is an independent metric now — none is a derived summary
+     of the others — so each just random-walks its own buckets one step.  */
+  SNAP.metrics.forEach(r => {
+    const b = r.buckets, last = b[b.length - 1];
+    b.shift(); b.push(Math.max(0, Math.round(last * (0.94 + Math.random()*0.12))));
+    retotal(r);
   });
   st.sweepT0 = Date.now();
-  log(force ? 'shake → poll <b>200</b>' : 'poll <b>200</b> · all gateways');
+  log((force ? 'forced refresh → ' : '') + 'GET /v1/gateway_health <b>200</b> · ' + joinGateways());
   sync();
 }
 function setLevel(l){
-  cur().fault = null;
-  cur().health.level = l;
-  cur().health.message = l === 'info'    ? 'error budget healthy'
+  SNAP.fault = null;
+  SNAP.alert.level = l;
+  SNAP.alert.message = l === 'info'    ? 'error budget healthy'
                        : l === 'warning' ? '5xx 0.68% max 0.50%'
                                          : '5xx 2.14% max 0.50%';
   if (l !== 'info'){
@@ -513,30 +591,39 @@ function setLevel(l){
       ? 'speaker · ' + (l === 'critical' ? '4 tones' : '2 tones') + ' on transition'
       : '<b>no speaker fitted</b> — alert is visual only');
   }
-  log('health.level → <b>' + l + '</b>'); sync();
+  log('alert.level → <b>' + l + '</b>'); sync();
 }
 
-panel.addEventListener('click', e => {
-  if (!st.screen) return wake();
+/* The glass, on the standard map: the left of the bar is settings, the right
+   of it is future use, a column tap is future use, and a 2 s hold anywhere
+   forces a poll.                                                          */
+const HOLD_MS = 2000;
+let holdT = null;
+panel.addEventListener('pointerdown', () => {
+  holdT = setTimeout(() => { holdT = null; log('glass held 2 s → <b>force refresh</b>'); poll(true); }, HOLD_MS);
+});
+const cancelHold = () => { if (holdT){ clearTimeout(holdT); holdT = null; return true; } return false; };
+panel.addEventListener('pointercancel', cancelHold);
+panel.addEventListener('pointerup', e => {
+  if (!cancelHold()) return;                       // the hold already fired
   const r = panel.getBoundingClientRect();
   const y = (e.clientY - r.top) / r.height * H;
   const x = (e.clientX - r.left) / r.width * W;
-  if (y < BAR[1]) { x > W*0.62 ? nextGateway() : (st.setup = !st.setup, wake(), log('bar tap → setup')); return sync(); }
-  if (st.setup){ st.setup = false; return sync(); }
-  log('columns are read, not tapped — every panel is already on screen');
+  if (y < BAR[1]){
+    if (x > W*0.62){ log('bar tap, right → <i>future use</i>'); return; }
+    st.setup = !st.setup; log('bar tap, left → ' + (st.setup ? '<b>settings</b>' : 'the board')); return sync();
+  }
+  if (st.setup){ st.setup = false; log('tap → the board'); return sync(); }
+  log('column tap → <i>future use</i> — every metric is already on screen');
 });
 
-$('#doGw').onclick = nextGateway;
-$('#doPoll').onclick = () => poll(false);
-$('#doSetup').onclick = () => { st.setup = !st.setup; wake(); sync(); };
-$('#doShake').onclick = () => {
-  panel.classList.remove('shook'); void panel.offsetWidth; panel.classList.add('shook');
-  setTimeout(() => panel.classList.remove('shook'), 470);
-  wake(); poll(true);
-};
+$('#doPoll').onclick = () => poll(true);
+$('#doSetup').onclick = () => { st.setup = !st.setup; sync(); };
+$('#doDisp').onclick = displayToggle;
+$('#doMute').onclick = toggleMute;
 $('#doFault').onclick = () => {
-  cur().fault = cur().fault ? null : 'OFFLINE';
-  log(cur().fault ? 'fetch fault · <b>OFFLINE</b> · numbers held' : 'recovered · 200');
+  SNAP.fault = SNAP.fault ? null : 'OFFLINE';
+  log(SNAP.fault ? 'GET /v1/gateway_health <b>failed</b> · OFFLINE · numbers held' : 'recovered · 200');
   sync();
 };
 $('#doSpk').onclick = () => {
@@ -546,9 +633,7 @@ $('#doSpk').onclick = () => {
 };
 $('#doPwr').onclick = () => {
   st.plugged = !st.plugged;
-  if (st.plugged) st.screen = true;
-  st.wakeUntil = Date.now() + 60000;
-  log(st.plugged ? 'USB power · screen always on' : 'on battery · screen sleeps in 60 s');
+  log(st.plugged ? 'USB power' : 'on battery · polling and alerts unchanged');
   sync();
 };
 document.querySelectorAll('.lv').forEach(el => el.onclick = () => setLevel(el.dataset.l));
@@ -563,9 +648,9 @@ $('#tgScale').onclick = e => {
 
 addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
-  if (k === 'g' || k === 'arrowright') nextGateway();
-  else if (k === 's') $('#doShake').click();
-  else if (k === 'p') poll(false);
+  if (k === 'd') displayToggle();
+  else if (k === 'm') toggleMute();
+  else if (k === 'p') poll(true);
   else if (k === 'f') $('#doFault').click();
   else if (k === 'b') $('#doSetup').click();
   else if (k === ' ') { e.preventDefault(); $('#doPwr').click(); }
@@ -575,18 +660,20 @@ addEventListener('keydown', e => {
 
 /* --- side panel --------------------------------------------------------- */
 function jsonView(gw){
-  const o = { gateway: gw.gateway, measured_at: gw.measured_at, health: gw.health,
-    metrics: gw.metrics.map(m => ({ name:m.name, bucket_unit:m.bucket_unit,
+  const o = { measured_at: gw.measured_at, alert: gw.alert,
+    metrics: gw.metrics.map(m => ({ gateway:m.gateway, name:m.name, bucket_unit:m.bucket_unit,
       bucket_size:m.bucket_size, bucket_count:m.bucket_count,
-      aggregates:m.aggregates, buckets:m.buckets })) };
+      buckets_value_type:m.buckets_value_type, buckets:m.buckets,
+      aggregates:m.aggregates })) };
   return JSON.stringify(o, null, 2)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;')
     .replace(/"([^"]+)":/g, '"<span class="k">$1</span>":')
     .replace(/: "([^"]*)"/g, ': "<span class="s">$1</span>"');
 }
 function sync(){
-  const gw = cur();
+  const gw = SNAP;
   $('#kScr').textContent  = st.screen ? 'on' : 'off';
+  $('#kInt').textContent  = Math.round(pollInterval()/1000) + ' s';
   $('#kCols').textContent = gw.metrics.length + ' of ' + NCOL;
   $('#kMeas').textContent = new Date(gw.measured_at*1000).toTimeString().slice(0, 8);
   $('#doPwr').textContent = st.plugged ? '🔌 on USB' : '🔋 on battery';
@@ -594,34 +681,24 @@ function sync(){
   $('#doFault').classList.toggle('act', !!gw.fault);
   $('#doSpk').textContent = st.speaker ? '🔔 speaker fitted' : '🔇 no speaker fitted';
   $('#doSpk').classList.toggle('act', st.speaker);
+  $('#doMute').textContent = st.muted ? '🔔 unmute' : '🔕 mute';
+  $('#doMute').classList.toggle('act', st.muted);
+  $('#doDisp').classList.toggle('act', !st.screen);
   document.querySelectorAll('.lv').forEach(el =>
-    el.classList.toggle('on', !gw.fault && el.dataset.l === gw.health.level));
+    el.classList.toggle('on', !gw.fault && el.dataset.l === gw.alert.level));
   $('#jName').textContent = gw.gateway;
   $('#json').innerHTML = jsonView(gw);
-  $('#gws').innerHTML = GW.map((g2, i) => {
-    const l = g2.fault ? 'fault' : g2.health.level;
-    const col = { info:'var(--gr)', warning:'var(--am)', critical:'var(--rd)', fault:'var(--gy)' }[l];
-    return `<div class="gw ${i === st.gw ? 'sel' : ''}" data-i="${i}">
-      <span class="pip" style="background:${col}"></span>
-      <span class="nm">${g2.gateway}</span>
-      <span class="ct">${g2.metrics.length} cols</span></div>`;
-  }).join('');
-  document.querySelectorAll('.gw').forEach(el => el.onclick = () => {
-    st.gw = +el.dataset.i; st.slide = { dir:1, t0:Date.now() }; st.sweepT0 = Date.now(); sync();
-  });
 }
 
 setInterval(() => {
   const left = Math.max(0, st.nextPoll - Date.now());
-  $('#bar').style.width = (100 - left/600) + '%';
+  $('#bar').style.width = (100 * (1 - left / pollInterval())) + '%';
   $('#kNext').textContent = Math.ceil(left/1000) + ' s';
   if (left <= 0) poll(false);
-  if (!st.plugged && st.screen && st.wakeUntil && Date.now() > st.wakeUntil){
-    st.screen = false; log('60 s idle → screen off'); sync();
-  }
 }, 250);
 
-log('boot · ' + GW.length + ' gateways · RTC holds the clock');
+log('boot · gateway <b>' + joinGateways() + '</b> · ' + SNAP.metrics.length
+    + ' metrics · poll every ' + Math.round(pollInterval()/1000) + ' s · RTC holds the clock');
 sync();
 frame();
 </script>
