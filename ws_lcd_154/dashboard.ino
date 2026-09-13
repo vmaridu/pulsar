@@ -188,8 +188,8 @@ static void drawBody(const struct Theme& th){
   char v[16], sh[16];
 
   /* hero — value size 4, name/span size 2, the graph starts below it. The
-     row's own span ("30M") sits where a secondary would — not the heading
-     tile's own secondary_value, which this slot never shows.            */
+     row's own span ("LAST 30M") sits where a secondary would — not the
+     heading tile's own secondary_value, which this slot never shows.    */
   if (r.ntiles > 0){
     const Tile& hero = r.tiles[0];
     const char* hu = fmtTileValue(p[0], hero.primaryUnit, v, sizeof v);
@@ -215,7 +215,11 @@ static void drawBody(const struct Theme& th){
     if (th.ink){ /* near-black ink under a level flash — no highlight colour */ }
     else if (!strcmp(tl.name, "4XX")) hot = s[i] >= 2 ? C_OR : 0;
     else if (!strcmp(tl.name, "5XX")) hot = s[i] >= 1 ? C_RD : s[i] >= 0.5 ? C_OR : 0;
-    drawTile(qx[q % 2], qright[q % 2], y + qy[q], 2, y + qy[q] + 9, 1, y + qy[q] + 9,
+    /* short values (the common case) get the bigger size — only a 4-5
+       digit value falls back to the smaller one, to guarantee it never
+       runs into the name/secondary stacked on the right.               */
+    const uint8_t valSize = strlen(v) <= 3 ? 3 : 2;
+    drawTile(qx[q % 2], qright[q % 2], y + qy[q], valSize, y + qy[q] + 9, 1, y + qy[q] + 9,
              v, unit, tl.name, share, hot, th);
   }
 }

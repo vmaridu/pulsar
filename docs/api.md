@@ -173,16 +173,16 @@ span = bucket_size × bucket_count (in bucket_unit)
 ```
 
 | `unit` | `size` | `count` | Row covers | Caption drawn beside the heading |
-| ------ | ------ | ------- | ---------- | ---------------------------------- |
-| `m`    | 1      | 30      | 30 minutes | `30M`                              |
-| `m`    | 5      | 12      | 1 hour     | `60M`                              |
-| `s`    | 10     | 30      | 5 minutes  | `5M` — 300 s compacts to minutes   |
-| `h`    | 1      | 24      | 1 day      | `24H`                              |
+| ------ | ------ | ------- | ---------- | -------------------------------------- |
+| `m`    | 1      | 30      | 30 minutes | `LAST 30M`                             |
+| `m`    | 5      | 12      | 1 hour     | `LAST 60M`                             |
+| `s`    | 10     | 30      | 5 minutes  | `LAST 5M` — 300 s compacts to minutes  |
+| `h`    | 1      | 24      | 1 day      | `LAST 24H`                             |
 
 - 🎚️ Three fields, not one `window_minutes` — one number says _how long_, never _how finely_
 - 🌍 **Governs the whole row**, not just the graph. A row with no `buckets` still needs it: the span is the divisor under the biggest number on screen
 - 🔤 **`bucket_unit` is a single lowercase letter** — `s` · `m` · `h`. Anything else reads as `m`
-- 🖥️ **The client computes and draws the span itself** — `30M`, `5M`, `24H` — beside the heading tile, in the slot that tile's own `secondary_value` would otherwise sit in. Not sent on the wire; nothing to keep in sync
+- 🖥️ **The client computes and draws the span itself** — `LAST 30M`, `LAST 5M`, `LAST 24H` — beside the heading tile, in the slot that tile's own `secondary_value` would otherwise sit in. Not sent on the wire; nothing to keep in sync
 - 🤝 Send the **same clock in every row** — screens are compared one after another, and two resolutions is a comparison that lies
 - 🏁 The newest bucket **ends at `measured_at`**; buckets are contiguous and equal; the oldest starts one span earlier
 - ⛔ **Never send a bucket still filling.** A third-full bucket draws as a cliff and fakes an incident every poll — end at the last complete one
@@ -211,7 +211,7 @@ Each row's `aggregates` is an array of **1–5 tiles**, not a fixed object — o
 ```
 
 - 🎯 **`secondary_value`'s meaning is per-tile**, decided by whoever populates it — a share of some meaningful whole, a second raw number (`P95` beside `AVG`), or something else. The schema doesn't constrain which
-- 🕰️ **One exception: tile 0's own `secondary_value` is never drawn.** The heading's secondary slot always shows the row's own span instead — `30M`, computed client-side from `bucket_size × bucket_count × bucket_unit` → [§4 clock](#-the-clock--bucket_). Send it if you like for a client that doesn't follow this convention; this build never shows it
+- 🕰️ **One exception: tile 0's own `secondary_value` is never drawn.** The heading's secondary slot always shows the row's own span instead — `LAST 30M`, computed client-side from `bucket_size × bucket_count × bucket_unit` → [§4 clock](#-the-clock--bucket_). Send it if you like for a client that doesn't follow this convention; this build never shows it
 - 🔁 **This is the one place a derived number may be sent** — a `secondary_value` like `99.34` above is computed, and that's fine here. Nothing else in this response is ever derived
 - 🧩 **A client that gets fewer than 5 tiles just leaves the remaining slots blank** — never an error, never a crash. 1–5 is the whole valid range, not just 5
 - 0️⃣ No traffic = tiles with `0`, not a missing array. Zero is a fact

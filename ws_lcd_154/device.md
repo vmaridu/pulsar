@@ -100,7 +100,7 @@ stacked to the right. Only the scale changes.
 
 | y   | What                                                                          |
 | --- | ------------------------------------------------------------------------------ |
-| 10  | `aggregates[0]`, the heading — value size 4; name at this same y, the row's own span (`30M`) 14 px under it, both size 2, right-aligned |
+| 10  | `aggregates[0]`, the heading — value size 4; name at this same y, the row's own span (`LAST 30M`) 14 px under it, both size 2, right-aligned |
 | 44 – 157 | The graph: full width, a fill fading to the baseline, one thin cyan line |
 | 58  | `aggregates[1]` and `[2]` — value size 2; name/secondary size 1, 9 px apart |
 | 104 | `aggregates[3]` and `[4]` — same shape as the row above                    |
@@ -116,7 +116,7 @@ choose differently; only the position matters to this build.
 - 📈 **The graph is the ground, not a panel.** It plots one count per bucket (`buckets_value_type: total_count`) with no headroom, so a steady series runs in the gap under the hero instead of through the text. A 1 px halo keeps every name readable where the line crosses it. It sweeps in left → right over ~900 ms
 - 🩵 One graph colour at every level — the ALERT band carries the alarm, the graph only carries the shape
 - 🔢 The numbers count up from the previous screen's over ~520 ms
-- ⏱️ **The heading's secondary slot is always the row's span**, never that tile's own `secondary_value` — `30M`, computed from `bucket_size × bucket_count × bucket_unit`, never sent → [api.md §4](../docs/api.md#-the-clock--bucket_)
+- ⏱️ **The heading's secondary slot is always the row's span**, never that tile's own `secondary_value` — `LAST 30M`, computed from `bucket_size × bucket_count × bucket_unit`, never sent → [api.md §4](../docs/api.md#-the-clock--bucket_)
 - 🚫 Not drawn: the per-minute rate
 
 ### 🚨 The ALERT band, and the whole-screen flash

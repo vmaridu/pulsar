@@ -384,16 +384,17 @@ function tileValue(v, unit){
   if (unit === 's') return [v.toFixed(1), 's'];
   return [count(v), null];
 }
-/* How long the row's own clock covers — "30M" · "5M" · "24H" · "45S" —
-   bucket_size * bucket_count in bucket_unit, compacted to 2 digits: 60+ s
-   becomes minutes, 60+ m becomes hours. Replaces the heading tile's own
-   secondary in the BODY band — the row's span, not that tile's
-   secondary_value, is what belongs beside the headline number.          */
+/* How long the row's own clock covers — "LAST 30M" · "LAST 5M" ·
+   "LAST 24H" · "LAST 45S" — bucket_size * bucket_count in bucket_unit,
+   compacted so the number never needs more than 2 digits: 60+ s becomes
+   minutes, 60+ m becomes hours. Replaces the heading tile's own secondary
+   in the BODY band — the row's span, not that tile's secondary_value, is
+   what belongs beside the headline number.                              */
 function spanCaption(r){
   let span = r.bucket_size * r.bucket_count, u = (r.bucket_unit || 'm')[0].toUpperCase();
   if (u === 'S' && span >= 60){ span = Math.round(span / 60); u = 'M'; }
   if (u === 'M' && span >= 60){ span = Math.round(span / 60); u = 'H'; }
-  return span + u;
+  return 'LAST ' + span + u;
 }
 /* status clock: MM/DD hh:mm AM of measured_at — the time of the reading,
    not the time now                                                         */
@@ -669,9 +670,9 @@ function drawBody(off){
 
   const tiles = shownAggregates(), H_ = th.bg;
 
-  /* hero — value size 4, name/span size 2. The row's own span ("30M") sits
-     where a secondary would — not the heading tile's own secondary_value,
-     which this slot never shows.                                        */
+  /* hero — value size 4, name/span size 2. The row's own span ("LAST 30M")
+     sits where a secondary would — not the heading tile's own
+     secondary_value, which this slot never shows.                       */
   if (tiles[0]){
     const hero = tiles[0];
     const [hv, hu] = tileValue(hero.primary_value, hero.primary_unit);
@@ -694,7 +695,11 @@ function drawBody(off){
       else if (t.name === '5XX') hot = t.secondary_value >= 1 ? C.rd : t.secondary_value >= 0.5 ? C.or : null;
     }
     const [x, right] = qx[q % 2], yy = qy[q];
-    drawTile(o, x, right, yy, 2, yy + 9, 1, yy + 9, val, unit, t.name, side, hot, H_, th);
+    // short values (the common case) get the bigger size — only a 4-5
+    // digit value falls back to the smaller one, so it never runs into
+    // the name/secondary stacked on the right.
+    const valSize = val.length <= 3 ? 3 : 2;
+    drawTile(o, x, right, yy, valSize, yy + 9, 1, yy + 9, val, unit, t.name, side, hot, H_, th);
   }
 }
 

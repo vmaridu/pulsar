@@ -139,7 +139,7 @@ Then the dashboard, **rotated a quarter turn right** so you can read it with the
 | ------ | ---------------------------------------------------------------------------------------------- |
 | STATUS | Battery % with a charging bolt if plugged in, `02/02 02:41 AM` of the reading, Wi-Fi bars (flat — no radio) |
 | ALERT  | Solid lime `INFO`, `error budget healthy`                                                     |
-| BODY   | `18659` · `30M`, `4XX 109 0.58%`, `5XX 15 0.08%`, `AVG 42ms`, `P95 180ms`, a steady graph      |
+| BODY   | `18659` · `LAST 30M`, `4XX 109 0.58%`, `5XX 15 0.08%`, `AVG 42ms`, `P95 180ms`, a steady graph |
 | FOOTER | Position rule with five segments, `ORDER Created`                                             |
 
 **It runs with no input at all.** Every 5 seconds the next metric comes up; after the fifth it wraps to the first and polls again. Serial narrates all of it:

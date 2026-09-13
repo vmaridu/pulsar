@@ -378,18 +378,18 @@ static const char* fmtTileValue(double v, const char* unit, char* out, size_t ca
   fmtCount(v, out, cap);
   return nullptr;
 }
-/* How long the row's own clock covers — "30M" · "5M" · "24H" · "45S" —
-   `bucket_size × bucket_count` in `bucket_unit`, compacted so it never
-   needs more than 2 digits: 60+ s becomes minutes, 60+ m becomes hours.
-   Replaces the heading tile's own secondary in the BODY band — the row's
-   span, not that tile's `secondary_value`, is what belongs beside the
-   headline number. api.md §4.                                            */
+/* How long the row's own clock covers — "LAST 30M" · "LAST 5M" ·
+   "LAST 24H" · "LAST 45S" — `bucket_size × bucket_count` in `bucket_unit`,
+   compacted so the number never needs more than 2 digits: 60+ s becomes
+   minutes, 60+ m becomes hours. Replaces the heading tile's own secondary
+   in the BODY band — the row's span, not that tile's `secondary_value`,
+   is what belongs beside the headline number. api.md §4.                 */
 static void spanCaption(int size, int count, const char* unit, char* out, size_t cap){
   long span = (long)size * count;
   char u = (unit && unit[0]) ? (char)toupper(unit[0]) : 'M';
   if (u == 'S' && span >= 60){ span = (span + 30) / 60; u = 'M'; }
   if (u == 'M' && span >= 60){ span = (span + 30) / 60; u = 'H'; }
-  snprintf(out, cap, "%ld%c", span, u);
+  snprintf(out, cap, "LAST %ld%c", span, u);
 }
 /* 4s ago · 3m ago · 2h ago */
 static void ageText(uint32_t ms, char* out, size_t cap){
