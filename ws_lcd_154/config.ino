@@ -1,0 +1,305 @@
+/* ===========================================================================
+   Configuration — the endpoint, its credentials, and the networks to reach it
+   over. Nothing in here is compiled in: every field arrives from the setup
+   page (hotspot.ino) and lives in NVS, so changing the backend a board points
+   at never needs a reflash.
+
+   Two namespaces, because they are two different concerns and a person may
+   well replace one without touching the other:
+
+       "gw"    u   base URL, "https://host[/prefix]" — /v1/gateway_health
+                   is appended at poll time, api.md §1
+               k   API key — the bearer token, or the public X-Api-Key
+               s   API secret — set it and requests are signed instead
+               ca  one pasted PEM root, optional, empty = TLS unverified
+
+       "wifi"  v   layout version; a blob written by an older struct is
+                   dropped rather than read back as nonsense
+               n   how many networks are stored
+               b   the networks themselves, one blob, in priority order
+
+   The networks are one blob rather than a key per field because a network has
+   nine fields and six may be stored: fifty-four keys is a thing that drifts.
+   One blob is written and read atomically and has one version to check.
+
+   SECRETS ARE NEVER SENT BACK OUT. configJson() masks every password to an
+   empty string and sets a `…Set` flag beside it, so the page can say "saved"
+   without the stored value crossing the air to whoever joined the hotspot.
+   An empty password coming back IN therefore means "keep what you have",
+   matched up by SSID so that reordering the list does not lose them —
+   configApplyJson() below is where that happens.
+   =========================================================================== */
+
+#define NETS_VERSION 1          /* bump when WifiNet changes shape */
+
+/* ------------------------------------------------------------------ helpers */
+
+/* What a security mode is called on the wire between the page and here. */
+static const char* secName(uint8_t s){
+  return s == SEC_ENT ? "enterprise" : s == SEC_OPEN ? "open" : "psk";
+}
+static uint8_t secFromName(const char* s){
+  if (!s) return SEC_PSK;
+  if (!strcmp(s, "enterprise")) return SEC_ENT;
+  if (!strcmp(s, "open"))       return SEC_OPEN;
+  return SEC_PSK;
+}
+
+/* Copy a JSON string into a fixed field, trimming the spaces a phone keyboard
+   puts on the end of everything. Truncates rather than refusing — the page
+   enforces the real limits, and a cut SSID is visible on the settings screen
+   where a silently dropped one would not be.                              */
+static void copyTrimmed(char* dst, size_t cap, const char* src){
+  if (!src){ dst[0] = 0; return; }
+  while (*src == ' ' || *src == '\t') src++;
+  strlcpy(dst, src, cap);
+  for (int n = (int)strlen(dst); n > 0; n--){
+    if (dst[n - 1] == ' ' || dst[n - 1] == '\t' || dst[n - 1] == '\r' || dst[n - 1] == '\n') dst[n - 1] = 0;
+    else break;
+  }
+}
+
+/* Is there enough to try a poll at all? The key is not required — a backend
+   may not want one — but the URL is the whole address.                    */
+static bool configHasEndpoint(){ return cfg.url[0] != 0; }
+
+/* Set if an API secret is stored: the key is then the public X-Api-Key and
+   each request is signed, rather than the key being a bearer token.
+   api.md's HMAC appendix. One field decides it; there is no mode to set
+   wrongly beside it.                                                      */
+static bool configSigned(){ return cfg.secret[0] != 0; }
+
+/* TLS with no root to check against is TLS that a machine in the middle can
+   read. It is allowed — a lot of backends sit behind a private CA nobody
+   wants to paste — but net.ino says so on every single poll.             */
+static bool configTlsVerified(){ return cfg.ca[0] != 0; }
+
+/* A base URL, tidied. Strips the trailing slash, and strips a trailing
+   /v1/gateway_health if someone pasted the whole endpoint rather than its
+   base — that is the obvious mistake to make and it costs nothing to
+   forgive. Returns false for anything that is not http(s).               */
+static bool configNormalizeUrl(char* url, size_t cap){
+  copyTrimmed(url, cap, url);
+  if (!url[0]) return true;                           /* empty is "not configured", not invalid */
+  const bool https = !strncasecmp(url, "https://", 8);
+  if (!https && strncasecmp(url, "http://", 7)) return false;
+  for (int n = (int)strlen(url); n > 0 && url[n - 1] == '/'; n--) url[n - 1] = 0;
+  const char* tail = "/v1/gateway_health";
+  const size_t tl = strlen(tail), ul = strlen(url);
+  if (ul > tl && !strcasecmp(url + ul - tl, tail)) url[ul - tl] = 0;
+  for (int n = (int)strlen(url); n > 0 && url[n - 1] == '/'; n--) url[n - 1] = 0;
+  return url[0] != 0;
+}
+
+/* Just the host out of the configured base URL — the scheme and any path are
+   noise on a line this narrow, and the host is the part you check.        */
+static void urlHostOf(const char* url, char* out, size_t cap){
+  out[0] = 0;
+  if (!url || !url[0]){ strlcpy(out, "NOT SET", cap); return; }
+  const char* p = strstr(url, "://");
+  const char* h = p ? p + 3 : url;
+  const char* end = strchr(h, '/');
+  size_t n = end ? (size_t)(end - h) : strlen(h);
+  if (n >= cap) n = cap - 1;
+  memcpy(out, h, n);
+  out[n] = 0;
+}
+
+/* ---------------------------------------------------------------- load/save */
+
+static void configLoad(){
+  memset(&cfg, 0, sizeof cfg);
+
+  Preferences p;
+  if (p.begin("gw", true)){                            /* read-only */
+    p.getString("u",  cfg.url,    sizeof cfg.url);
+    p.getString("k",  cfg.key,    sizeof cfg.key);
+    p.getString("s",  cfg.secret, sizeof cfg.secret);
+    p.getString("ca", cfg.ca,     sizeof cfg.ca);
+    p.end();
+  } else {
+    LOG("cfg", "no \"gw\" namespace yet - first boot, nothing configured");
+  }
+
+  if (p.begin("wifi", true)){
+    const uint8_t ver = p.getUChar("v", 0);
+    const uint8_t n   = p.getUChar("n", 0);
+    const size_t  len = p.getBytesLength("b");
+    if (ver && ver != NETS_VERSION){
+      LOGF("cfg", "saved networks are layout v%u, this build reads v%u - ignored",
+           (unsigned)ver, (unsigned)NETS_VERSION);
+    } else if (n && n <= MAX_NETWORKS && len == (size_t)n * sizeof(WifiNet)){
+      p.getBytes("b", cfg.nets, len);
+      cfg.nnets = n;
+    } else if (n || len){
+      LOGF("cfg", "saved networks look wrong (%u entries, %u bytes) - ignored",
+           (unsigned)n, (unsigned)len);
+    }
+    p.end();
+  }
+
+  /* Say exactly what was found, before anything depends on it. A board that
+     will not poll should make the reason obvious on the first screen of
+     serial, not on the fifth.                                             */
+  LOGF("cfg", "url %s", cfg.url[0] ? cfg.url : "NOT SET");
+  LOGF("cfg", "auth %s%s",
+       cfg.key[0] ? (configSigned() ? "signed (key + secret)" : "bearer token") : "NONE",
+       configTlsVerified() ? ", TLS root pinned" : ", TLS NOT VERIFIED (no CA pasted)");
+  LOGF("cfg", "%u saved network%s", (unsigned)cfg.nnets, cfg.nnets == 1 ? "" : "s");
+  for (int i = 0; i < cfg.nnets; i++){
+    const WifiNet& w = cfg.nets[i];
+    LOGF("cfg", "  %d. \"%s\" %s%s", i + 1, w.ssid, secName(w.security),
+         w.portal ? " + sign-in page" : "");
+  }
+}
+
+static bool configSave(){
+  bool ok = true;
+  Preferences p;
+  if (p.begin("gw", false)){
+    ok &= p.putString("u",  cfg.url)    > 0 || cfg.url[0]    == 0;
+    ok &= p.putString("k",  cfg.key)    > 0 || cfg.key[0]    == 0;
+    ok &= p.putString("s",  cfg.secret) > 0 || cfg.secret[0] == 0;
+    ok &= p.putString("ca", cfg.ca)     > 0 || cfg.ca[0]     == 0;
+    p.end();
+  } else { ok = false; }
+
+  if (p.begin("wifi", false)){
+    p.putUChar("v", NETS_VERSION);
+    p.putUChar("n", cfg.nnets);
+    if (cfg.nnets) ok &= p.putBytes("b", cfg.nets, (size_t)cfg.nnets * sizeof(WifiNet)) > 0;
+    else           p.remove("b");
+    p.end();
+  } else { ok = false; }
+
+  LOGF("cfg", "saved - url %s, %u network%s%s",
+       cfg.url[0] ? cfg.url : "NOT SET", (unsigned)cfg.nnets, cfg.nnets == 1 ? "" : "s",
+       ok ? "" : " (SOME WRITES FAILED - is the nvs partition full?)");
+  return ok;
+}
+
+/* --------------------------------------------------------------------- JSON */
+
+/* The config as the setup page reads it. Every password comes out empty with
+   a flag beside it — see the header. Everything else comes out whole,
+   because you cannot edit a list you cannot see.                         */
+static void configJson(JsonDocument& doc){
+  doc["url"]       = cfg.url;
+  doc["key"]       = "";
+  doc["keySet"]    = cfg.key[0]    != 0;
+  doc["secretSet"] = cfg.secret[0] != 0;
+  doc["caSet"]     = cfg.ca[0]     != 0;
+  doc["signed"]    = configSigned();
+  doc["maxNets"]   = MAX_NETWORKS;
+
+  JsonArray arr = doc["nets"].to<JsonArray>();
+  for (int i = 0; i < cfg.nnets; i++){
+    const WifiNet& w = cfg.nets[i];
+    JsonObject o = arr.add<JsonObject>();
+    o["ssid"]           = w.ssid;
+    o["security"]       = secName(w.security);
+    o["pskSet"]         = w.psk[0]  != 0;
+    o["identity"]       = w.identity;
+    o["user"]           = w.user;
+    o["passSet"]        = w.pass[0] != 0;
+    o["portal"]         = w.portal != 0;
+    o["portalUser"]     = w.portalUser;
+    o["portalPassSet"]  = w.portalPass[0] != 0;
+  }
+}
+
+/* One password field coming back from the page. Empty means "keep the one you
+   already have" — the page never saw it, so it cannot send it back. `old` is
+   the stored network with the same SSID, or NULL when this one is new.     */
+static void keepOrSet(char* dst, size_t cap, JsonVariantConst v, const char* old){
+  const char* in = v.is<const char*>() ? v.as<const char*>() : nullptr;
+  if (in && in[0]) copyTrimmed(dst, cap, in);
+  else if (old)    strlcpy(dst, old, cap);
+  else             dst[0] = 0;
+}
+
+/* Apply what the page posted. Validates first and writes `cfg` only once
+   everything has passed, the same rule parseSnapshot() follows for payloads:
+   a half-applied config is how a board ends up unreachable with no way back
+   in. On a problem it fills `err` and changes nothing at all.
+
+   Returns true when `cfg` was replaced (the caller then saves it).        */
+static bool configApplyJson(JsonObjectConst in, char* err, size_t errcap){
+  err[0] = 0;
+  if (in.isNull()){ strlcpy(err, "body is not a JSON object", errcap); return false; }
+
+  static Config next;          /* static: sizeof(Config) is a few KB and this runs
+                                  on the loop task's stack, same reason
+                                  parseSnapshot() keeps its scratch off it */
+  memset(&next, 0, sizeof next);
+
+  /* ---- endpoint. A blank key or secret keeps the stored one; clearing is
+     explicit, so that a page loaded before a secret was set cannot wipe it
+     by simply being saved.                                               */
+  copyTrimmed(next.url, sizeof next.url, in["url"] | "");
+  if (!configNormalizeUrl(next.url, sizeof next.url)){
+    strlcpy(err, "the URL must start with https:// or http://", errcap);
+    return false;
+  }
+  keepOrSet(next.key, sizeof next.key, in["key"], cfg.key);
+  if (in["secretClear"] | false) next.secret[0] = 0;
+  else keepOrSet(next.secret, sizeof next.secret, in["secret"], cfg.secret);
+  if (in["caClear"] | false) next.ca[0] = 0;
+  else keepOrSet(next.ca, sizeof next.ca, in["ca"], cfg.ca);
+
+  /* ---- networks, in the order the page listed them: that order IS the
+     priority, so the array is the preference list and nothing else needs
+     to carry a rank.                                                     */
+  JsonVariantConst netsV = in["nets"];
+  if (!netsV.isNull() && !netsV.is<JsonArrayConst>()){
+    strlcpy(err, "\"nets\" must be an array", errcap);
+    return false;
+  }
+  if (netsV.is<JsonArrayConst>()){
+    for (JsonVariantConst nv : netsV.as<JsonArrayConst>()){
+      if (next.nnets >= MAX_NETWORKS){
+        snprintf(err, errcap, "more than %d networks", MAX_NETWORKS);
+        return false;
+      }
+      if (!nv.is<JsonObjectConst>()) continue;                /* a blank row the page left behind */
+      JsonObjectConst o = nv.as<JsonObjectConst>();
+      WifiNet& w = next.nets[next.nnets];
+      copyTrimmed(w.ssid, sizeof w.ssid, o["ssid"] | "");
+      if (!w.ssid[0]) continue;                               /* an unnamed network is not a network */
+      w.security = secFromName(o["security"] | "psk");
+      w.portal   = (o["portal"] | false) ? 1 : 0;
+
+      /* the stored network of the same name, so its unseen passwords survive
+         being reordered, renamed around, or saved from a page that only ever
+         showed dots where they are                                        */
+      const WifiNet* old = nullptr;
+      for (int i = 0; i < cfg.nnets; i++)
+        if (!strcmp(cfg.nets[i].ssid, w.ssid)){ old = &cfg.nets[i]; break; }
+
+      keepOrSet(w.psk,  sizeof w.psk,  o["psk"],  old ? old->psk  : nullptr);
+      keepOrSet(w.pass, sizeof w.pass, o["pass"], old ? old->pass : nullptr);
+      keepOrSet(w.portalPass, sizeof w.portalPass, o["portalPass"],
+                old ? old->portalPass : nullptr);
+      copyTrimmed(w.identity,   sizeof w.identity,   o["identity"]   | "");
+      copyTrimmed(w.user,       sizeof w.user,       o["user"]       | "");
+      copyTrimmed(w.portalUser, sizeof w.portalUser, o["portalUser"] | "");
+
+      /* Enough to actually join? Say so now, on the page, rather than let a
+         board leave the bench quietly unable to associate.                */
+      if (w.security == SEC_PSK && !w.psk[0]){
+        snprintf(err, errcap, "\"%s\" needs a password", w.ssid);
+        return false;
+      }
+      if (w.security == SEC_ENT && (!w.user[0] || !w.pass[0])){
+        snprintf(err, errcap, "\"%s\" needs a username and password", w.ssid);
+        return false;
+      }
+      if (w.security == SEC_ENT && !w.identity[0])
+        strlcpy(w.identity, w.user, sizeof w.identity);       /* the usual outer identity */
+      next.nnets++;
+    }
+  }
+
+  cfg = next;
+  return true;
+}

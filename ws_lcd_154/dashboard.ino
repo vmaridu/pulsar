@@ -97,14 +97,20 @@ static void drawStatus(const struct Theme& th){
 /* =================================================================== ALERT
    The whole band is the level colour at full strength — no tint, no black
    mixed in — and it holds steady at every level. The flash is the whole
-   screen's job, not this band's; here the colour simply never changes.   */
+   screen's job, not this band's; here the colour simply never changes.
+
+   When the fetch layer has a fault standing, that is what this band says —
+   OFFLINE, NO ACCESS, SETUP — over numbers that are being held from the last
+   good poll. The payload's own `alert` is not shown then: "INFO" written
+   above held numbers reads as good news, which is the one thing a fault must
+   never look like. api.md §6.                                            */
 static void drawAlert(const struct Level& L){
   const int y = BAND_ALERT_Y, h = BAND_ALERT_H;
   cv->fillRect(0, y, 240, h, L.c);
 
   /* heading and subscript: the level word loud, the message small under it */
-  txt(L.word, X_L, y + 6, 2, C_INK, 'l', true);
-  char msg[22]; strlcpy(msg, snap.message, sizeof msg);   /* api.md §5: <= 20 */
+  txt(alertWord(L), X_L, y + 6, 2, C_INK, 'l', true);
+  char msg[24]; strlcpy(msg, alertDetail(), sizeof msg);   /* api.md §5: <= 20 */
   txt(msg, X_L, y + 25, 1, C_INK);
 }
 
@@ -178,8 +184,32 @@ static uint16_t levelColor(const char* level, const struct Theme& th){
    top to bottom — a row with fewer than 5 tiles just leaves the remaining
    slots blank, never reflows them. Every tile follows the same layout as
    the hero (drawTile(), above) — only the heading draws bigger.          */
+/* Nothing has ever parsed — a board that has not been told where to look, or
+   one that cannot get there yet. The band stays blank of numbers on purpose:
+   there is no placeholder data to show and inventing some would make this the
+   most dangerous screen in the product. What it shows instead is the way
+   out, since the ALERT band above has already named the fault.           */
+static void drawEmptyBody(const struct Theme& th){
+  const int y = BAND_BODY_Y;
+  cv->fillRect(0, y, 240, BAND_BODY_H, th.bg);
+  if (th.ink) cv->fillRect(X_L, y, X_R - X_L, 1, th.rule);
+  txt("NO DATA YET", 120, y + 38, 2, th.dim, 'c', true);
+  if (!configHasEndpoint()){
+    txt("this board has no endpoint", 120, y + 68, 1, th.dim, 'c');
+    txt("HOLD LEFT 2 S", 120, y + 88, 2, th.ink ? th.tx : C_CY, 'c', true);
+    txt("join the wi-fi it raises, set the url", 120, y + 110, 1, th.dim, 'c');
+  } else {
+    char host[40]; urlHostOf(cfg.url, host, sizeof host);
+    txt("waiting on", 120, y + 68, 1, th.dim, 'c');
+    txt(host, 120, y + 82, 1, th.ink ? th.tx : C_TX, 'c', true);
+    txt(faultDetail[0] ? faultDetail : "nothing has answered yet", 120, y + 104, 1, th.dim, 'c');
+    txt("HOLD LEFT 2 S TO CHANGE IT", 120, y + 124, 1, th.dim, 'c');
+  }
+}
+
 static void drawBody(const struct Theme& th){
   const int y = BAND_BODY_Y;
+  if (!snap.nrows){ drawEmptyBody(th); return; }
   const Row& r = snap.rows[curRow];
   cv->fillRect(0, y, 240, BAND_BODY_H, th.bg);
   /* a rule parts the ALERT band from the BODY while the screen is lit */

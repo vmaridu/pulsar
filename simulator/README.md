@@ -73,16 +73,22 @@ PORT=8080 node server.js
 ## Point a device at it
 
 The device needs to reach this machine's LAN IP, not `localhost` — find it with
-`ipconfig` (Windows) or `ifconfig` / `ip addr` (macOS/Linux), then set the device's
-configured endpoint to:
+`ipconfig` (Windows) or `ifconfig` / `ip addr` (macOS/Linux). Then hold **LEFT** on the
+device for 2 s, join the hotspot it raises, and put this in as the **base URL**:
 
 ```
-http://<this-machine's-IP>:4180/v1/gateway_health
+http://<this-machine's-IP>:4180
 ```
 
-The ws_lcd_154 firmware is offline-only today (`net.ino` reads an embedded payload, not
-a real GET) — this is for when that changes, and for exercising the mockups or any
-other client against a real HTTP response in the meantime.
+Leave off `/v1/gateway_health` — the device appends it. Leave the API key and secret
+empty too; this server does not check them.
+
+- 🔓 **Plain `http://` is fine here and nowhere else.** The device allows it, and says
+  `[PLAIN HTTP - the key is readable on the wire]` on every poll — which is exactly right
+  for a laptop on your own bench and exactly wrong for anything else
+- 🧯 **This is the cheapest way to see the error screens.** Arm a fault and watch
+  `NO ACCESS`, `THROTTLED`, `BACKEND` or `OFFLINE` land on real hardware, over a real
+  network, without breaking anything you care about → [api.md §6](../docs/api.md#6--errors)
 
 ---
 

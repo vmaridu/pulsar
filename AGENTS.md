@@ -60,7 +60,7 @@ listed is **future use** and must be documented as "future use", never silently 
 | Input             | Tap                        | Double-tap              | Hold 2 s                 |
 | ----------------- | -------------------------- | ----------------------- | ------------------------ |
 | **Glass** (touch) | Next metric screen         | *future use*            | **Force refresh**        |
-| **LEFT** (PLUS)   | **Settings screen** on/off | *future use*            | **Hotspot** (UI to come) |
+| **LEFT** (PLUS)   | **Settings screen** on/off | *future use*            | **Setup hotspot**        |
 | **POWER** (PWR)   | *future use*               | *future use*            | **Power off / on**       |
 | **RIGHT** (BOOT)  | **Display on/off**         | **Sound mute / unmute** | *future use*             |
 
@@ -80,8 +80,14 @@ listed is **future use** and must be documented as "future use", never silently 
 - 🔄 When the loop returns to the first screen, **fetch fresh data**
 - 🧮 Poll interval = `max(30, metric_count × 5)` seconds — never faster than 30 s
 - 👆 A 2 s hold on the glass forces a refresh regardless of where the cycle is
-- 🌐 There is **no network endpoint yet**. `net.ino` holds the placeholder and the
-  embedded test payload; wiring the real `GET` replaces one function
+- 🌐 **Nothing about the endpoint is compiled in.** The base URL, the API key and the
+  API secret come out of NVS, set over the setup hotspot → [device.md §6](docs/device.md#6--configuration).
+  A board with no URL shows `SETUP` and **no numbers at all** — there is no sample
+  payload to fall back on, because a monitor showing invented data is worse than one
+  admitting it has none
+- 📶 **Failing to reach the backend is a normal state, not a crash.** No saved network in
+  range, a captive portal in the way, a 401 — each gets its own banner over the last good
+  numbers, and the device keeps trying → [api.md §6](docs/api.md#6--errors)
 
 ## 5. 🪵 Logging — Serial is the debugger
 
@@ -95,7 +101,9 @@ This board has no screen for us to debug on, so **Serial out is the whole story*
   - power, display, mute, view changes
   - boot: reset reason, device name, hardware probe results, payload summary
 - 🏷️ Format: `[  1234ms] category: message` — category is one lowercase word
-  (`key`, `touch`, `net`, `power`, `view`, `sound`, `boot`, `data`)
+  (`key`, `touch`, `net`, `wifi`, `cfg`, `power`, `view`, `sound`, `boot`, `data`).
+  `wifi` is the radio — scanning, joining, portals; `net` is the poll on top of it;
+  `cfg` is the stored configuration being read or written
 - 🤫 Never log in a tight render loop; log state *changes* and actions, not frames
 
 ## 6. 📁 Module layout — keep it modular
@@ -113,9 +121,12 @@ untouched by the compiler.
 | `dashboard.ino`     | The four bands                                           |
 | `input.ino`         | Keys and touch — taps, double-taps, holds                |
 | `power.ino`         | Power latch, off/on, display on/off                      |
-| `settings.ino`      | Settings screen and hotspot screen                       |
+| `config.ino`        | The stored endpoint and saved networks (NVS)             |
+| `wifi.ino`          | Joining saved networks — priority, enterprise, portals   |
+| `hotspot.ino`       | The setup hotspot, the page it serves, its screen        |
+| `settings.ino`      | The settings screen                                      |
 | `sound.ino`         | The alert sound and mute                                 |
-| `net.ino`           | Poll scheduling, the fetch placeholder, the test payload |
+| `net.ino`           | Poll scheduling and the HTTPS GET                        |
 | `es8311.*`          | Vendor codec driver — do not edit                        |
 | `README.md`         | Flashing and troubleshooting                             |
 | `device.md`         | That build's pixels and hardware                         |
@@ -166,6 +177,13 @@ Authored in hex, quantised to RGB565.
 - 🚫 Never `fillScreen()` inside `loop()`
 - 🚫 Never synthesise audio continuously on-chip — render once, stream
 - ✅ Clients truncate; they never wrap and never scroll
+- 🔑 **A stored secret never leaves the device.** The setup page is told *that* a password
+  exists, never what it is — it comes back as `""` with a `…Set` flag beside it, and an
+  empty field posted back means "keep the one you have". Anyone within radio range of the
+  hotspot can open that page; none of them may read what is already on the board
+- 🧪 **No sample payload ships in the firmware.** Point a board at `simulator/` to get data
+  without a backend. A fallback that renders made-up numbers when the real poll fails is
+  the one bug in a monitor that costs more than a blank screen
 - 📝 **When a feature is fully removed, remove its shadow too.** Don't leave sentences
   that justify the current design by contrasting it with what used to be there —
   "the URL is the gateway, no gateway id is sent" only makes sense to someone who

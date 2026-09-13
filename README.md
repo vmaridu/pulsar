@@ -2,7 +2,7 @@
 
 A desk display that answers one question: **is your API gateway healthy?**
 
-- 🔌 Polls one backend you control — **one device, one endpoint**
+- 🔌 Polls one backend you control — **one device, one endpoint**, set over the device's own Wi-Fi, never reflashed
 - 🔁 Shows each metric for **5 s** and refetches when the cycle wraps, never faster than **30 s**
 - 🔔 A **critical** sounds a short alert with every flash — **even with the screen off**
 - 🔕 Double-tap the right key to silence every sound; a restart always brings it back
@@ -17,7 +17,7 @@ GET {base_url}/v1/gateway_health
 Authorization: Bearer <token>
 ```
 
-- 📦 One `GET`, one JSON object under **4 KB**, bearer auth
+- 📦 One `GET`, one JSON object under **4 KB** — a bearer token, or a signed request when you set an API secret
 - 🩺 An `alert` verdict — `info` · `warning` · `critical` + one 20-char line
 - 📊 Up to **5 rows**, each with **1–5 stat tiles** plus a bucketed series named by `buckets_value_type` — today always `total_count`
 - 🏷️ Each row carries a **`gateway`** attribute, so a backend that merges several platforms still says where a number came from
@@ -38,7 +38,7 @@ Authorization: Bearer <token>
 | Input             | Tap                    | Double-tap        | Hold 2 s               |
 | ----------------- | ---------------------- | ----------------- | ---------------------- |
 | **Glass** (touch) | Next metric screen     | _future use_      | **Force refresh**      |
-| **LEFT** (PLUS)   | **Settings** on/off    | _future use_      | **Hotspot** (UI later) |
+| **LEFT** (PLUS)   | **Settings** on/off    | _future use_      | **Setup hotspot**      |
 | **POWER** (PWR)   | _future use_           | _future use_      | **Power off / on**     |
 | **RIGHT** (BOOT)  | **Display on/off**     | **Mute / unmute** | _future use_           |
 
@@ -68,14 +68,24 @@ Authorization: Bearer <token>
 ## 🚀 Getting started
 
 1. 🔧 Serve `GET /v1/gateway_health` against **[docs/api.md](docs/api.md)**
-2. 📶 Point a device at it over the Wi-Fi hotspot → **[docs/device.md](docs/device.md#6--configuration)**
+2. 📶 Point a device at it — hold LEFT 2 s, join the hotspot → **[docs/device.md](docs/device.md#6--configuration)**
 3. 🖼️ Open a display's `mockup.html` to see it rendered before any hardware exists
 
-> ⚠️ **ws_lcd_154 firmware runs today**, offline — the payload is a JSON literal in the sketch and there is no radio yet → [ws_lcd_154](ws_lcd_154/README.md). ws_lcd_349 is layout and contract only.
+> ⚠️ **ws_lcd_154 firmware runs today** — it joins your Wi-Fi and polls the URL you give it. ws_lcd_349 is layout and contract only.
+
+## 📶 Setting one up
+
+Hold **LEFT** for 2 s. The board raises its own WPA2 Wi-Fi, shows you the name and password
+on its screen, and serves a page at `192.168.4.1` where you set:
+
+- 🔗 the **base URL**, and the **API key** and **API secret** it authenticates with
+- 📶 up to **six Wi-Fi networks in priority order** — open, WPA2, or WPA2-Enterprise (802.1X)
+- 🏨 per network, the **sign-in page** credentials for a guest network that has one
+
+Save and restart, and the device's own screen tells you whether it worked.
+🔧 **The whole flow → [docs/device.md §6](docs/device.md#6--configuration)**
 
 ## 🗺️ Roadmap
 
-- 🌐 The real HTTPS poll, replacing the embedded payload
-- 📶 The hotspot settings page — URL and token without a reflash
 - ☁️ Cloud control panel — fleets, OTA updates, remote config
 - 🔐 OAuth2 token rotation

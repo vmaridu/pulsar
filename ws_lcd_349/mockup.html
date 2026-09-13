@@ -516,13 +516,19 @@ function drawSetup(){
   g.text('POLL EVERY ' + Math.round(pollInterval()/1000) + ' S', 26, 85, 1, C.dim2);
 
   g.text('DEVICE', 330, 44, 1, C.dim2);
-  g.text('pulsar-3fa2c1  ·  192.168.1.42', 330, 59, 1, C.tx);
+  g.text('pulsar-3fa2c1  ·  Office  ·  192.168.1.42', 330, 59, 1, C.tx);
   g.text('SOUND ' + (st.muted ? 'MUTED' : 'ON') + '  ·  DISPLAY ' + (st.screen ? 'ON' : 'OFF'),
          330, 72, 1, C.dim2);
 
+  /* Where it points and how it proves who it is — set over the setup hotspot,
+     never compiled in. TLS with no pasted root is encrypted but not
+     authenticated, so it is called out rather than implied.               */
+  g.text('BACKEND', 330, 85, 1, C.dim2);
+  g.text('api.example.com  ·  bearer  ·  TLS UNVERIFIED', 330, 100, 1, C.or);
+
   g.hLine(14, 118, W - 28, C.line);
-  g.text('HOLD THE LEFT OF THE BAR 2 S FOR THE HOTSPOT', 14, 130, 1, C.dim2);
-  g.text('pulsar-3fa2c1  ·  192.168.4.1', 14, 144, 1, C.dim);
+  g.text('HOLD THE LEFT OF THE BAR 2 S FOR THE SETUP HOTSPOT', 14, 130, 1, C.dim2);
+  g.text('join pulsar-3fa2c1 with the password it shows, then open 192.168.4.1', 14, 144, 1, C.dim);
   g.text(st.speaker ? 'SPEAKER FITTED' : 'NO SPEAKER ON MX1.25 — ALERTS ARE SILENT',
          W - 14, 144, 1, st.speaker ? C.gr : C.or, 'r');
 }

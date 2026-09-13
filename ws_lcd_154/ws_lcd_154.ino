@@ -5,8 +5,12 @@
    platforms; every metric carries its own `gateway` attribute saying where
    it came from — there is no root `gateway` field, only the per-metric one.
 
-   Offline build: no Wi-Fi yet. net.ino holds the test payload and the poll
-   placeholder — wiring the real GET replaces one function.
+   Nothing about the endpoint is baked in. The base URL, the API key and the
+   API secret are set over the device's own Wi-Fi hotspot — hold LEFT 2 s —
+   and kept in NVS with the saved networks; config.ino owns the store,
+   hotspot.ino the page, wifi.ino the joining, net.ino the poll. An
+   unconfigured board says SETUP and shows no numbers at all: a monitor that
+   invents data is worse than one that admits it has none.
 
    Screen — four fixed bands, named. Say these names:
        STATUS 0..20 | ALERT 20..56 | BODY 56..216 | FOOTER 216..240
@@ -20,19 +24,22 @@
    build's own docs and mockup sit right beside them. Arduino requires the
    main .ino to share its folder's name, hence `ws_lcd_154.ino` rather than a
    generic name:
-       ws_lcd_154.ino         pins, model, palette, logging, setup/loop
+       ws_lcd_154.ino     pins, model, palette, logging, setup/loop
        intro.ino          the welcome screen — pulsar, then the PULSAR label
        dashboard.ino      the four bands
        input.ino          keys and touch — taps, double-taps, holds
        power.ino          power latch, off/on, display on/off
-       settings.ino       settings screen, hotspot screen
+       config.ino         the stored endpoint and saved networks (NVS)
+       wifi.ino           joining saved networks — priority, enterprise, portals
+       hotspot.ino        the setup hotspot, the page it serves, its screen
+       settings.ino       the settings screen
        sound.ino          the alert sound and mute
-       net.ino            poll scheduling, fetch placeholder, test payload
+       net.ino            poll scheduling and the HTTPS GET
        es8311.*           vendor codec driver, do not edit
 
    Input — the standard map, the whole contract. Anything not here is FUTURE USE:
        GLASS  tap: next metric screen · double-tap: future · hold 2 s: refresh
-       LEFT   tap: settings on/off    · double-tap: future · hold 2 s: hotspot
+       LEFT   tap: settings on/off    · double-tap: future · hold 2 s: setup hotspot
        POWER  tap: future             · double-tap: future · hold 2 s: off / on
        RIGHT  tap: display on/off     · double-tap: mute   · hold 2 s: future
 
@@ -64,6 +71,29 @@
 #include <ESP_I2S.h>                /* ships with the ESP32 core — the alert sound */
 #include <esp_system.h>                /* esp_reset_reason() */
 #include <esp_mac.h>                   /* esp_read_mac() — the settings screen */
+/* Everything below ships with the ESP32 core — nothing to install for the
+   radio, the setup page or the signed-request mode.                       */
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <HTTPClient.h>
+#include <WebServer.h>              /* the setup page — hotspot.ino */
+#include <DNSServer.h>              /* so joining the hotspot pops that page */
+#include <Preferences.h>            /* the config store — config.ino */
+#include <mbedtls/md.h>             /* HMAC-SHA256 when an API secret is set */
+#if __has_include(<esp_random.h>)
+#include <esp_random.h>             /* IDF 5 moved it out of esp_system.h */
+#endif
+/* WPA2-Enterprise: the EAP client moved headers between IDF 4 and 5, and the
+   call names moved with it. wifi.ino uses whichever is here.              */
+#if __has_include(<esp_eap_client.h>)
+#include <esp_eap_client.h>
+#define PULSAR_EAP_IDF5 1
+#elif __has_include(<esp_wpa2.h>)
+#include <esp_wpa2.h>
+#define PULSAR_EAP_IDF5 0
+#else
+#error "No EAP client header - update the ESP32 core (3.x) for WPA2-Enterprise"
+#endif
 #include "es8311.h"                 /* codec driver, beside this sketch — Espressif, Apache-2.0 */
 #if __has_include("TouchDrvCST.hpp")
 #include "TouchDrvCST.hpp"          /* SensorLib 2026+ */
@@ -129,6 +159,70 @@
    so the time on screen is the time the payload says it was measured,
    shown MM/DD hh:mm AM.                                                   */
 #define TZ_OFFSET_HOURS  0
+
+/* --------------------------------------------------------------- config
+   What a person sets over the setup page, and the only place the endpoint
+   and the networks come from — nothing here is baked into the firmware.
+   config.ino loads and saves it, hotspot.ino edits it, wifi.ino and net.ino
+   read it. docs/device.md §6 is the owner of what each field means.
+
+   MAX_NETWORKS is deliberately not 5: api.md already has two different
+   caps of five — 5 metric screens and 5 tiles per screen (AGENTS.md §10) —
+   and a third would get conflated with them in conversation. Say
+   "networks", and the number is six.                                     */
+#define MAX_NETWORKS  6
+#define LEN_SSID     33    /* 32 + NUL, the 802.11 maximum                 */
+#define LEN_PSK      65    /* 64 + NUL, a WPA2 passphrase or raw PSK       */
+#define LEN_CRED     49    /* enterprise and sign-in names and passwords   */
+#define LEN_URL     129
+#define LEN_KEY      97    /* the API key, and the API secret              */
+#define LEN_CA     2048    /* one pasted PEM root — a real one is ~1.2 KB  */
+
+/* How a network is joined. The setup page picks it per network; a scan can
+   suggest it, but only a person knows whether an "enterprise" SSID wants
+   PEAP or the guest PSK printed on the wall.                             */
+enum { SEC_OPEN = 0, SEC_PSK = 1, SEC_ENT = 2 };
+
+/* One saved network. Order in the array IS the priority — wifi.ino joins the
+   first one it can actually see, so the array is the preference list.
+
+   Two kinds of network need more than an SSID and a password, and they are
+   not the same kind of "more":
+     · WPA2-Enterprise (SEC_ENT) authenticates during the join itself —
+       802.1X wants an identity and an inner username and password, and
+       without them the association never completes
+     · a captive portal joins fine and then holds every request until a
+       sign-in form is posted, so the join succeeds and the backend is
+       still unreachable. `portal` says to expect that, and the two
+       portal fields are what gets posted — a different credential from
+       the enterprise one, often a different account entirely            */
+struct WifiNet {
+  char    ssid[LEN_SSID];
+  uint8_t security;                  /* SEC_OPEN · SEC_PSK · SEC_ENT */
+  char    psk[LEN_PSK];              /* SEC_PSK */
+  char    identity[LEN_CRED];        /* SEC_ENT — outer identity, often anonymous@realm */
+  char    user[LEN_CRED];            /* SEC_ENT — inner username */
+  char    pass[LEN_CRED];            /* SEC_ENT — inner password */
+  uint8_t portal;                    /* 1 = a sign-in page stands after the join */
+  char    portalUser[LEN_CRED];
+  char    portalPass[LEN_CRED];
+};
+
+/* The endpoint, its credentials and the networks to reach it over.
+
+   One key, one secret, and the secret is the mode switch: secret empty means
+   the key is a bearer token, secret set means the key is the public
+   X-Api-Key and the secret signs each request — api.md §1 and its HMAC
+   appendix. Two fields, no third field to contradict them.               */
+struct Config {
+  char    url[LEN_URL];              /* base URL — /v1/gateway_health is appended */
+  char    key[LEN_KEY];
+  char    secret[LEN_KEY];
+  char    ca[LEN_CA];                /* optional PEM root; empty = TLS unverified */
+  WifiNet nets[MAX_NETWORKS];
+  uint8_t nnets;
+};
+static Config cfg;
 
 /* ----------------------------------------------------------------- model
    One gateway. Every metric row carries the gateway it came from, so a
@@ -302,10 +396,51 @@ static uint8_t  view = VIEW_MAIN;
 static char     deviceName[20] = "pulsar";   /* pulsar-xxxxxx from the MAC — set in setup() */
 static uint8_t  macAddr[6];
 
-/* What the radio would report. This build has no Wi-Fi, so it stays empty and
-   the settings screen says so; an online build fills it after connecting.  */
-struct NetInfo { bool connected; int rssi; char ip[16]; };
-static NetInfo net = { false, 0, "" };
+/* What the radio reports — filled by wifi.ino as it joins and drops, read by
+   the STATUS band's bars and the settings screen. `portalBlocked` is the
+   awkward middle state a captive portal puts us in: associated, with an IP,
+   and still unable to reach anything until a sign-in form is posted.     */
+struct NetInfo {
+  bool connected;
+  int  rssi;
+  char ip[16];
+  char ssid[LEN_SSID];
+  bool portalBlocked;
+  bool timeSynced;                   /* SNTP answered — the signed mode needs a clock */
+};
+static NetInfo net = { false, 0, "", "", false, false };
+
+/* The fetch layer's own verdict, separate from the payload's — api.md §6.
+   While this is set the ALERT band shows it instead of `alert`, the last
+   good numbers stay exactly where they were, and the whole screen flashes
+   grey: "I cannot reach you" and "you say you are degraded" have different
+   owners, and neither may be silent. A poll that works clears it.        */
+static char faultWord[14]   = "";    /* "" = the last poll was good */
+static char faultDetail[22] = "";
+
+/* ----------------------------------------------- radio and hotspot state
+   wifi.ino and hotspot.ino own all of this; it lives here because the IDE
+   concatenates the .ino files and a global has to be declared before the
+   first file that reads it.
+
+   Joining is a state machine stepped from loop(), never a blocking connect:
+   the render loop runs at ~25 fps and a board frozen for ten seconds on a
+   network that is not there looks broken.                                */
+enum { WS_IDLE, WS_SCAN, WS_JOIN, WS_PORTAL, WS_ONLINE, WS_WAIT, WS_SUSPENDED };
+static uint8_t  wifiState   = WS_IDLE;
+static uint32_t wifiStateT0 = 0;
+static uint8_t  wifiCand[MAX_NETWORKS];   /* cfg.nets indices worth trying, best first */
+static uint8_t  wifiNcand   = 0;
+static uint8_t  wifiTry     = 0;          /* how far down wifiCand we are */
+static uint32_t wifiJoined  = 0;          /* millis() we went online — the settings screen */
+
+/* The setup hotspot. Both servers are raised only while it is up, so a board
+   that never opens it never pays for them.                                */
+static WebServer* apServer  = nullptr;
+static DNSServer* apDns     = nullptr;
+static char       apPass[10] = "";        /* this session's AP password, shown on screen */
+static uint8_t    apSaves   = 0;          /* how many times the page has saved */
+static uint32_t   apLastHit = 0;          /* millis() of the last request served */
 
 static uint32_t countT0 = 0;
 static double   countFromP[MAX_TILES];      /* each tile's value, last screen */
@@ -428,11 +563,28 @@ static int txt(const char* s, int x, int y, uint8_t size, uint16_t c,
    above the type definitions, and without it the compile dies with
    `'Level' does not name a type`. */
 static const struct Level& levelNow(){
+  if (faultWord[0])                    return LV_FAULT;   /* cannot reach the backend */
   if (!strcmp(snap.level, "critical")) return LV_CRIT;
   if (!strcmp(snap.level, "warning"))  return LV_WARN;
   if (!strcmp(snap.level, "info"))     return LV_INFO;
   return LV_FAULT;
 }
+/* What the ALERT band actually prints. A fault speaks over the payload's
+   alert — the numbers under it are held, and saying "INFO" above held
+   numbers would read as good news. api.md §6.                            */
+static const char* alertWord(const struct Level& L){
+  return faultWord[0] ? faultWord : L.word;
+}
+static const char* alertDetail(){
+  return faultWord[0] ? faultDetail : snap.message;
+}
+/* Set or clear the fault banner. Only ever called by net.ino and wifi.ino,
+   and every change is logged there — never set silently.                 */
+static void setFault(const char* word, const char* detail){
+  strlcpy(faultWord,   word   ? word   : "", sizeof faultWord);
+  strlcpy(faultDetail, detail ? detail : "", sizeof faultDetail);
+}
+static void clearFault(){ faultWord[0] = faultDetail[0] = 0; }
 /* There is no root `gateway` any more — a device shows whatever rows the
    backend sends, each named on its own. For the one place that still wants
    a single label (the settings screen), the first row stands for all of
@@ -527,7 +679,7 @@ static const char* resetName(){
 void setup(){
   Serial.begin(SERIAL_BAUD);
   delay(200);
-  Serial.printf("\nPulsar - ESP32-S3-LCD-1.54 - offline build - serial %d baud\n", SERIAL_BAUD);
+  Serial.printf("\nPulsar - ESP32-S3-LCD-1.54 - serial %d baud\n", SERIAL_BAUD);
   LOGF("boot", "reset: %s", resetName());          /* a boot loop names itself here */
 
   pinMode(PIN_LCD_BL, OUTPUT);
@@ -561,27 +713,31 @@ void setup(){
   LOGF("boot", "battery: %.2f V  %d%%  %s",
        batteryVolts(), batteryPercent(), charging() ? "charging" : "on battery");
 
-  if (!netFetch()){                /* net.ino — the placeholder poll */
-    LOG("boot", "no usable payload - stopping");
-    panel->fillScreen(RGB565_BLACK);
-    panel->setCursor(8, 100); panel->setTextColor(RGB565_RED); panel->setTextSize(2);
-    panel->println("BAD PAYLOAD");
-    while (true) delay(1000);
-  }
+  /* No payload is baked in, so there is nothing to show yet and nothing to
+     stop for either: a board with no config, or one whose networks are all
+     out of range, is a working board with an honest banner on it. The first
+     poll happens the moment wifi.ino gets online.                        */
+  configLoad();                    /* config.ino — the endpoint and the saved networks */
   buildThemes();
+  netBegin();                      /* net.ino — the banner starts out saying what we wait for */
+  wifiBegin();                     /* wifi.ino — joining runs in the background from here */
   soundBegin();             /* codec, the critical alert and the intro hum — before the intro needs either — sound.ino */
   bootIntro();              /* once per power-on, hums with the beams, fades into the dashboard — intro.ino */
   if (soundMuted) showToast("SOUND OFF");  /* the brown-out mute check inside soundBegin() ran before
                                                anything was on screen to show it on — say it now instead */
   beginCount();             /* sweepT0 stays 0: the graph is already whole, as it faded in */
   cycleBegin();             /* start the 5 s screen rotation — net.ino */
-  LOGF("boot", "ready - %u metric screens, poll every %lus",
-       (unsigned)snap.nrows, (unsigned long)(pollIntervalMs() / 1000));
+  LOGF("boot", "ready - %u saved network%s, endpoint %s, poll every %lus",
+       (unsigned)cfg.nnets, cfg.nnets == 1 ? "" : "s",
+       cfg.url[0] ? cfg.url : "NOT SET - hold LEFT 2 s",
+       (unsigned long)(pollIntervalMs() / 1000));
 }
 
 void loop(){
   handleTouch();            /* input.ino */
   handleKeys();             /* input.ino */
+  wifiTick();               /* wifi.ino — scan, join, watch for drops */
+  hotspotTick();            /* hotspot.ino — serves the setup page while the AP is up */
   cycleTick();              /* 5 s per screen, refetch when the loop wraps — net.ino */
   alertTick();
   render();                 /* ~25 fps; the alert flash and the count-up need it */

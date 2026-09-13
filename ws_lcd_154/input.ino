@@ -10,7 +10,7 @@
                        hold 2 s: force a refresh
      LEFT   GPIO0      tap: settings screen on / off
                        double-tap: future use
-                       hold 2 s: hotspot mode (settings UI to come)
+                       hold 2 s: the setup hotspot — hotspot.ino
      POWER  PWR  GPIO5 tap: future use
                        double-tap: future use
                        hold 2 s: power off · from off, hold 2 s: on
@@ -74,7 +74,7 @@ static void holdRing(float p, const char* label){
 
 /* ------------------------------------------------------------------ views */
 static void showMain(){
-  if (view == VIEW_HOTSPOT) stopHotspot();          /* settings.ino */
+  if (view == VIEW_HOTSPOT) hotspotStop();          /* hotspot.ino — drops the AP */
   if (view != VIEW_MAIN){
     view = VIEW_MAIN;
     cycleResetTimer();                              /* net.ino — a full 5 s on this screen */
@@ -98,7 +98,7 @@ static void keysBegin(){
 static void onTap(int k){
   switch (k){
     case K_LEFT:
-      if (view == VIEW_HOTSPOT) stopHotspot();
+      if (view == VIEW_HOTSPOT) hotspotStop();
       if (view == VIEW_MAIN){ view = VIEW_SETTINGS; LOG("key", "LEFT tap -> settings"); }
       else { showMain(); LOG("key", "LEFT tap -> back to main"); }
       break;
@@ -122,8 +122,8 @@ static void onDoubleTap(int k){
 static void onHold(int k){
   switch (k){
     case K_LEFT:
-      if (view == VIEW_HOTSPOT){ LOG("key", "LEFT hold -> leaving hotspot"); showMain(); }
-      else { LOG("key", "LEFT hold -> hotspot"); view = VIEW_HOTSPOT; startHotspot(); }
+      if (view == VIEW_HOTSPOT){ LOG("key", "LEFT hold -> leaving the setup hotspot"); showMain(); }
+      else { LOG("key", "LEFT hold -> setup hotspot"); view = VIEW_HOTSPOT; hotspotStart(); }
       break;
     case K_POWER:
       LOG("key", "POWER hold -> power off");
@@ -228,7 +228,7 @@ static void drawHoldOverlay(){
     if (!k.down || k.fired || now - k.t0 < TAP_MS) continue;
     if (i == K_RIGHT) continue;                     /* RIGHT hold is future use */
     const char* label = i == K_POWER ? "OFF"
-                      : view == VIEW_HOTSPOT ? "EXIT" : "HOTSPOT";
+                      : view == VIEW_HOTSPOT ? "EXIT" : "SETUP";
     holdRing((now - k.t0) / (float)HOLD_MS, label);
     return;
   }

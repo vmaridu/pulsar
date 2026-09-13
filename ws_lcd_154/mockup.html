@@ -146,11 +146,11 @@ footer a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--lin
       </div>
     </div>
     <div class="keys">
-      <button class="key" id="kLeft"  data-k="left"  title="tap: settings on / off · hold 2 s: hotspot">PLUS<kbd>1</kbd></button>
+      <button class="key" id="kLeft"  data-k="left"  title="tap: settings on / off · hold 2 s: setup hotspot">PLUS<kbd>1</kbd></button>
       <button class="key" id="kPower" data-k="power" title="tap: future use · hold 2 s: off / on">PWR<kbd>2</kbd></button>
       <button class="key" id="kRight" data-k="right" title="tap: display on / off · double-tap: mute · hold 2 s: future use">BOOT<kbd>3</kbd></button>
     </div>
-    <div class="keyHint">tap <b>PLUS</b>: settings · hold 2 s: hotspot · tap <b>PWR</b>: future use · hold 2 s: off / on · tap <b>BOOT</b>: display on / off · double-tap: mute · hold 2 s: future use</div>
+    <div class="keyHint">tap <b>PLUS</b>: settings · hold 2 s: setup hotspot · tap <b>PWR</b>: future use · hold 2 s: off / on · tap <b>BOOT</b>: display on / off · double-tap: mute · hold 2 s: future use</div>
     <div class="toggles">
       <button class="tg" id="tgReal" title="z">actual size</button>
       <button class="tg" id="tgPx">pixel grid</button>
@@ -406,8 +406,10 @@ function clockText(){
 function pct(n, t){ return t ? Math.round((n * 100 / t) * 100) / 100 : 0; }
 
 /* ==========================================================================
-   Sample payloads — shaped exactly like docs/api.md, same numbers the
-   offline sketch carries, so the mockup and the board can be held side by side
+   Sample payloads — shaped exactly like docs/api.md, and the same numbers the
+   simulator serves, so the mockup and a board pointed at it can be held side
+   by side. The firmware carries no payload of its own: it polls the URL you
+   set over the setup hotspot, and shows nothing at all until it has one
    ========================================================================== */
 /* One tile — see the aggregate-tile guideline in AGENTS.md. `name` IS the
    text drawn (<= 5 chars) — no separate label. `level` (optional, default
@@ -746,9 +748,24 @@ function drawFoot(th){
   if (nm) g.text(nm, X_L + wg + 12, y + 6, 2, th.tx, 'l', true);
 }
 
-/* What an online build's radio reports — the mockup shows it connected. The
-   offline sketch has no Wi-Fi, so its settings screen shows "-" for these. */
-const NET = { connected: true, rssi: -58, ip: '192.168.1.42', name: 'pulsar-3fa2c1', mac: '3C:84:27:3F:A2:C1' };
+/* What the radio reports once it has joined one of the saved networks, and
+   where the board is configured to point. Both are set over the setup
+   hotspot on real hardware; here they stand in for a board already set up. */
+const NET = { connected: true, rssi: -58, ip: '192.168.1.42', ssid: 'Office',
+              portalBlocked: false, name: 'pulsar-3fa2c1', mac: '3C:84:27:3F:A2:C1' };
+const CFG = { url: 'https://api.example.com', key: '7f3a9c21', secret: '', ca: '', nets: 2 };
+const cfgSigned = () => CFG.secret !== '';
+const cfgTls    = () => CFG.ca !== '';
+/* Just the host out of the base URL — the scheme and any path are noise on a
+   line this narrow, and the host is the part you check.                    */
+const urlHost = u => u ? (u.split('://')[1] || u).split('/')[0] : 'NOT SET';
+/* This session's hotspot password, made fresh every time the AP is raised —
+   the same alphabet the firmware uses, with no character to squint at.    */
+let apPass = '', apSaves = 0, apClients = 0;
+function apMakePassword(){
+  const alpha = '23456789abcdefghjkmnpqrstuvwxyz';
+  apPass = Array.from({ length: 8 }, () => alpha[Math.floor(Math.random() * alpha.length)]).join('');
+}
 /* A response can mix rows from more than one platform — join the distinct
    `gateway` names actually present, in first-seen order.                  */
 function joinGateways(){
@@ -763,57 +780,86 @@ function infoRow(y, label, value, c = C.tx){
   g.text(value, X_R, y, 1, c, 'r');
 }
 
-/* The settings screen — everything the board knows about itself, read-only.
-   Tap PLUS to toggle it; hold PLUS 2 s for the hotspot, where these become
-   editable (spec to come). A tap on the glass goes back too.              */
+/* The settings screen — everything the board knows about itself, read-only,
+   in the order you would ask the questions: what am I holding, what did it
+   join, where is it pointing, and what came back. Tap PLUS to toggle it;
+   hold PLUS 2 s for the setup hotspot, where it all becomes editable. A tap
+   on the glass goes back too.                                             */
 function drawSettings(){
   g.fillScreen(C.bg);
   g.text('SETTINGS', X_L, 8, 2, C.cy, 'l', true);
   g.hLine(X_L, 28, X_R - X_L, C.line);
 
-  g.text('DEVICE', X_L, 34, 1, C.dim2);
-  infoRow(45, 'Battery', '82% ' + (st.plugged ? 'CHARGING' : 'ON BATTERY'));
-  infoRow(56, 'Name', NET.name);
-  infoRow(67, 'Sound', st.muted ? 'muted' : 'on', st.muted ? C.or : C.tx);
+  g.text('DEVICE', X_L, 33, 1, C.dim2);
+  infoRow(44, 'Battery', '82% ' + (st.plugged ? 'CHARGING' : 'ON BATTERY'));
+  infoRow(55, 'Name', NET.name);
+  infoRow(66, 'MAC', NET.mac);
 
-  g.text('WI-FI', X_L, 81, 1, C.dim2);
-  infoRow(92, 'Connected', NET.connected ? 'yes' : 'no');
-  infoRow(103, 'Signal', NET.connected ? NET.rssi + ' dBm' : '-');
-  infoRow(114, 'IP', NET.connected ? NET.ip : '-');
-  infoRow(125, 'MAC', NET.mac);
+  g.text('WI-FI', X_L, 79, 1, C.dim2);
+  if (NET.connected && NET.portalBlocked) infoRow(90, 'Network', NET.ssid + ' - SIGN-IN', C.or);
+  else if (NET.connected)                 infoRow(90, 'Network', NET.ssid);
+  else                                    infoRow(90, 'Network', CFG.nets ? 'scanning' : 'none saved',
+                                                   CFG.nets ? C.dim : C.or);
+  infoRow(101, 'Signal', NET.connected ? NET.rssi + ' dBm' : '-');
+  infoRow(112, 'IP', NET.connected ? NET.ip : '-');
+
+  /* where it points, and how it proves who it is. TLS with no pasted root is
+     encrypted but unauthenticated, so it is called out rather than implied. */
+  g.text('BACKEND', X_L, 125, 1, C.dim2);
+  infoRow(136, 'Host', urlHost(CFG.url), CFG.url ? C.tx : C.or);
+  const https = CFG.url.startsWith('https://');
+  const auth = (!CFG.key ? 'no key' : cfgSigned() ? 'signed' : 'bearer') + ' - ' +
+               (!https ? 'NO TLS' : cfgTls() ? 'tls ok' : 'TLS UNVERIFIED');
+  infoRow(147, 'Auth', auth, (https && cfgTls() && CFG.key) ? C.tx : C.or);
 
   /* the dot is the current alert.level — global, not any one platform */
-  g.text('GATEWAYS', X_L, 139, 1, C.dim2);
-  g.fillRect(X_L, 151, 5, 5, LV[level()].c);
-  g.text(joinGateways(), X_L + 10, 150, 1, C.tx, 'l', true);
-  g.text(SNAP.metrics.length + ' screens', 168, 150, 1, C.dim, 'r');
-  g.text(ageText(Date.now() - SNAP.polledAt), X_R, 150, 1, C.tx, 'r');
-  infoRow(162, 'Poll', 'every ' + Math.round(pollInterval() / 1000) + 's', C.dim);
+  g.text('GATEWAYS', X_L, 160, 1, C.dim2);
+  g.fillRect(X_L, 172, 5, 5, LV[level()].c);
+  g.text(joinGateways(), X_L + 10, 171, 1, C.tx, 'l', true);
+  g.text(SNAP.metrics.length + ' scr', 176, 171, 1, C.dim, 'r');
+  g.text(ageText(Date.now() - SNAP.polledAt), X_R, 171, 1, C.tx, 'r');
 
-  g.hLine(X_L, 178, X_R - X_L, C.line);
-  g.text('TAP LEFT - BACK', W/2, 186, 1, C.dim, 'c');
-  g.text('HOLD LEFT 2 S - HOTSPOT', W/2, 198, 1, C.dim2, 'c');
+  g.hLine(X_L, 184, X_R - X_L, C.line);
+  g.text('TAP LEFT - BACK', W/2, 188, 1, C.dim, 'c');
+  g.text('HOLD LEFT 2 S - SETUP HOTSPOT', W/2, 199, 1, C.cy, 'c');
   g.text('TAP RIGHT - DISPLAY OFF', W/2, 210, 1, C.dim2, 'c');
-  g.text('2 TAPS RIGHT - SOUND', W/2, 222, 1, C.dim2, 'c');
+  g.text('2 TAPS RIGHT - SOUND', W/2, 221, 1, C.dim2, 'c');
 }
 
-/* Hotspot mode — a placeholder until its spec arrives. Hold PLUS 2 s to get
-   here; tap or hold it again to go back.                                  */
+/* The setup hotspot. Hold PLUS 2 s and the board raises its own WPA2 Wi-Fi,
+   answers every DNS name with its own address so the page opens by itself,
+   and serves the setup page at 192.168.4.1 — the base URL, the API key and
+   secret, and the networks to reach them over. Everything needed to get in,
+   in the order it is needed. Tap or hold PLUS again to go back, and the
+   access point goes down with the screen.                                 */
 function drawHotspot(){
   g.fillScreen(C.bg);
-  g.text('HOTSPOT', X_L, 8, 2, C.cy, 'l', true);
+  g.text('SETUP', X_L, 8, 2, C.cy, 'l', true);
   g.hLine(X_L, 28, X_R - X_L, C.line);
-  g.text('JOIN THIS WI-FI', X_L, 40, 1, C.dim);
-  g.text(NET.name, X_L, 52, 2, C.tx, 'l', true);
-  g.text('THEN OPEN', X_L, 76, 1, C.dim);
-  g.text('192.168.4.1', X_L, 88, 2, C.tx);
-  g.hLine(X_L, 114, X_R - X_L, C.line);
-  g.text('NOT STARTED', W/2, 128, 2, C.or, 'c', true);
-  g.text('the settings page', W/2, 152, 1, C.dim2, 'c');
-  g.text('is still to be specified', W/2, 164, 1, C.dim2, 'c');
+  g.text('JOIN THIS WI-FI', X_L, 34, 1, C.dim2);
+  g.text(NET.name, X_L, 45, 2, C.tx, 'l', true);
+  g.text('PASSWORD', X_L, 68, 1, C.dim2);
+  g.text(apPass, X_L, 79, 2, C.cy, 'l', true);
+  g.text('THEN OPEN', X_L, 102, 1, C.dim2);
+  g.text('192.168.4.1', X_L, 113, 2, C.tx);
+  g.hLine(X_L, 136, X_R - X_L, C.line);
+
+  if (!apClients) g.text('WAITING FOR A PHONE', X_L, 144, 1, C.dim);
+  else            g.text(apClients + ' CONNECTED', X_L, 144, 1, C.gr, 'l', true);
+  if (apClients)  g.text('PAGE OPENED', X_R, 144, 1, C.dim2, 'r');
+
+  if (apSaves){
+    g.text('SAVED ' + apSaves + ' TIME' + (apSaves === 1 ? '' : 'S'), X_L, 158, 1, C.gr, 'l', true);
+    g.text('RESTART FROM THE PAGE TO USE IT', X_L, 170, 1, C.dim2);
+  } else {
+    g.text(CFG.nets + ' network' + (CFG.nets === 1 ? '' : 's') + ' saved, url ' +
+           (CFG.url ? 'set' : 'NOT SET'), X_L, 158, 1, C.dim2);
+  }
+
   g.hLine(X_L, 184, X_R - X_L, C.line);
-  g.text('TAP LEFT - BACK', W/2, 196, 1, C.dim, 'c');
-  g.text('HOLD LEFT 2 S - BACK', W/2, 208, 1, C.dim2, 'c');
+  g.text('TAP LEFT - BACK', W/2, 192, 1, C.dim, 'c');
+  g.text('HOLD LEFT 2 S - BACK', W/2, 204, 1, C.dim2, 'c');
+  g.text('THE AP CLOSES WHEN YOU LEAVE', W/2, 220, 1, C.dim2, 'c');
 }
 
 /* ==========================================================================
@@ -1055,7 +1101,7 @@ function drawChargeIcon(x, y, c){
    Anything not listed is FUTURE USE, and future use says so out loud.
 
      GLASS  tap: next metric screen  double-tap: future use  hold 2 s: refresh
-     PLUS   tap: settings on / off   double-tap: future use  hold 2 s: hotspot
+     PLUS   tap: settings on / off   double-tap: future use  hold 2 s: setup hotspot
      PWR    tap: future use          double-tap: future use  hold 2 s: off / on
      BOOT   tap: display on / off    double-tap: mute        hold 2 s: future use
 
@@ -1118,9 +1164,12 @@ function keyHoldTick(){
     else if (st.off || st.intro) continue;
     else if (k === 'right') log('BOOT held 2 s → <i>future use</i>');
     else {
-      st.view = st.view === 'hotspot' ? 'main' : 'hotspot';
+      if (st.view === 'hotspot'){ apPass = ''; apClients = 0; apSaves = 0; st.view = 'main'; }
+      else { apMakePassword(); apClients = 0; apSaves = 0; st.view = 'hotspot'; }
       if (st.view === 'main') st.screenT0 = Date.now();
-      log('PLUS held 2 s → ' + (st.view === 'hotspot' ? '<b>hotspot</b> (placeholder)' : 'main screen')); sync();
+      log('PLUS held 2 s → ' + (st.view === 'hotspot'
+          ? '<b>setup hotspot</b> — AP "' + NET.name + '" up, password <b>' + apPass + '</b>'
+          : 'main screen — access point closed')); sync();
     }
   }
   /* a key with a double-tap action: no second tap came, so it was a single */
@@ -1167,7 +1216,7 @@ function holdOverlay(){
     if (st.off && k !== 'power') continue;
     if (k === 'right') continue;                       // BOOT hold is future use — no ring
     holdRing((now - K.t0) / HOLD_MS, k === 'power' ? (st.off ? 'ON' : 'OFF')
-                                   : st.view === 'hotspot' ? 'EXIT' : 'HOTSPOT');
+                                   : st.view === 'hotspot' ? 'EXIT' : 'SETUP');
     return;
   }
 }

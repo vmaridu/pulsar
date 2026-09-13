@@ -49,12 +49,12 @@ The standard map → [device.md §2](../docs/device.md#2--input--the-standard-ma
 | Input                | Tap                       | Double-tap              | Hold 2 s                     |
 | -------------------- | ------------------------- | ----------------------- | ---------------------------- |
 | **Glass** · anywhere | Next metric screen        | _future use_            | **Force refresh**            |
-| **LEFT** key         | **Settings** on / off     | _future use_            | **Hotspot** — placeholder    |
+| **LEFT** key         | **Settings** on / off     | _future use_            | **Setup hotspot**            |
 | **PWR** · middle key | _future use_              | _future use_            | **Power off** · from off: on |
 | **RIGHT** key        | **Display on / off**      | **Sound mute / unmute** | _future use_                 |
 
 - ⏱️ **Every hold is 2 s** — keys and glass alike
-- ⭕ Anything held past a tap shows a ring filling toward 2 s with the action written inside — `REFRESH`, `HOTSPOT`, `OFF`, `ON` — so you see it coming and can let go. A hold that is future use shows **no ring**: nothing is coming
+- ⭕ Anything held past a tap shows a ring filling toward 2 s with the action written inside — `REFRESH`, `SETUP`, `EXIT`, `OFF`, `ON` — so you see it coming and can let go. A hold that is future use shows **no ring**: nothing is coming
 - 👆 **One glass, no zones.** Anywhere counts. A single tap waits 450 ms to be sure it is not the first half of a double-tap, and a finger that slides is not a tap
 - 🔙 **Off the main screen**, a tap on the glass goes back to it
 - 🌑 **RIGHT tap sleeps the panel only.** The cycle keeps turning, the poll keeps polling, and a critical still sounds in the dark → [device.md §2](../docs/device.md#-display-off-is-not-power-off)
@@ -182,22 +182,39 @@ Tap **LEFT** to open it, tap again to go back. Read-only — everything the boar
 
 | Row                     | Where it comes from                                                                                    |
 | ----------------------- | ------------------------------------------------------------------------------------------------------ |
-| Battery                 | The same ADC reading as the STATUS band, and the charge pin                                             |
-| Name                    | `pulsar-` + the last three bytes of the MAC — also the hotspot's Wi-Fi name                             |
-| Sound                   | Muted or not. RAM only, so it always says `on` after a restart                                          |
-| Connected · Signal · IP | The radio after it joins. **This offline build has no Wi-Fi**, so it shows `no - offline build` and `-` |
-| MAC                     | The chip's Wi-Fi station address, `esp_read_mac()` — real even without Wi-Fi                            |
-| Gateways                | Every distinct `gateway` a row named, comma-joined (`Orders, Payments`) — the level dot beside them is `alert.level`, global to the response, not any one platform |
-| Poll                    | The shared interval, `max(30, metrics × 5)` seconds                                                     |
+Four groups, in the order you would ask the questions: what am I holding, what did it join, where is it pointing, and what came back.
 
+| Row                     | Where it comes from                                                                                    |
+| ----------------------- | ------------------------------------------------------------------------------------------------------ |
+| **DEVICE** Battery      | The same ADC reading as the STATUS band, and the charge pin                                             |
+| Name                    | `pulsar-` + the last three bytes of the MAC — also the setup hotspot's Wi-Fi name                       |
+| MAC                     | The chip's Wi-Fi station address, `esp_read_mac()` — the one a network's allowlist wants                |
+| **WI-FI** Network       | The saved network it actually joined. Not joined → what the radio is doing instead (`scanning`, `joining`, `waiting to retry`), or `none saved` in orange. Joined but walled in by a sign-in page → the name with `SIGN-IN` beside it, in orange |
+| Signal · IP             | `WiFi.RSSI()` and the address DHCP gave it, `-` when not joined                                         |
+| **BACKEND** Host        | Just the host out of the configured base URL — orange `NOT SET` on a board nobody has set up yet        |
+| Auth                    | `bearer` · `signed` · `no key`, then `tls ok` · `TLS UNVERIFIED` · `NO TLS`. Orange unless all of it is right |
+| **GATEWAYS**            | Every distinct `gateway` a row named, comma-joined (`Orders, Payments`) — the level dot beside them is `alert.level`, global to the response, not any one platform, and grey while a fetch fault stands |
+| ↳ right of it           | Screen count and how old the numbers are. With nothing parsed yet, the poll interval instead            |
+
+- 🔕 Sound is not a row here — the crossed-speaker icon in the STATUS band already says it, and the space is worth more to the radio
 - 🔔 The critical alert sound plays here too — it belongs to the response, not to the screen you happen to be on
 
-### 📶 Hotspot mode (placeholder)
+### 📶 The setup hotspot
 
-Hold **LEFT** 2 s. The real thing raises a Wi-Fi access point named after the device and serves a page to change the endpoint and token; **that UI and its spec come later**. For now the screen names the network and address it will use and says `NOT STARTED`, and `startHotspot()` / `stopHotspot()` in `settings.ino` are stubs marked `TODO(hotspot)`.
+Hold **LEFT** 2 s. The board raises a WPA2 access point named after itself, answers every DNS name with its own address so the page opens on its own, and serves the setup page at `192.168.4.1` → [device.md §6](../docs/device.md#6--configuration).
 
-- 🔙 Tap LEFT, hold LEFT 2 s again, or tap the glass to leave
-- 💾 When it lands, what it saves goes to `Preferences` → [device.md §6](../docs/device.md#6--configuration)
+| Line                 | What                                                                       |
+| -------------------- | -------------------------------------------------------------------------- |
+| `SETUP`              | Title, cyan                                                                |
+| `JOIN THIS WI-FI`    | then the device name at size 2 — the AP's SSID                             |
+| `PASSWORD`           | then this session's password at size 2, in cyan. **New every time**        |
+| `THEN OPEN`          | then `192.168.4.1` at size 2                                               |
+| status               | `WAITING FOR A PHONE`, or `n CONNECTED` in lime, and `PAGE OPENED` once it has been |
+| below                | `SAVED n TIMES` in lime once the page saves, else the stored network count and whether a URL is set |
+
+- 🔴 If the access point will not come up, the screen says `HOTSPOT FAILED` rather than showing a password that would not work
+- 🔙 Tap LEFT, hold LEFT 2 s again, or tap the glass to leave — **the AP goes down the moment you do**
+- 📻 The station side stays enabled but unassociated while it is up, so the page can scan for networks; it never joins one, because one radio cannot follow your network's channel and hold this AP still at the same time
 
 ---
 
@@ -262,9 +279,12 @@ The sketch is modular — one concern per file, all flat in `ws_lcd_154/` (Ardui
 | `dashboard.ino` | The four bands                                           |
 | `input.ino`     | Keys and touch — taps, double-taps, holds                |
 | `power.ino`     | Power latch, off/on, display on/off                      |
-| `settings.ino`  | Settings screen and hotspot screen                       |
+| `config.ino`    | The stored endpoint and saved networks (NVS)             |
+| `wifi.ino`      | Joining saved networks — priority, enterprise, portals   |
+| `hotspot.ino`   | The setup hotspot, the page it serves, its screen        |
+| `settings.ino`  | The settings screen                                      |
 | `sound.ino`     | The boot-intro hum, the alert sound, and mute            |
-| `net.ino`       | Poll scheduling, the fetch placeholder, the test payload |
+| `net.ino`       | Poll scheduling and the HTTPS `GET`                      |
 | `es8311.*`      | Vendor codec driver (Espressif, Apache-2.0)              |
 
 ---
@@ -288,8 +308,16 @@ The sketch is modular — one concern per file, all flat in `ws_lcd_154/` (Ardui
 - [ ] A glass tap steps on early and the chosen screen gets a fresh 5 s; a slide does nothing
 - [ ] A glass double-tap does nothing and Serial says `future use`
 - [ ] Glass held 2 s refreshes: `REFRESH` ring, hairline lights, graph sweeps in, `last poll` resets
-- [ ] LEFT tap opens settings, tap again goes back; MAC and name are real, battery tracks the STATUS band, GATEWAYS lists both platforms
-- [ ] LEFT held 2 s shows the hotspot placeholder; tap LEFT or the glass to leave
+- [ ] LEFT tap opens settings, tap again goes back; MAC and name are real, battery tracks the STATUS band, WI-FI names the network it joined with its real IP, BACKEND names the configured host, GATEWAYS lists both platforms
+- [ ] LEFT held 2 s raises the hotspot: the screen names the network, a fresh password and `192.168.4.1`
+- [ ] A phone joining it makes the count on screen go to `1 CONNECTED`, and the setup page opens by itself
+- [ ] The page lists the saved networks in priority order and shows **no** stored password, only `saved - leave blank to keep`
+- [ ] Scanning from the page lists what is really in the room; tapping one adds it
+- [ ] Save & restart: the board comes back, joins, and shows real numbers within a few seconds
+- [ ] Tap LEFT or the glass to leave the hotspot — the AP disappears from the phone's list straight away
+- [ ] With no URL set at all: `SETUP` in the ALERT band, `NO DATA YET` and `HOLD LEFT 2 S` in the BODY, and **no numbers anywhere**
+- [ ] With a URL set but every saved network out of range: `OFFLINE`, and the last good numbers stay up if there were any
+- [ ] Wrong API key: `NO ACCESS`, held numbers stay, and it keeps retrying every cycle
 - [ ] **PWR tap does nothing** and Serial says `POWER tap -> future use`
 - [ ] PWR held 2 s switches off; from off, PWR held 2 s switches on — shorter does nothing
 - [ ] On USB, off goes dark and PWR held 2 s brings it back

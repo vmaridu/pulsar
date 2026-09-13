@@ -124,7 +124,7 @@ The standard map → [device.md §2](../docs/device.md#2--input--the-standard-ma
 
 ## 5. ➕ What this build adds
 
-Cycle, input, bands, logging, speaker, hotspot and palette are shared → **[device.md](../docs/device.md)**. Particular to this one:
+Cycle, input, bands, logging, speaker, configuration and palette are shared → **[device.md](../docs/device.md)**. Particular to this one:
 
 - 🧠 Sprite is 640 × 172 × 16 bpp = **220 KB**, twice the square build's. `fillScreen()` in `loop()` is the one call that costs you the frame here
 - ↔️ **No screen transition at all.** Everything is on screen already; the only motion is the count-up, the graph sweep and the alert flash

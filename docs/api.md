@@ -175,7 +175,7 @@ span = bucket_size × bucket_count (in bucket_unit)
 | `unit` | `size` | `count` | Row covers | Caption drawn beside the heading |
 | ------ | ------ | ------- | ---------- | -------------------------------------- |
 | `m`    | 1      | 30      | 30 minutes | `LAST 30M`                             |
-| `m`    | 5      | 12      | 1 hour     | `LAST 60M`                             |
+| `m`    | 5      | 12      | 1 hour     | `LAST 1H` — 60 m compacts to hours     |
 | `s`    | 10     | 30      | 5 minutes  | `LAST 5M` — 300 s compacts to minutes  |
 | `h`    | 1      | 24      | 1 day      | `LAST 24H`                             |
 
