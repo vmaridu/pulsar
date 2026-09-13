@@ -95,14 +95,14 @@ Orders · Created → Dispatched → Cancelled
 
 Offsets from the top of the band — the sketch and the mockup use the same numbers.
 Every tile, heading included, is the same shape: the value on the left (its unit,
-if it has one, right after it), and its name above its secondary — if it has one —
-stacked to the right. Only the scale changes.
+if it has one, right after it) and its name stacked to the right. The heading alone
+carries a second line under its name, for the row's own span. Only the scale changes.
 
 | y   | What                                                                          |
 | --- | ------------------------------------------------------------------------------ |
-| 10  | `aggregates[0]`, the heading — value size 4; name at this same y, the row's own span (`LAST 30M`) 14 px under it, both size 2, right-aligned |
+| 10  | `aggregates[0]`, the heading — value size 4; name at this same y size 2, the row's own span (`LAST 30M`) 18 px under it, also size 2, right-aligned |
 | 44 – 157 | The graph: full width, a fill fading to the baseline, one thin cyan line |
-| 58  | `aggregates[1]` and `[2]` — value size 2; name/secondary size 1, 9 px apart |
+| 58  | `aggregates[1]` and `[2]` — value and name, unit 9 px under the value |
 | 104 | `aggregates[3]` and `[4]` — same shape as the row above                    |
 
 A row with fewer than 5 tiles leaves the remaining slots blank — the fixed
@@ -111,12 +111,20 @@ positions still exist, nothing reflows. Today's payload names its tiles `2XX` /
 that name **is** what's drawn, there's no separate label — but a backend may
 choose differently; only the position matters to this build.
 
+- 📐 **The four body tiles size themselves to fit.** A short value (2 digits or
+  fewer) draws at size 4, three digits at size 3, four or five digits fall back
+  to size 2 — same tiering the hero already uses. The name independently tries
+  size 2 first and drops to size 1 only if that would run into the value or the
+  unit beside it, so the common case (short numbers, `2XX`/`4XX`/`5XX`/`AVG`/`P95`)
+  fills its slot instead of sitting tiny in a corner of it. The unit itself never
+  grows — it's already as small as it needs to be
+
 - 🔢 Number and unit formatting → [AGENTS.md §10](../AGENTS.md#10--aggregate-tile-formatting)
-- 🎨 **`4XX`/`5XX` colour by convention, not schema:** this build reads `secondary_value` as a share and goes orange past 2 % (`4XX`) or orange past 0.5 %/red past 1 % (`5XX`) — keyed on those exact `name`s, nothing else
+- 🎨 **A tile's colour is its own `level`**, nothing this build computes: `critical` red, `warning` orange, `info` (or omitted) the theme's own colour. Any tile may carry one — a backend that wants `4XX` to read as trouble sends `"level": "warning"` itself
 - 📈 **The graph is the ground, not a panel.** It plots one count per bucket (`buckets_value_type: total_count`) with no headroom, so a steady series runs in the gap under the hero instead of through the text. A 1 px halo keeps every name readable where the line crosses it. It sweeps in left → right over ~900 ms
 - 🩵 One graph colour at every level — the ALERT band carries the alarm, the graph only carries the shape
 - 🔢 The numbers count up from the previous screen's over ~520 ms
-- ⏱️ **The heading's secondary slot is always the row's span**, never that tile's own `secondary_value` — `LAST 30M`, computed from `bucket_size × bucket_count × bucket_unit`, never sent → [api.md §4](../docs/api.md#-the-clock--bucket_)
+- ⏱️ **The heading's second line is always the row's span** — `LAST 30M`, computed client-side from `bucket_size × bucket_count × bucket_unit`, never a field the tile itself carries → [api.md §4](../docs/api.md#-the-clock--bucket_)
 - 🚫 Not drawn: the per-minute rate
 
 ### 🚨 The ALERT band, and the whole-screen flash

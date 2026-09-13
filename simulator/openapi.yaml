@@ -45,23 +45,19 @@ paths:
                     buckets: [649,625,606,646,647,632,636,610,640,616,607,641,621,633,633,613,614,611,607,627,648,609,630,627,632,610,631,618,630,634]
                     aggregates:
                       - name: 2XX
-                        primary_value: 18659
-                        secondary_value: 99.34
-                        secondary_unit: '%'
+                        value: 18659
                       - name: 4XX
-                        primary_value: 109
-                        secondary_value: 0.58
-                        secondary_unit: '%'
+                        value: 109
+                        level: warning
                       - name: 5XX
-                        primary_value: 15
-                        secondary_value: 0.08
-                        secondary_unit: '%'
+                        value: 15
+                        level: critical
                       - name: AVG
-                        primary_value: 42
-                        primary_unit: ms
+                        value: 42
+                        unit: ms
                       - name: P95
-                        primary_value: 180
-                        primary_unit: ms
+                        value: 180
+                        unit: ms
                   - gateway: Payments
                     name: Paid
                     bucket_unit: m
@@ -71,23 +67,18 @@ paths:
                     buckets: [488,490,468,496,484,469,502,489,480,470,484,500,490,481,480,495,481,480,476,500,483,470,488,468,494,483,486,487,480,483]
                     aggregates:
                       - name: 2XX
-                        primary_value: 14467
-                        secondary_value: 99.6
-                        secondary_unit: '%'
+                        value: 14467
                       - name: 4XX
-                        primary_value: 51
-                        secondary_value: 0.35
-                        secondary_unit: '%'
+                        value: 51
+                        level: warning
                       - name: 5XX
-                        primary_value: 7
-                        secondary_value: 0.05
-                        secondary_unit: '%'
+                        value: 7
                       - name: AVG
-                        primary_value: 71
-                        primary_unit: ms
+                        value: 71
+                        unit: ms
                       - name: P95
-                        primary_value: 310
-                        primary_unit: ms
+                        value: 310
+                        unit: ms
         '3xx':
           description: Redirect — not followed by a client; fix the configured URL
         '401':
@@ -205,7 +196,7 @@ components:
 
     AggregateTile:
       type: object
-      required: [name, primary_value]
+      required: [name, value]
       additionalProperties: false
       properties:
         name:
@@ -213,21 +204,19 @@ components:
           maxLength: 5
           description: IS the text drawn — no separate label. Longer values are truncated by the client, never wrapped.
           example: 2XX
-        primary_value:
+        value:
           type: number
-          description: The tile's headline number.
-        primary_unit:
+          description: The tile's number. One value, one job — no second number bolted onto it.
+        unit:
           type: string
           enum: [ms, s, '%']
           description: Omit for a plain count.
-        secondary_value:
-          type: number
-          description: >
-            A second number beside the first. Meaning is the tile's choice —
-            a share of some meaningful whole, a second raw number, or
-            something else. This is the one field in the whole response
-            allowed to be derived; round it to 2 decimal places at the source.
-        secondary_unit:
+        level:
           type: string
-          enum: [ms, s, '%']
-          description: Same rules as primary_unit, independent of it.
+          enum: [info, warning, critical]
+          default: info
+          description: >
+            Colours this tile's value — info the normal theme colour (default),
+            warning orange, critical red. Same three words as alert.level, but
+            scoped to one tile; never sounds or flashes anything. The backend's
+            own judgement call, never computed by the client.

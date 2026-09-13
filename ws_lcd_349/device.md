@@ -83,6 +83,7 @@ Inside a column, top to bottom — 128 px wide, rows 26 → 172:
 | 164 | 8  | Row's own `gateway`, dim — the FOOTER. Span caption on the summary column |
 
 - 🈳 **Only 4 of a row's up-to-5 tiles are drawn** — the heading, then whichever tiles are named `P95`, `4XX` and `5XX`. A tile named `AVG` may still be sent; this column just has no line for it → [AGENTS.md §10](../AGENTS.md#10--aggregate-tile-formatting)
+- 🎯 **The share beside `4XX`/`5XX` is computed here, not sent** — `value / Σ(buckets)`, the same kind of client-side arithmetic as a tile's throughput. Its colour comes from the tile's own `level` (`critical` red, `warning` orange, `info` this build's own text colour) — the backend's call, never a threshold this board recomputes
 - 📏 **Same scale in every column.** Five graphs at five y-scales is not a comparison, it is five pictures — one ceiling across the row
 - 📋 Column order is `metrics` order, which is why [api.md §4](../docs/api.md#4--metrics) asks for most-important-first and stable names
 - 🈳 Fewer than five rows leaves columns **empty**, never stretched. Four rows shown above, fifth slot unused

@@ -24,17 +24,23 @@ const PORT = process.env.PORT ? Number(process.env.PORT) : 4180;
 
 /* --------------------------------------------------------------- tiles
    One stat tile — see the aggregate-tile guideline in AGENTS.md. `name`
-   IS the text drawn (<= 5 chars) — no separate label.                   */
-function tile(name, primary_value, primary_unit, secondary_value, secondary_unit) {
-  const t = { name, primary_value };
-  if (primary_unit) t.primary_unit = primary_unit;
-  if (secondary_value !== undefined) {
-    t.secondary_value = secondary_value;
-    if (secondary_unit) t.secondary_unit = secondary_unit;
-  }
+   IS the text drawn (<= 5 chars) — no separate label. `value` + optional
+   `unit` is the whole number; `level` (optional, default info) is this
+   backend's own judgement call — the client never computes it.          */
+function tile(name, value, unit, level) {
+  const t = { name, value };
+  if (unit) t.unit = unit;
+  if (level) t.level = level;
   return t;
 }
 function pct(n, total) { return total ? Math.round((n * 100 / total) * 100) / 100 : 0; }
+/* Same thresholds the client used to bake in before `level` existed —
+   now it's this backend's call, sent on the wire instead of assumed.    */
+function levelFor(name, share) {
+  if (name === '5XX') return share >= 1 ? 'critical' : share >= 0.5 ? 'warning' : undefined;
+  if (name === '4XX') return share >= 2 ? 'warning' : undefined;
+  return undefined;
+}
 
 /* ------------------------------------------------------------- the model
    Same shape, same numbers, as ws_lcd_154/net.ino's embedded payload — so
@@ -50,27 +56,28 @@ function row(gateway, name, buckets, c4, c5, avg, p95) {
     buckets_value_type: 'total_count',
     buckets,
     aggregates: [
-      tile('2XX', c2, null, pct(c2, total), '%'),
-      tile('4XX', c4, null, pct(c4, total), '%'),
-      tile('5XX', c5, null, pct(c5, total), '%'),
+      tile('2XX', c2),
+      tile('4XX', c4, null, levelFor('4XX', pct(c4, total))),
+      tile('5XX', c5, null, levelFor('5XX', pct(c5, total))),
       tile('AVG', avg, 'ms'),
       tile('P95', p95, 'ms'),
     ],
   };
 }
 /* buckets are the only source of truth for scale after a pattern
-   regenerates them: 2XX (and its share) follow whatever the series did,
-   4XX/5XX counts hold steady, only their shares move.                   */
+   regenerates them: 2XX follows whatever the series did, 4XX/5XX counts
+   hold steady, only their shares — and so their level — move.           */
 function retotal(r, p4pct, p5pct) {
   const total = r.buckets.reduce((a, b) => a + b, 0);
   const byName = (n) => r.aggregates.find((t) => t.name === n);
   const t2 = byName('2XX'), t4 = byName('4XX'), t5 = byName('5XX');
-  t4.primary_value = Math.round(total * p4pct / 100);
-  t5.primary_value = Math.round(total * p5pct / 100);
-  t2.primary_value = Math.max(0, total - t4.primary_value - t5.primary_value);
-  t2.secondary_value = pct(t2.primary_value, total);
-  t4.secondary_value = pct(t4.primary_value, total);
-  t5.secondary_value = pct(t5.primary_value, total);
+  t4.value = Math.round(total * p4pct / 100);
+  t5.value = Math.round(total * p5pct / 100);
+  t2.value = Math.max(0, total - t4.value - t5.value);
+  const l4 = levelFor('4XX', pct(t4.value, total));
+  const l5 = levelFor('5XX', pct(t5.value, total));
+  if (l4) t4.level = l4; else delete t4.level;
+  if (l5) t5.level = l5; else delete t5.level;
 }
 
 function defaultMetrics() {

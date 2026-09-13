@@ -21,7 +21,7 @@ Authorization: Bearer <token>
 - 🩺 An `alert` verdict — `info` · `warning` · `critical` + one 20-char line
 - 📊 Up to **5 rows**, each with **1–5 stat tiles** plus a bucketed series named by `buckets_value_type` — today always `total_count`
 - 🏷️ Each row carries a **`gateway`** attribute, so a backend that merges several platforms still says where a number came from
-- 🚫 Nothing derived is ever sent, past one tile's own `secondary_value`
+- 🚫 Nothing derived is ever sent — a tile carries `name` + `value` + optional `unit`/`level`, nothing computed from anything else on the wire
 
 📖 **Every field, limit and guideline → [docs/api.md](docs/api.md)**
 

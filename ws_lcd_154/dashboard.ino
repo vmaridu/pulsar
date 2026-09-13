@@ -21,10 +21,8 @@
    snapshot the screen being left, so the next one's numbers count up from it */
 static void beginCount(){
   const Row& r = snap.rows[curRow];
-  for (int i = 0; i < MAX_TILES; i++){
-    countFromP[i] = i < r.ntiles ? r.tiles[i].primary : 0;
-    countFromS[i] = i < r.ntiles && r.tiles[i].hasSecondary ? r.tiles[i].secondary : 0;
-  }
+  for (int i = 0; i < MAX_TILES; i++)
+    countFromP[i] = i < r.ntiles ? r.tiles[i].value : 0;
   countT0 = millis();
 }
 
@@ -147,19 +145,31 @@ static void drawGraph(const struct Row& r, int top, int base, const struct Theme
 }
 
 /* One tile, the same shape everywhere: the value on the left — its unit
-   tucked in right after it, when it has one — and the name above its
-   secondary, when it has one, stacked to the right. The heading and the
-   four body slots all call this; only the scale (valSize/subSize) and the
-   Y offsets differ, passed in by the caller. A hot tile (0 = not hot)
-   paints its value and secondary in that colour instead of the theme's.  */
-static void drawTile(int x, int right, int y, uint8_t valSize, int yUnit, uint8_t subSize,
-                     int ySub, const char* val, const char* unit, const char* lab,
-                     const char* share, uint16_t hot, const struct Theme& th){
+   tucked in right after it, when it has one — and the name stacked to
+   the right. The caller may also pass a second line under the name (the
+   hero's span; body tiles never have one). Only the scale
+   (valSize/unitSize/labSize/shareSize) and the Y offsets differ, passed
+   in by the caller. A hot tile (0 = not hot) paints the value — and that
+   second line, if given — in that colour instead of the theme's.        */
+static void drawTile(int x, int right, int y, uint8_t valSize, int yUnit, uint8_t unitSize,
+                     uint8_t labSize, uint8_t shareSize, int ySub, const char* val,
+                     const char* unit, const char* lab, const char* share, uint16_t hot,
+                     const struct Theme& th){
   const uint16_t vc = hot ? hot : th.tx;
   const int w = txt(val, x, y, valSize, vc, 'l', true, th.bg);
-  if (unit) txt(unit, x + w + 3, yUnit, subSize, th.dim, 'l', false, th.bg);
-  txt(lab, right, y, subSize, th.dim, 'r', false, th.bg);
-  if (share) txt(share, right, ySub, subSize, vc, 'r', false, th.bg);
+  if (unit) txt(unit, x + w + 3, yUnit, unitSize, th.dim, 'l', false, th.bg);
+  txt(lab, right, y, labSize, th.dim, 'r', false, th.bg);
+  if (share) txt(share, right, ySub, shareSize, vc, 'r', false, th.bg);
+}
+
+/* A tile's `level` — "critical" red, "warning" orange, "info" (or
+   omitted) the theme's own colour. Under a level flash every foreground
+   is already near-black ink, so a tile's own colour never fights it.    */
+static uint16_t levelColor(const char* level, const struct Theme& th){
+  if (th.ink) return 0;
+  if (!strcmp(level, "critical")) return C_RD;
+  if (!strcmp(level, "warning"))  return C_OR;
+  return 0;
 }
 
 /* One hero, four smaller tiles over the graph — the stats and the graph
@@ -167,9 +177,7 @@ static void drawTile(int x, int right, int y, uint8_t valSize, int yUnit, uint8_
    `r.tiles[1..4]` fill the four body slots in order, left to right then
    top to bottom — a row with fewer than 5 tiles just leaves the remaining
    slots blank, never reflows them. Every tile follows the same layout as
-   the hero (drawTile(), above) — only the heading draws bigger. What
-   counts as "hot" (orange/red) is a client convention keyed on `name`,
-   not part of the schema — api.md §4.                                    */
+   the hero (drawTile(), above) — only the heading draws bigger.          */
 static void drawBody(const struct Theme& th){
   const int y = BAND_BODY_Y;
   const Row& r = snap.rows[curRow];
@@ -180,22 +188,19 @@ static void drawBody(const struct Theme& th){
 
   /* numbers count up from the previous screen's values */
   const float t = easeOut(clampf((millis() - countT0) / 520.0f, 0, 1));
-  double p[MAX_TILES], s[MAX_TILES];
-  for (int i = 0; i < r.ntiles; i++){
-    p[i] = countFromP[i] + (r.tiles[i].primary - countFromP[i]) * t;
-    s[i] = r.tiles[i].hasSecondary ? countFromS[i] + (r.tiles[i].secondary - countFromS[i]) * t : 0;
-  }
+  double p[MAX_TILES];
+  for (int i = 0; i < r.ntiles; i++)
+    p[i] = countFromP[i] + (r.tiles[i].value - countFromP[i]) * t;
   char v[16], sh[16];
 
   /* hero — value size 4, name/span size 2, the graph starts below it. The
-     row's own span ("LAST 30M") sits where a secondary would — not the
-     heading tile's own secondary_value, which this slot never shows.    */
+     row's own span ("LAST 30M") sits in the tile's second line.         */
   if (r.ntiles > 0){
     const Tile& hero = r.tiles[0];
-    const char* hu = fmtTileValue(p[0], hero.primaryUnit, v, sizeof v);
+    const char* hu = fmtTileValue(p[0], hero.unit, v, sizeof v);
     spanCaption(r.size, r.count, r.unit, sh, sizeof sh);
-    drawTile(X_L, X_R, y + Y_HERO, 4, y + Y_HERO + 18, 2, y + Y_HERO_SHARE,
-             v, hu, hero.name, sh, 0, th);
+    drawTile(X_L, X_R, y + Y_HERO, 4, y + Y_HERO + 18, 2, 2, 2, y + Y_HERO_SHARE,
+             v, hu, hero.name, sh, levelColor(hero.level, th), th);
   }
 
   /* a hairline between the two tile columns */
@@ -208,19 +213,20 @@ static void drawBody(const struct Theme& th){
     if (i >= r.ntiles) continue;              /* fewer than 5 tiles this row — leave it blank */
     const int q = i - 1;
     const Tile& tl = r.tiles[i];
-    const char* unit = fmtTileValue(p[i], tl.primaryUnit, v, sizeof v);
-    const char* share = nullptr;
-    if (tl.hasSecondary){ fmtTileValue(s[i], tl.secondaryUnit, sh, sizeof sh); share = sh; }
-    uint16_t hot = 0;
-    if (th.ink){ /* near-black ink under a level flash — no highlight colour */ }
-    else if (!strcmp(tl.name, "4XX")) hot = s[i] >= 2 ? C_OR : 0;
-    else if (!strcmp(tl.name, "5XX")) hot = s[i] >= 1 ? C_RD : s[i] >= 0.5 ? C_OR : 0;
-    /* short values (the common case) get the bigger size — only a 4-5
-       digit value falls back to the smaller one, to guarantee it never
-       runs into the name/secondary stacked on the right.               */
-    const uint8_t valSize = strlen(v) <= 3 ? 3 : 2;
-    drawTile(qx[q % 2], qright[q % 2], y + qy[q], valSize, y + qy[q] + 9, 1, y + qy[q] + 9,
-             v, unit, tl.name, share, hot, th);
+    const char* unit = fmtTileValue(p[i], tl.unit, v, sizeof v);
+    const uint16_t hot = levelColor(tl.level, th);
+    /* The value grows as big as it can without ever touching the name
+       stacked to the right, and falls back to the old, always-safe size
+       the moment it doesn't — a short value (the common case) reads far
+       bigger than a rare long one. The unit stays put; it's already as
+       small as it needs to be. There is no second line down here at all —
+       that's the hero's span caption alone.                             */
+    const int colW = qright[q % 2] - qx[q % 2];
+    const uint8_t valSize = strlen(v) <= 2 ? 4 : strlen(v) <= 3 ? 3 : 2;
+    const int valW = (int)strlen(v) * 6 * valSize;
+    const uint8_t labSize = (valW + (int)strlen(tl.name) * 12 + 3 <= colW) ? 2 : 1;
+    drawTile(qx[q % 2], qright[q % 2], y + qy[q], valSize, y + qy[q] + 9, 1, labSize,
+             1, y + qy[q] + 9, v, unit, tl.name, nullptr, hot, th);
   }
 }
 

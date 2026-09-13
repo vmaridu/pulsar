@@ -376,8 +376,8 @@ function latency(ms){
   const sec = ms / 1000;
   return [sec < 100 ? sec.toFixed(1) : String(Math.min(9999, Math.round(sec))), 's'];
 }
-/* one tile's primary or secondary value, by its declared unit — the
-   aggregate-tile guideline in AGENTS.md. Returns [text, unitToDrawAfter]. */
+/* one tile's value, by its declared unit — the aggregate-tile guideline
+   in AGENTS.md. Returns [text, unitToDrawAfter]. */
 function tileValue(v, unit){
   if (unit === 'ms') return latency(v);
   if (unit === '%') return [share(v, 1), null];
@@ -387,9 +387,8 @@ function tileValue(v, unit){
 /* How long the row's own clock covers — "LAST 30M" · "LAST 5M" ·
    "LAST 24H" · "LAST 45S" — bucket_size * bucket_count in bucket_unit,
    compacted so the number never needs more than 2 digits: 60+ s becomes
-   minutes, 60+ m becomes hours. Replaces the heading tile's own secondary
-   in the BODY band — the row's span, not that tile's secondary_value, is
-   what belongs beside the headline number.                              */
+   minutes, 60+ m becomes hours. Sits in the heading tile's own second
+   line — the row's span, not anything the tile itself carries.          */
 function spanCaption(r){
   let span = r.bucket_size * r.bucket_count, u = (r.bucket_unit || 'm')[0].toUpperCase();
   if (u === 'S' && span >= 60){ span = Math.round(span / 60); u = 'M'; }
@@ -411,12 +410,21 @@ function pct(n, t){ return t ? Math.round((n * 100 / t) * 100) / 100 : 0; }
    offline sketch carries, so the mockup and the board can be held side by side
    ========================================================================== */
 /* One tile — see the aggregate-tile guideline in AGENTS.md. `name` IS the
-   text drawn (<= 5 chars) — no separate label.                          */
-function mkTile(name, primary_value, primary_unit, secondary_value, secondary_unit){
-  const t = { name, primary_value };
-  if (primary_unit) t.primary_unit = primary_unit;
-  if (secondary_value !== undefined){ t.secondary_value = secondary_value; if (secondary_unit) t.secondary_unit = secondary_unit; }
+   text drawn (<= 5 chars) — no separate label. `level` (optional, default
+   info) colours the value — this backend's own call, never computed by
+   the client.                                                           */
+function mkTile(name, value, unit, level){
+  const t = { name, value };
+  if (unit) t.unit = unit;
+  if (level) t.level = level;
   return t;
+}
+/* Same thresholds simulator/server.js's levelFor() uses, so this standalone
+   mockup's own sample backend reads the same way a real one would.      */
+function levelFor(name, share){
+  if (name === '5XX') return share >= 1 ? 'critical' : share >= 0.5 ? 'warning' : undefined;
+  if (name === '4XX') return share >= 2 ? 'warning' : undefined;
+  return undefined;
 }
 /* No root `gateway` — api.md only carries the word per row. This backend
    merges two platforms into one response: Orders and Payments. Position 0
@@ -430,25 +438,26 @@ function row(gateway, name, buckets, c4, c5, avg, p95){
     buckets_value_type: 'total_count',
     buckets,
     aggregates: [
-      mkTile('2XX', c2, null, pct(c2, total), '%'),
-      mkTile('4XX', c4, null, pct(c4, total), '%'),
-      mkTile('5XX', c5, null, pct(c5, total), '%'),
+      mkTile('2XX', c2),
+      mkTile('4XX', c4, null, levelFor('4XX', pct(c4, total))),
+      mkTile('5XX', c5, null, levelFor('5XX', pct(c5, total))),
       mkTile('AVG', avg, 'ms'),
       mkTile('P95', p95, 'ms'),
     ],
   };
 }
-/* buckets are the only source of truth for scale; 2XX (and its share)
-   follow whatever the series did, 4XX/5XX counts hold steady, only their
-   shares move.                                                          */
+/* buckets are the only source of truth for scale; 2XX follows whatever the
+   series did, 4XX/5XX counts hold steady, only their shares — and so
+   their level — move.                                                   */
 function retotal(r){
   const total = sum(r.buckets);
   const byName = n => r.aggregates.find(t => t.name === n);
   const t4 = byName('4XX'), t5 = byName('5XX'), t2 = byName('2XX');
-  t2.primary_value = total - t4.primary_value - t5.primary_value;
-  t2.secondary_value = pct(t2.primary_value, total);
-  t4.secondary_value = pct(t4.primary_value, total);
-  t5.secondary_value = pct(t5.primary_value, total);
+  t2.value = total - t4.value - t5.value;
+  const l4 = levelFor('4XX', pct(t4.value, total));
+  const l5 = levelFor('5XX', pct(t5.value, total));
+  if (l4) t4.level = l4; else delete t4.level;
+  if (l5) t5.level = l5; else delete t5.level;
 }
 
 /* Same numbers as net.ino's PAYLOAD, generated the same way — see
@@ -498,18 +507,13 @@ const level = () => SNAP.fault ? 'fault' : SNAP.alert.level;
 /* max(30, metrics × 5) seconds — never ask a backend faster than 30 s */
 const pollInterval = () => Math.max(POLL_MIN_MS, SNAP.metrics.length * SCREEN_MS);
 
-/* numbers count up from the previous panel's values — one {primary,
-   secondary} pair per tile, `from` indexed the same way beginCount() built it */
+/* numbers count up from the previous panel's values — one value per tile,
+   `from` indexed the same way beginCount() built it                     */
 function shownAggregates(){
   const t = easeOut(clamp((Date.now() - st.countT0) / 520, 0, 1));
   return curR().aggregates.map((tile, i) => {
-    const from = st.from[i] || { primary: 0, secondary: 0 };
-    return {
-      ...tile,
-      primary_value: from.primary + (tile.primary_value - from.primary) * t,
-      secondary_value: tile.secondary_value === undefined ? undefined
-        : from.secondary + (tile.secondary_value - from.secondary) * t,
-    };
+    const from = st.from[i] ?? 0;
+    return { ...tile, value: from + (tile.value - from) * t };
   });
 }
 
@@ -638,28 +642,38 @@ function drawGraph(r, top, base, off, th){
 
 /* Every tile — the heading and the four body slots alike — draws its value
    on the left (its unit tucked in right after it, when it has one) and its
-   label above its secondary, when it has one, stacked to the right. Only
-   the scale differs: the heading draws bigger.                          */
+   name stacked to the right. Only the heading also draws a span line
+   under its name; only the scale otherwise differs.                     */
 const COL2 = 128;                                        // second tile column
-const Y = { hero: 10, heroLab: 8, heroShare: 24,          // offsets inside the body band
+const Y = { hero: 10, heroLab: 8, heroShare: 28,          // offsets inside the body band
             tile1: 58, tile2: 104, graphTop: 44, base: 157 };
 
 const share = (p, digits = 2) => p >= 99.995 ? '100%'
                                : p >= 10 && digits < 2 ? p.toFixed(1) + '%' : p.toFixed(2) + '%';
 
 /* One tile, the same shape everywhere — see the comment above. A hot tile
-   (falsy = not hot) paints its value and secondary in that colour.       */
-function drawTile(o, x, right, y, valSize, yUnit, subSize, ySub, val, unit, lab, side, hot, H_, th){
+   (falsy = not hot) paints the value — and the span line, for the heading
+   — in that colour.                                                     */
+function drawTile(o, x, right, y, valSize, yUnit, unitSize, labSize, shareSize, ySub, val, unit, lab, side, hot, H_, th){
   const vc = hot || th.tx;
   const w = g.text(val, x, o + y, valSize, vc, 'l', true, 0, H_);
-  if (unit) g.text(unit, x + w + 3, o + yUnit, subSize, th.dim, 'l', false, 0, H_);
-  g.text(lab, right, o + y, subSize, th.dim, 'r', false, 0, H_);
-  if (side) g.text(side, right, o + ySub, subSize, vc, 'r', false, 0, H_);
+  if (unit) g.text(unit, x + w + 3, o + yUnit, unitSize, th.dim, 'l', false, 0, H_);
+  g.text(lab, right, o + y, labSize, th.dim, 'r', false, 0, H_);
+  if (side) g.text(side, right, o + ySub, shareSize, vc, 'r', false, 0, H_);
+}
+
+/* A tile's `level` — "critical" red, "warning" orange, "info" (or
+   omitted) the theme's own colour. Under a level flash every foreground
+   is already near-black ink, so a tile's own colour never fights it.    */
+function levelColor(level, th){
+  if (th.ink) return null;
+  if (level === 'critical') return C.rd;
+  if (level === 'warning')  return C.or;
+  return null;
 }
 
 /* `r.aggregates[0]` is always the hero; [1..4] fill the four body slots in
-   order — a row with fewer than 5 tiles just leaves the rest blank. "Hot"
-   (orange/red) is a client convention keyed on `name`, not the schema.   */
+   order — a row with fewer than 5 tiles just leaves the rest blank.      */
 function drawBody(off){
   const [y] = B.body;
   const r = curR(), o = y + off, lv = level(), th = themeFor(lv);
@@ -671,12 +685,11 @@ function drawBody(off){
   const tiles = shownAggregates(), H_ = th.bg;
 
   /* hero — value size 4, name/span size 2. The row's own span ("LAST 30M")
-     sits where a secondary would — not the heading tile's own
-     secondary_value, which this slot never shows.                       */
+     sits in the tile's second line.                                     */
   if (tiles[0]){
     const hero = tiles[0];
-    const [hv, hu] = tileValue(hero.primary_value, hero.primary_unit);
-    drawTile(o, X_L, X_R, Y.hero, 4, Y.hero + 18, 2, Y.heroShare, hv, hu, hero.name, spanCaption(r), null, H_, th);
+    const [hv, hu] = tileValue(hero.value, hero.unit);
+    drawTile(o, X_L, X_R, Y.hero, 4, Y.hero + 18, 2, 2, 2, Y.heroShare, hv, hu, hero.name, spanCaption(r), levelColor(hero.level, th), H_, th);
   }
 
   /* a hairline between the two tile columns */
@@ -687,19 +700,20 @@ function drawBody(off){
   for (let i = 1; i < 5; i++){
     if (!tiles[i]) continue;                    // fewer than 5 tiles this row — leave it blank
     const t = tiles[i], q = i - 1;
-    const [val, unit] = tileValue(t.primary_value, t.primary_unit);
-    let side = null, hot = null;
-    if (t.secondary_value !== undefined) [side] = tileValue(t.secondary_value, t.secondary_unit);
-    if (!th.ink){
-      if (t.name === '4XX') hot = t.secondary_value >= 2 ? C.or : null;
-      else if (t.name === '5XX') hot = t.secondary_value >= 1 ? C.rd : t.secondary_value >= 0.5 ? C.or : null;
-    }
+    const [val, unit] = tileValue(t.value, t.unit);
+    const hot = levelColor(t.level, th);
     const [x, right] = qx[q % 2], yy = qy[q];
-    // short values (the common case) get the bigger size — only a 4-5
-    // digit value falls back to the smaller one, so it never runs into
-    // the name/secondary stacked on the right.
-    const valSize = val.length <= 3 ? 3 : 2;
-    drawTile(o, x, right, yy, valSize, yy + 9, 1, yy + 9, val, unit, t.name, side, hot, H_, th);
+    // The value grows as big as it can without ever touching the name
+    // stacked to the right, and falls back to the old, always-safe size
+    // the moment it doesn't — a short value (the common case) reads far
+    // bigger than a rare long one. The unit stays put; it's already as
+    // small as it needs to be. There is no second line down here at all —
+    // that's the hero's span caption alone.
+    const colW = right - x;
+    const valSize = val.length <= 2 ? 4 : val.length <= 3 ? 3 : 2;
+    const valW = val.length * 6 * valSize;
+    const labSize = valW + t.name.length * 12 + 3 <= colW ? 2 : 1;
+    drawTile(o, x, right, yy, valSize, yy + 9, 1, labSize, 1, yy + 9, val, unit, t.name, null, hot, H_, th);
   }
 }
 
@@ -1237,7 +1251,7 @@ function log(msg){
 }
 
 function beginCount(){
-  st.from = curR().aggregates.map(t => ({ primary: t.primary_value, secondary: t.secondary_value || 0 }));
+  st.from = curR().aggregates.map(t => t.value);
   st.countT0 = Date.now();
 }
 

@@ -58,11 +58,11 @@ static const char PAYLOAD[] PROGMEM = R"JSON(
     "buckets": [649, 625, 606, 646, 647, 632, 636, 610, 640, 616, 607, 641, 621, 633, 633,
                  613, 614, 611, 607, 627, 648, 609, 630, 627, 632, 610, 631, 618, 630, 634],
     "aggregates": [
-     { "name": "2XX", "primary_value": 18659, "secondary_value": 99.34, "secondary_unit": "%" },
-     { "name": "4XX", "primary_value": 109,   "secondary_value": 0.58,  "secondary_unit": "%" },
-     { "name": "5XX", "primary_value": 15,    "secondary_value": 0.08,  "secondary_unit": "%" },
-     { "name": "AVG", "primary_value": 42,  "primary_unit": "ms" },
-     { "name": "P95", "primary_value": 180, "primary_unit": "ms" }
+     { "name": "2XX", "value": 18659 },
+     { "name": "4XX", "value": 109 },
+     { "name": "5XX", "value": 15 },
+     { "name": "AVG", "value": 42,  "unit": "ms" },
+     { "name": "P95", "value": 180, "unit": "ms" }
     ] },
   { "gateway": "Orders", "name": "Dispatched",
     "bucket_unit": "m", "bucket_size": 1, "bucket_count": 30,
@@ -70,11 +70,11 @@ static const char PAYLOAD[] PROGMEM = R"JSON(
     "buckets": [304, 302, 302, 291, 302, 296, 313, 291, 309, 302, 302, 300, 285, 298, 289,
                  287, 285, 306, 302, 303, 314, 302, 291, 313, 288, 293, 303, 299, 290, 292],
     "aggregates": [
-     { "name": "2XX", "primary_value": 8909, "secondary_value": 99.5,  "secondary_unit": "%" },
-     { "name": "4XX", "primary_value": 40,   "secondary_value": 0.45,  "secondary_unit": "%" },
-     { "name": "5XX", "primary_value": 5,    "secondary_value": 0.06,  "secondary_unit": "%" },
-     { "name": "AVG", "primary_value": 55,  "primary_unit": "ms" },
-     { "name": "P95", "primary_value": 230, "primary_unit": "ms" }
+     { "name": "2XX", "value": 8909 },
+     { "name": "4XX", "value": 40 },
+     { "name": "5XX", "value": 5 },
+     { "name": "AVG", "value": 55,  "unit": "ms" },
+     { "name": "P95", "value": 230, "unit": "ms" }
     ] },
   { "gateway": "Orders", "name": "Cancelled",
     "bucket_unit": "m", "bucket_size": 1, "bucket_count": 30,
@@ -82,11 +82,11 @@ static const char PAYLOAD[] PROGMEM = R"JSON(
     "buckets": [40, 39, 41, 37, 40, 38, 38, 40, 41, 39, 37, 39, 39, 40, 39,
                  38, 41, 38, 39, 40, 37, 38, 40, 39, 40, 37, 38, 40, 39, 38],
     "aggregates": [
-     { "name": "2XX", "primary_value": 1156, "secondary_value": 98.89, "secondary_unit": "%" },
-     { "name": "4XX", "primary_value": 11,   "secondary_value": 0.94,  "secondary_unit": "%" },
-     { "name": "5XX", "primary_value": 2,    "secondary_value": 0.17,  "secondary_unit": "%" },
-     { "name": "AVG", "primary_value": 61,  "primary_unit": "ms" },
-     { "name": "P95", "primary_value": 240, "primary_unit": "ms" }
+     { "name": "2XX", "value": 1156 },
+     { "name": "4XX", "value": 11 },
+     { "name": "5XX", "value": 2 },
+     { "name": "AVG", "value": 61,  "unit": "ms" },
+     { "name": "P95", "value": 240, "unit": "ms" }
     ] },
   { "gateway": "Payments", "name": "Paid",
     "bucket_unit": "m", "bucket_size": 1, "bucket_count": 30,
@@ -94,11 +94,11 @@ static const char PAYLOAD[] PROGMEM = R"JSON(
     "buckets": [488, 490, 468, 496, 484, 469, 502, 489, 480, 470, 484, 500, 490, 481, 480,
                  495, 481, 480, 476, 500, 483, 470, 488, 468, 494, 483, 486, 487, 480, 483],
     "aggregates": [
-     { "name": "2XX", "primary_value": 14467, "secondary_value": 99.6,  "secondary_unit": "%" },
-     { "name": "4XX", "primary_value": 51,    "secondary_value": 0.35,  "secondary_unit": "%" },
-     { "name": "5XX", "primary_value": 7,     "secondary_value": 0.05,  "secondary_unit": "%" },
-     { "name": "AVG", "primary_value": 71,  "primary_unit": "ms" },
-     { "name": "P95", "primary_value": 310, "primary_unit": "ms" }
+     { "name": "2XX", "value": 14467 },
+     { "name": "4XX", "value": 51 },
+     { "name": "5XX", "value": 7 },
+     { "name": "AVG", "value": 71,  "unit": "ms" },
+     { "name": "P95", "value": 310, "unit": "ms" }
     ] },
   { "gateway": "Payments", "name": "Declined",
     "bucket_unit": "m", "bucket_size": 1, "bucket_count": 30,
@@ -106,11 +106,11 @@ static const char PAYLOAD[] PROGMEM = R"JSON(
     "buckets": [27, 26, 28, 27, 28, 26, 27, 27, 27, 26, 28, 27, 27, 26, 27,
                  28, 27, 26, 27, 28, 27, 26, 27, 27, 26, 28, 27, 27, 28, 26],
     "aggregates": [
-     { "name": "2XX", "primary_value": 798, "secondary_value": 98.64, "secondary_unit": "%" },
-     { "name": "4XX", "primary_value": 9,   "secondary_value": 1.11,  "secondary_unit": "%" },
-     { "name": "5XX", "primary_value": 2,   "secondary_value": 0.25,  "secondary_unit": "%" },
-     { "name": "AVG", "primary_value": 68,  "primary_unit": "ms" },
-     { "name": "P95", "primary_value": 260, "primary_unit": "ms" }
+     { "name": "2XX", "value": 798 },
+     { "name": "4XX", "value": 9 },
+     { "name": "5XX", "value": 2 },
+     { "name": "AVG", "value": 68,  "unit": "ms" },
+     { "name": "P95", "value": 260, "unit": "ms" }
     ] }
  ]
 }
@@ -192,11 +192,9 @@ static bool parseSnapshot(const char* body){
         if (t["name"].isNull())
           LOGF("data", "%s/%s: tile %u missing \"name\" - defaulting to \"-\"", r.gateway, r.name, (unsigned)r.ntiles);
         strlcpy(tl.name, t["name"] | "-", sizeof tl.name);     /* sizeof cuts it to 5 chars - IS the render text, api.md §5 */
-        tl.primary = t["primary_value"] | 0.0;
-        strlcpy(tl.primaryUnit, t["primary_unit"] | "", sizeof tl.primaryUnit);
-        tl.hasSecondary = !t["secondary_value"].isNull();
-        tl.secondary = t["secondary_value"] | 0.0;
-        strlcpy(tl.secondaryUnit, t["secondary_unit"] | "", sizeof tl.secondaryUnit);
+        tl.value = t["value"] | 0.0;
+        strlcpy(tl.unit, t["unit"] | "", sizeof tl.unit);
+        strlcpy(tl.level, t["level"] | "info", sizeof tl.level);  /* the backend's call, never computed here */
         r.ntiles++;
       }
     }
@@ -240,7 +238,7 @@ static bool parseSnapshot(const char* body){
     char tiles[96] = "";
     for (int k = 0; k < r.ntiles; k++){
       char one[24];
-      snprintf(one, sizeof one, "%s%s=%g", k ? " " : "", r.tiles[k].name, r.tiles[k].primary);
+      snprintf(one, sizeof one, "%s%s=%g", k ? " " : "", r.tiles[k].name, r.tiles[k].value);
       strlcat(tiles, one, sizeof tiles);
     }
     LOGF("data", "  %u/%u %s/%s  %s  %u buckets",

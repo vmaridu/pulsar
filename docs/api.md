@@ -48,11 +48,11 @@ Accept: application/json
         630, 634
       ],
       "aggregates": [
-        { "name": "2XX", "primary_value": 18659, "secondary_value": 99.34, "secondary_unit": "%" },
-        { "name": "4XX", "primary_value": 109,   "secondary_value": 0.58,  "secondary_unit": "%" },
-        { "name": "5XX", "primary_value": 15,    "secondary_value": 0.08,  "secondary_unit": "%" },
-        { "name": "AVG", "primary_value": 42,  "primary_unit": "ms" },
-        { "name": "P95", "primary_value": 180, "primary_unit": "ms" }
+        { "name": "2XX", "value": 18659 },
+        { "name": "4XX", "value": 109,   "level": "warning" },
+        { "name": "5XX", "value": 15,    "level": "critical" },
+        { "name": "AVG", "value": 42,  "unit": "ms" },
+        { "name": "P95", "value": 180, "unit": "ms" }
       ]
     },
     {
@@ -68,11 +68,11 @@ Accept: application/json
         480, 483
       ],
       "aggregates": [
-        { "name": "2XX", "primary_value": 14467, "secondary_value": 99.6, "secondary_unit": "%" },
-        { "name": "4XX", "primary_value": 51,    "secondary_value": 0.35, "secondary_unit": "%" },
-        { "name": "5XX", "primary_value": 7,     "secondary_value": 0.05, "secondary_unit": "%" },
-        { "name": "AVG", "primary_value": 71,  "primary_unit": "ms" },
-        { "name": "P95", "primary_value": 310, "primary_unit": "ms" }
+        { "name": "2XX", "value": 14467 },
+        { "name": "4XX", "value": 51,  "level": "warning" },
+        { "name": "5XX", "value": 7 },
+        { "name": "AVG", "value": 71,  "unit": "ms" },
+        { "name": "P95", "value": 310, "unit": "ms" }
       ]
     }
   ]
@@ -105,7 +105,7 @@ Two rows, two `gateway` names — a backend that fronts both **Orders** and
       "gateway": "Payments",
       "name": "Paid",
       "aggregates": [
-        { "name": "2XX", "primary_value": 95865 }
+        { "name": "2XX", "value": 95865 }
       ]
     }
   ]
@@ -182,7 +182,7 @@ span = bucket_size × bucket_count (in bucket_unit)
 - 🎚️ Three fields, not one `window_minutes` — one number says _how long_, never _how finely_
 - 🌍 **Governs the whole row**, not just the graph. A row with no `buckets` still needs it: the span is the divisor under the biggest number on screen
 - 🔤 **`bucket_unit` is a single lowercase letter** — `s` · `m` · `h`. Anything else reads as `m`
-- 🖥️ **The client computes and draws the span itself** — `LAST 30M`, `LAST 5M`, `LAST 24H` — beside the heading tile, in the slot that tile's own `secondary_value` would otherwise sit in. Not sent on the wire; nothing to keep in sync
+- 🖥️ **The client computes and draws the span itself** — `LAST 30M`, `LAST 5M`, `LAST 24H` — beside the heading tile, in the second line only the heading tile draws. Not sent on the wire; nothing to keep in sync
 - 🤝 Send the **same clock in every row** — screens are compared one after another, and two resolutions is a comparison that lies
 - 🏁 The newest bucket **ends at `measured_at`**; buckets are contiguous and equal; the oldest starts one span earlier
 - ⛔ **Never send a bucket still filling.** A third-full bucket draws as a cliff and fakes an incident every poll — end at the last complete one
@@ -192,31 +192,41 @@ span = bucket_size × bucket_count (in bucket_unit)
 
 Each row's `aggregates` is an array of **1–5 tiles**, not a fixed object — one tile per interesting number, not one field per status code. **Position 0 is the heading** (the big number at the top of the screen); tiles 1–4 fill the four BODY slots, in order. A row with fewer than 5 tiles just leaves the remaining slots blank.
 
-| Field             | Type   | Req | What it is                                                        |
-| ----------------- | ------ | --- | ------------------------------------------------------------------ |
-| `name`            | string | ✅  | **≤ 5 chars.** IS the text actually drawn — no separate label. Full formatting rules → [AGENTS.md](../AGENTS.md#10--aggregate-tile-formatting) |
-| `primary_value`   | number | ✅  | The tile's headline number                                        |
-| `primary_unit`    | string | ➖  | `ms` · `s` · `%` · omitted for a plain count                      |
-| `secondary_value` | number | ➖  | A second number beside the first — meaning is the tile's choice   |
-| `secondary_unit`  | string | ➖  | Same rules as `primary_unit`, independent of it                   |
+| Field   | Type   | Req | What it is                                                                                       |
+| ------- | ------ | --- | ------------------------------------------------------------------------------------------------- |
+| `name`  | string | ✅  | **≤ 5 chars.** IS the text actually drawn — no separate label. Full formatting rules → [AGENTS.md](../AGENTS.md#10--aggregate-tile-formatting) |
+| `value` | number | ✅  | The tile's number                                                                                 |
+| `unit`  | string | ➖  | `ms` · `s` · `%` · omitted for a plain count                                                      |
+| `level` | string | ➖  | `info` · `warning` · `critical` — default `info` → [below](#-level--a-tiles-own-colour)           |
 
 ```json
 "aggregates": [
-  { "name": "2XX", "primary_value": 18659, "secondary_value": 99.34, "secondary_unit": "%" },
-  { "name": "4XX", "primary_value": 109,   "secondary_value": 0.58,  "secondary_unit": "%" },
-  { "name": "5XX", "primary_value": 15,    "secondary_value": 0.08,  "secondary_unit": "%" },
-  { "name": "AVG", "primary_value": 42,  "primary_unit": "ms" },
-  { "name": "P95", "primary_value": 180, "primary_unit": "ms" }
+  { "name": "2XX", "value": 18659 },
+  { "name": "4XX", "value": 109,   "level": "warning" },
+  { "name": "5XX", "value": 15,    "level": "critical" },
+  { "name": "AVG", "value": 42,  "unit": "ms" },
+  { "name": "P95", "value": 180, "unit": "ms" }
 ]
 ```
 
-- 🎯 **`secondary_value`'s meaning is per-tile**, decided by whoever populates it — a share of some meaningful whole, a second raw number (`P95` beside `AVG`), or something else. The schema doesn't constrain which
-- 🕰️ **One exception: tile 0's own `secondary_value` is never drawn.** The heading's secondary slot always shows the row's own span instead — `LAST 30M`, computed client-side from `bucket_size × bucket_count × bucket_unit` → [§4 clock](#-the-clock--bucket_). Send it if you like for a client that doesn't follow this convention; this build never shows it
-- 🔁 **This is the one place a derived number may be sent** — a `secondary_value` like `99.34` above is computed, and that's fine here. Nothing else in this response is ever derived
+- 🎯 **One number, one unit, one job.** There is no second value bolted on beside it any more — a tile that needs a second number is a second tile
 - 🧩 **A client that gets fewer than 5 tiles just leaves the remaining slots blank** — never an error, never a crash. 1–5 is the whole valid range, not just 5
 - 0️⃣ No traffic = tiles with `0`, not a missing array. Zero is a fact
 - ⏲️ Latency values are whole milliseconds; the client rescales to `s` for display past 9999 — AGENTS.md's formatting guideline, not this doc's
-- 💯 A `%` value is rounded to **2 decimal places at the source**, never sent longer — AGENTS.md §10
+
+### 🚦 `level` — a tile's own colour
+
+Any tile may carry `level`, the same three words as [`alert.level`](#3--alert): `info` · `warning` · `critical`. Omit it and the tile is `info` — a normal-looking number, nothing to flag.
+
+| `level`      | Colour on the tile's value    |
+| ------------ | ------------------------------ |
+| 🟢 `info`     | Normal theme colour (default) |
+| 🟠 `warning`  | Orange                         |
+| 🔴 `critical` | Red                            |
+
+- 🎯 **Per-tile, not per-row.** `4XX` can be `warning` while `5XX` is `critical` on the same screen — each tile speaks for itself
+- 🚫 **The device never computes this.** No threshold baked into the client — a backend that wants `4XX` red past some rate sends `"level": "critical"` itself
+- 🔕 A tile's `level` never sounds or flashes anything — that's `alert`'s job ([§3](#3--alert)). This only changes one number's colour
 
 ### 📈 `buckets` + `buckets_value_type`
 
@@ -226,7 +236,7 @@ Each row's `aggregates` is an array of **1–5 tiles**, not a fixed object — o
 buckets_value_type = "total_count"
 bucket_size × bucket_count = 1 × 30 = 30 minutes
 buckets[i] / bucket_size = requests per minute in bucket i
-the "2XX" tile's primary_value / (1 × 30) = 622 = 2XX per minute
+the "2XX" tile's value / (1 × 30) = 622 = 2XX per minute
 ```
 
 - ⬅️ **Oldest first**, newest last. No timestamps — the clock places them
@@ -236,13 +246,13 @@ the "2XX" tile's primary_value / (1 × 30) = 622 = 2XX per minute
 - 1️⃣ One series per row. No 2xx / 4xx / 5xx series yet — a new series is a new `buckets_value_type`, never a second array
 - 🚫 Omit both for a row with no graph. A row with three points looks broken
 
-### 🚫 Nothing else is ever derived
+### 🚫 Nothing is ever derived
 
-Past a tile's own `secondary_value` ([above](#-aggregates--tiles)), nothing on the wire is computed from something else already on the wire.
+Nothing on the wire is computed from something else already on the wire — `level` is the backend's own judgement call, not a number crunched from other fields.
 
 | Shown           | Client computes                               |
 | --------------- | ---------------------------------------------- |
-| a tile's throughput | `primary_value / (bucket_size × bucket_count)` |
+| a tile's throughput | `value / (bucket_size × bucket_count)`     |
 | the span label  | `bucket_size × bucket_count` in `bucket_unit`  |
 
 - 🚫 No `error_rate`, `request_count`, `throughput`, `rps`, `window_minutes`
@@ -326,14 +336,14 @@ poll interval = max(30, metric_count × 5) seconds
 - [ ] No root `gateway` — every row carries its own, naming the platform it came from
 - [ ] `metrics` holds 1–5 rows of one shape, summary first, then most important first
 - [ ] Every row carries 1–5 `aggregates` tiles, position 0 the heading
-- [ ] Every tile carries `name` (≤ 5 chars, IS the text drawn) and `primary_value`; units are `ms`/`s`/`%`/omitted
+- [ ] Every tile carries `name` (≤ 5 chars, IS the text drawn) and `value`; units are `ms`/`s`/`%`/omitted; `level` (if sent) is `info`/`warning`/`critical`
 - [ ] Every row carries the same clock, and the newest bucket is complete
 - [ ] `buckets` oldest-first, exactly `bucket_count` values, `0` for any gap
 - [ ] Every row with `buckets` sends `"buckets_value_type": "total_count"`
 - [ ] `alert` in every response, and `level` returns to `info` when it clears
 - [ ] `name` values stable and stably ordered across polls, even though they're also what's drawn
 - [ ] Lengths within [§5](#5--limits): gateway 14 / name 16 / message 20 / tile name 5
-- [ ] Nothing computed on the wire except a tile's own `secondary_value` — no `error_rate`, `request_count`, `all_count`, `window_minutes`, `platform`, `null`, or stringified numbers
+- [ ] Nothing computed on the wire at all — no `error_rate`, `request_count`, `all_count`, `window_minutes`, `platform`, `null`, or stringified numbers
 - [ ] Survives being asked every 30 s, for ever
 
 ---

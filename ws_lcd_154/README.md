@@ -139,7 +139,7 @@ Then the dashboard, **rotated a quarter turn right** so you can read it with the
 | ------ | ---------------------------------------------------------------------------------------------- |
 | STATUS | Battery % with a charging bolt if plugged in, `02/02 02:41 AM` of the reading, Wi-Fi bars (flat — no radio) |
 | ALERT  | Solid lime `INFO`, `error budget healthy`                                                     |
-| BODY   | `18659` · `LAST 30M`, `4XX 109 0.58%`, `5XX 15 0.08%`, `AVG 42ms`, `P95 180ms`, a steady graph |
+| BODY   | `18659` · `LAST 30M`, `4XX 109`, `5XX 15`, `AVG 42ms`, `P95 180ms`, a steady graph             |
 | FOOTER | Position rule with five segments, `ORDER Created`                                             |
 
 **It runs with no input at all.** Every 5 seconds the next metric comes up; after the fifth it wraps to the first and polls again. Serial narrates all of it:
@@ -166,6 +166,70 @@ Then the dashboard, **rotated a quarter turn right** so you can read it with the
 - ⚙️ The **settings screen** lists battery, device name, sound, Wi-Fi (`no - offline build` here), MAC, and every distinct `gateway` the payload named (`Orders, Payments`) with the metric count, last poll and poll interval
 - 📶 **Hotspot mode** is a placeholder screen for now — the settings page it will serve is still to be specified
 - 🔎 Every press prints `key: LEFT down (GPIO0)` and then what it did — this build's LEFT/RIGHT are already swapped from the PLUS/BOOT silkscreen to match a board wired backwards; see the pin map below
+
+---
+
+## 8. 📦 Producing a flashable binary
+
+Everything above uploads straight from the IDE. To hand someone a file instead — flash a
+second board without installing anything, or flash from a machine with no IDE at all —
+export a `.bin` once and reuse it.
+
+### From the IDE (no new tools)
+
+1. Set the board menu exactly as in [§4](#4--board-settings--the-two-that-matter) — the export
+   bakes in whatever is selected right then
+2. **Sketch → Export Compiled Binary** (`Ctrl+Alt+S` / `Cmd+Alt+S`)
+3. The IDE drops a `build/esp32.esp32.esp32s3/` folder beside the sketch. The one file that
+   matters is **`ws_lcd_154.ino.merged.bin`** — bootloader, partition table and the app itself,
+   already combined at their correct flash offsets. That single file *is* the board's flash,
+   byte for byte, from address `0x0`
+
+### Flashing that file with `esptool`, no IDE involved
+
+```
+pip install esptool
+esptool.py --chip esp32s3 -p <PORT> -b 921600 write_flash 0x0 ws_lcd_154.ino.merged.bin
+```
+
+Same download-mode dance as [§6](#6--if-the-port-never-appears-or-upload-fails) applies if the
+port doesn't show up on its own: hold **BOOT**, tap **RESET**, release **BOOT**, then flash.
+
+### Building from the command line (`arduino-cli`, no GUI at all)
+
+```
+arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+arduino-cli core install esp32:esp32 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+arduino-cli lib install "GFX Library for Arduino" "SensorLib" "ArduinoJson"
+```
+
+- 🔎 **Confirm the exact menu option names first** — they're stable per core release but do
+  shift between major versions: `arduino-cli board details -b esp32:esp32:esp32s3` lists every
+  key (`PSRAM`, `FlashSize`, `PartitionScheme`, …) and its valid values. Match each one to the
+  [§4](#4--board-settings--the-two-that-matter) table before trusting a copied FQBN string
+- Then compile with every option folded into the FQBN, one string, comma-separated:
+  ```
+  arduino-cli compile \
+    --fqbn "esp32:esp32:esp32s3:CDCOnBoot=cdc,PSRAM=opi,PartitionScheme=<match §4>,FlashMode=qio,FlashFreq=80,FlashSize=16M,UploadSpeed=921600" \
+    --export-binaries .
+  ```
+  drops the same `.bin` files (merged one included, on core 3.x) into `build/.../` — flash with
+  the `esptool.py` command above, or skip the middle step with `arduino-cli upload -p <PORT> --fqbn "<same string>" .`
+
+### If your core doesn't produce a merged binary
+
+Older core releases export the three pieces separately instead. Merge them yourself —
+`boot_app0.bin` ships with the core package, not the sketch:
+
+```
+esptool.py --chip esp32s3 merge_bin -o ws_lcd_154-full.bin \
+  --flash_mode qio --flash_freq 80m --flash_size 16MB \
+  0x0     ws_lcd_154.ino.bootloader.bin \
+  0x8000  ws_lcd_154.ino.partitions.bin \
+  0xe000  boot_app0.bin \
+  0x10000 ws_lcd_154.ino.bin
+esptool.py --chip esp32s3 -p <PORT> write_flash 0x0 ws_lcd_154-full.bin
+```
 
 ---
 

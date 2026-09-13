@@ -162,8 +162,7 @@ Authored in hex, quantised to RGB565.
 
 - 🚫 **No shake gesture, no secret knock.** Removed; never suggest it back
 - 🚫 No `platform` field anywhere
-- 🚫 Nothing derived on the wire — no error rate, no throughput, no `window_minutes`.
-  **One bounded exception**: an aggregate tile's `secondary_value` → [§10](#10--aggregate-tile-formatting)
+- 🚫 Nothing derived on the wire — no error rate, no throughput, no `window_minutes`
 - 🚫 Never `fillScreen()` inside `loop()`
 - 🚫 Never synthesise audio continuously on-chip — render once, stream
 - ✅ Clients truncate; they never wrap and never scroll
@@ -200,28 +199,33 @@ from `sum(buckets)` locally, never store or send it.
   for display — a client concern; the wire value stays milliseconds either way
 - 💯 **A `%` value never carries more than 2 decimal places** — on the wire and in
   whatever computed it. `18659 / 18783 * 100` is `99.33982856838631`; round it to
-  `99.34` before it goes in `secondary_value`, don't just truncate the display.
+  `99.34` before a tile's `value` carries it, don't just truncate the display.
   Everywhere a percentage is generated (a real backend, the mockups' `pct()`, the
   simulator's `pct()`) rounds at the source — `Math.round(x * 100) / 100`, not a
   display-only `toFixed()` papering over a longer stored number
 - 🎯 **Two "max 5"s, not one.** `metrics` caps at 5 rows (5 **screens**); each row's
   `aggregates` caps at 5 (5 **tiles**, but as few as 1 is valid). Never conflate them
   in docs, comments or variable names — say "screens" and "tiles", never a bare "5"
-- 🔁 **A tile's `secondary_value` may be derived** — the one exception to §9's
-  "nothing derived on the wire." A share of some meaningful whole, a second raw
-  number beside the first, whatever that tile needs. Nowhere else on the wire is
-  computed
+- 🚫 **No second value on a tile, ever.** A tile is `name` + `value` + optional `unit`
+  — one number, one job. A tile that needs a second number is a second tile, never
+  a second field bolted onto the first
+- 🚦 **`level` colours a tile: `info` (default) · `warning` orange · `critical` red**
+  — the same three words as `alert.level`, but scoped to one tile, not the whole
+  screen. It never sounds or flashes anything; it only changes that tile's colour.
+  The device never computes it — no baked-in "`4XX` past 2% is orange" any more.
+  A backend that wants a tile to read as trouble sends `"level": "warning"` (or
+  `"critical"`) itself → [api.md §4](docs/api.md#-level--a-tiles-own-colour)
 
 ## 11. 🛡️ Render defensively — always
 
-A row can carry 1–5 tiles, a tile can omit its unit or its secondary, a fault can
+A row can carry 1–5 tiles, a tile can omit its unit or its level, a fault can
 send `aggregates: null` or drop a required field entirely → [api.md §6](docs/api.md#6--errors).
 Every renderer — firmware, both mockups, the simulator's control UI — must assume
 any of that can happen on any given poll, not just on a fault test.
 
 - ✅ **Check presence before drawing, every time.** `if (tile) draw(tile)`, never
-  `draw(tile)` and hope. A missing tile, a missing unit, a missing secondary is not
-  an error to surface — it is a slot that simply stays blank
+  `draw(tile)` and hope. A missing tile or a missing unit is not an error to
+  surface — it is a slot that simply stays blank
 - 🚫 **Never index or dereference without a bounds/null check first** — `r.tiles[i]`
   only after `i < r.ntiles`, `t.name` only after confirming `t` exists, array
   `.find()` results checked before use. A null pointer, an out-of-range index or a

@@ -283,7 +283,7 @@ function clockText(){
   return `${p2(d.getMonth() + 1)}/${p2(d.getDate())} ${p2(h % 12 || 12)}:${p2(d.getMinutes())} ${h < 12 ? 'AM' : 'PM'}`;
 }
 const spanUnits = r => r.bucket_size * r.bucket_count;
-const rate = r => r.aggregates[0].primary_value / spanUnits(r);   // tile 0 is always the heading
+const rate = r => r.aggregates[0].value / spanUnits(r);   // tile 0 is always the heading
 const tileByName = (r, n) => r.aggregates.find(t => t.name === n);
 function spanLabel(r){
   const u = spanUnits(r), n = r.bucket_unit;
@@ -306,12 +306,22 @@ function joinGateways(){
    Sample payloads — shaped exactly like docs/api.md
    ========================================================================== */
 /* One tile — see the aggregate-tile guideline in AGENTS.md. `name` IS the
-   text drawn (<= 5 chars) — no separate label.                          */
-function mkTile(name, primary_value, primary_unit, secondary_value, secondary_unit){
-  const t = { name, primary_value };
-  if (primary_unit) t.primary_unit = primary_unit;
-  if (secondary_value !== undefined){ t.secondary_value = secondary_value; if (secondary_unit) t.secondary_unit = secondary_unit; }
+   text drawn (<= 5 chars) — no separate label. `level` (optional, default
+   info) colours the value — this backend's own call, never computed by
+   the client.                                                           */
+function mkTile(name, value, unit, level){
+  const t = { name, value };
+  if (unit) t.unit = unit;
+  if (level) t.level = level;
   return t;
+}
+/* Same thresholds simulator/server.js's levelFor() uses, so this
+   standalone mockup's own sample backend reads the same way a real one
+   would.                                                                 */
+function levelFor(name, share){
+  if (name === '5XX') return share >= 1 ? 'critical' : share >= 0.5 ? 'warning' : undefined;
+  if (name === '4XX') return share >= 2 ? 'warning' : undefined;
+  return undefined;
 }
 /* No root `gateway` — api.md only carries the word per row. This backend
    merges two platforms into one response: Orders and Payments. This board
@@ -323,23 +333,24 @@ function row(gateway, name, buckets, c4, c5, avg, p95){
   return { gateway, name, bucket_unit:'m', bucket_size:1, bucket_count:30,
     buckets_value_type:'total_count', buckets,
     aggregates: [
-      mkTile('2XX', c2, null, pct(c2, total), '%'),
-      mkTile('4XX', c4, null, pct(c4, total), '%'),
-      mkTile('5XX', c5, null, pct(c5, total), '%'),
+      mkTile('2XX', c2),
+      mkTile('4XX', c4, null, levelFor('4XX', pct(c4, total))),
+      mkTile('5XX', c5, null, levelFor('5XX', pct(c5, total))),
       mkTile('AVG', avg, 'ms'),
       mkTile('P95', p95, 'ms'),
     ] };
 }
-/* buckets are the only source of truth for scale; 2XX (and its share)
-   follow whatever the series did, 4XX/5XX counts hold steady, only their
-   shares move.                                                          */
+/* buckets are the only source of truth for scale; 2XX follows whatever the
+   series did, 4XX/5XX counts hold steady, only their shares — and so
+   their level — move.                                                   */
 function retotal(r){
   const total = sum(r.buckets);
   const t2 = tileByName(r, '2XX'), t4 = tileByName(r, '4XX'), t5 = tileByName(r, '5XX');
-  t2.primary_value = total - t4.primary_value - t5.primary_value;
-  t2.secondary_value = pct(t2.primary_value, total);
-  t4.secondary_value = pct(t4.primary_value, total);
-  t5.secondary_value = pct(t5.primary_value, total);
+  t2.value = total - t4.value - t5.value;
+  const l4 = levelFor('4XX', pct(t4.value, total));
+  const l5 = levelFor('5XX', pct(t5.value, total));
+  if (l4) t4.level = l4; else delete t4.level;
+  if (l5) t5.level = l5; else delete t5.level;
 }
 /* Same numbers as net.ino's PAYLOAD and the ws_lcd_154 mockup — see docs/api.md. */
 const parts = [
@@ -455,17 +466,22 @@ function drawColumn(i, r, ceiling, dx, th){
   g.text(compact(rate(r)), px, cy + 22, 3, th.tx, 'l', true);
   g.text(unitLabel(r), px, cy + 50, 1, th.dim2, 'l', false, 1);
 
-  const p4 = t4.secondary_value, p5 = t5.secondary_value;
-  const c5 = th.lit ? th.tx : p5 >= 1 ? C.rd : p5 >= 0.5 ? C.or : C.tx;
-  const c4 = th.lit ? th.tx : p4 >= 2 ? C.or : C.tx;
+  /* the share shown beside each count is a display-only computation from
+     wire values already present (like the span caption) — never sent on
+     the wire itself. Colour comes from the tile's own `level`, the
+     backend's call, not a threshold this client re-derives.             */
+  const total = sum(r.buckets);
+  const p4 = pct(t4.value, total), p5 = pct(t5.value, total);
+  const levelColor = (level) => th.lit ? th.tx : level === 'critical' ? C.rd : level === 'warning' ? C.or : th.tx;
+  const c4 = levelColor(t4.level), c5 = levelColor(t5.level);
   const line = (lab, val, sub, col, yy) => {
     g.text(lab, px, yy, 1, th.dim2, 'l', false, 1);
     const w = g.text(val, px + 26, yy, 1, col, 'l', true);
     if (sub) g.text(sub, x0 + CW - 9, yy, 1, th.dim2, 'r');
   };
-  line(tp95.name, tp95.primary_value + 'ms', '',                C.tx, cy + 66);
-  line(t4.name,   compact(t4.primary_value), p4.toFixed(2) + '%', c4,   cy + 78);
-  line(t5.name,   compact(t5.primary_value), p5.toFixed(2) + '%', c5,   cy + 90);
+  line(tp95.name, tp95.value + 'ms', '',                C.tx, cy + 66);
+  line(t4.name,   compact(t4.value), p4.toFixed(2) + '%', c4,   cy + 78);
+  line(t5.name,   compact(t5.value), p5.toFixed(2) + '%', c5,   cy + 90);
 
   /* graph — one shared ceiling across every column, or it is not a comparison */
   const GX = px, GW_ = CW - 18, GH = 30, YB = cy + 104 + GH;   // 130..160, label 164..171

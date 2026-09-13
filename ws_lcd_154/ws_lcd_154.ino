@@ -140,17 +140,16 @@
 /* One number card for the BODY band — up to 5 per row, position 0 is the
    heading, the rest fill the four body slots in order. `name` IS the text
    drawn — no separate label, truncated here if a backend sent more than
-   5 chars. `*Unit` is one of "ms" / "s" / "%" / "" (a plain count) —
+   5 chars. `unit` is one of "ms" / "s" / "%" / "" (a plain count) —
    AGENTS.md's aggregate tile guideline says what each does to
-   fmtTileValue()'s output. What `secondary` MEANS is the backend's
-   choice, not this schema's — api.md §4.                                */
+   fmtTileValue()'s output. `level` colours the value — "critical" red,
+   "warning" orange, "info" (the default) the theme's own colour — the
+   backend's own judgement call, never computed here — api.md §4.        */
 struct Tile {
   char   name[6];
-  double primary;
-  char   primaryUnit[4];
-  bool   hasSecondary;
-  double secondary;
-  char   secondaryUnit[4];
+  double value;
+  char   unit[4];
+  char   level[10];
 };
 
 struct Row {
@@ -266,11 +265,12 @@ static void buildThemes(){
 /* inside the BODY band — offsets from BAND_BODY_Y, the mockup's numbers */
 #define COL2          128     /* second tile column */
 /* every tile — the heading and the four body slots alike — draws its value
-   on the left and its name (above its secondary, if it has one) stacked
-   to the right; only the scale differs. dashboard.ino's drawTile().      */
-#define Y_HERO         10     /* heading: value size 4, name/secondary size 2 */
-#define Y_HERO_SHARE   24
-#define Y_TILE1        58     /* body row 1 (tiles[1], tiles[2]): value size 2, name/secondary size 1 */
+   on the left and its name stacked to the right; only the heading also
+   draws a span line under its name. Only the scale differs.
+   dashboard.ino's drawTile().                                            */
+#define Y_HERO         10     /* heading: value size 4, name/span size 2 */
+#define Y_HERO_SHARE   28     /* a few px under the name row — not flush against it */
+#define Y_TILE1        58     /* body row 1 (tiles[1], tiles[2]): value/name both adaptive */
 #define Y_TILE2        104    /* body row 2 (tiles[3], tiles[4]) */
 #define Y_GRAPH_TOP    44
 #define Y_BASE        157
@@ -308,8 +308,7 @@ struct NetInfo { bool connected; int rssi; char ip[16]; };
 static NetInfo net = { false, 0, "" };
 
 static uint32_t countT0 = 0;
-static double   countFromP[MAX_TILES];      /* each tile's primary value, last screen */
-static double   countFromS[MAX_TILES];      /* and its secondary, if it had one */
+static double   countFromP[MAX_TILES];      /* each tile's value, last screen */
 static uint32_t screenT0 = 0;      /* when the current metric screen came up — net.ino owns the cycle,
                                        but this lives here so alertFlash() below can see it too */
 static uint32_t sweepT0 = 0;
@@ -365,7 +364,7 @@ static const char* fmtLatency(double ms, char* out, size_t cap){
   else { long s = lround(sec); snprintf(out, cap, "%ld", s > 9999 ? 9999L : s); }
   return "s";
 }
-/* One tile's primary or secondary value, formatted by its declared unit —
+/* One tile's value, formatted by its declared unit —
    the aggregate-tile guideline in AGENTS.md. "ms" reuses fmtLatency (which
    itself moves to "s" past 9999); "%" is a share, baked into the string;
    anything else (or no unit) is a plain compacted count. Returns the unit
@@ -381,9 +380,8 @@ static const char* fmtTileValue(double v, const char* unit, char* out, size_t ca
 /* How long the row's own clock covers — "LAST 30M" · "LAST 5M" ·
    "LAST 24H" · "LAST 45S" — `bucket_size × bucket_count` in `bucket_unit`,
    compacted so the number never needs more than 2 digits: 60+ s becomes
-   minutes, 60+ m becomes hours. Replaces the heading tile's own secondary
-   in the BODY band — the row's span, not that tile's `secondary_value`,
-   is what belongs beside the headline number. api.md §4.                 */
+   minutes, 60+ m becomes hours. Sits in the heading tile's own second
+   line — the row's span, not anything the tile itself carries. api.md §4. */
 static void spanCaption(int size, int count, const char* unit, char* out, size_t cap){
   long span = (long)size * count;
   char u = (unit && unit[0]) ? (char)toupper(unit[0]) : 'M';
