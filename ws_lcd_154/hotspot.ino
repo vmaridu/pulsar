@@ -111,14 +111,20 @@ static void apHandleConfigGet(){
   JsonDocument doc;
   configJson(doc);
   doc["device"] = deviceName;
-  LOG("view", "hotspot: the page asked for the current config (no secrets sent)");
+  LOGF("view", "hotspot: GET /api/config -> url %s, %u saved network%s (no secrets sent)",
+       cfg.url[0] ? cfg.url : "(none)", (unsigned)cfg.nnets, cfg.nnets == 1 ? "" : "s");
   apSendJson(200, doc);
 }
 
 static void apHandleConfigPost(){
   apLastHit = millis();
   const String body = apServer->arg("plain");
-  if (!body.length()){ apSendError(400, "empty body"); return; }
+  LOGF("cfg", "hotspot: POST /api/config - %u byte body received", (unsigned)body.length());
+  if (!body.length()){
+    LOG("cfg", "hotspot: rejected - the page sent no body at all");
+    apSendError(400, "empty body");
+    return;
+  }
 
   JsonDocument doc;
   const DeserializationError err = deserializeJson(doc, body.c_str());
@@ -127,6 +133,22 @@ static void apHandleConfigPost(){
     apSendError(400, err.c_str());
     return;
   }
+
+  /* A safe summary of what was posted — never the secret/psk/pass fields
+     themselves, same rule config.ino's own logging already follows.       */
+  {
+    JsonObjectConst in = doc.as<JsonObjectConst>();
+    JsonArrayConst nets = in["nets"].is<JsonArrayConst>() ? in["nets"].as<JsonArrayConst>() : JsonArrayConst();
+    LOGF("cfg", "hotspot: posted url=\"%s\" key=%s secret=%s ca=%s nets=%u",
+         (const char*)(in["url"] | ""),
+         strlen(in["key"] | "")    ? "given" : "kept/none",
+         (in["secretClear"] | false) ? "cleared" :
+           strlen(in["secret"] | "") ? "given" : "kept/none",
+         (in["caClear"] | false)     ? "cleared" :
+           strlen(in["ca"] | "")     ? "given" : "kept/none",
+         (unsigned)nets.size());
+  }
+
   char problem[96];
   if (!configApplyJson(doc.as<JsonObjectConst>(), problem, sizeof problem)){
     LOGF("cfg", "rejected what the page posted: %s", problem);
@@ -135,6 +157,9 @@ static void apHandleConfigPost(){
   }
   const bool saved = configSave();
   if (saved) apSaves++;
+  LOGF("cfg", "hotspot: %s - url now \"%s\", %u network%s (save #%u this session)",
+       saved ? "saved to NVS" : "NVS WRITE FAILED", cfg.url, (unsigned)cfg.nnets,
+       cfg.nnets == 1 ? "" : "s", (unsigned)apSaves);
 
   JsonDocument out;
   out["ok"] = saved;
@@ -142,6 +167,8 @@ static void apHandleConfigPost(){
   out["nets"] = cfg.nnets;
   out["url"]  = cfg.url;
   apSendJson(saved ? 200 : 500, out);
+  LOGF("cfg", "hotspot: replied to the page - {\"ok\":%s,\"nets\":%u}",
+       saved ? "true" : "false", (unsigned)cfg.nnets);
 }
 
 /* What is actually in the air. Asked for repeatedly by the page while a scan

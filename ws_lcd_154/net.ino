@@ -324,10 +324,11 @@ bool netFetch(){
   http.setTimeout(FETCH_MS);
   http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);   /* api.md §6: a 3xx is a misconfigured URL */
   http.setReuse(false);
-  /* header() only answers for headers asked for in advance, and Retry-After
-     is the one a 429 carries — api.md §7 says to honour it.               */
-  static const char* wanted[] = { "Retry-After" };
-  http.collectHeaders(wanted, 1);
+  /* header() only answers for headers asked for in advance. Retry-After is
+     what a 429 carries (api.md §7); Content-Type/-Length are logged on every
+     response so a bad-data poll shows exactly what came back and why.      */
+  static const char* wanted[] = { "Retry-After", "Content-Type", "Content-Length", "Server" };
+  http.collectHeaders(wanted, 4);
   const char* warn = https ? (configTlsVerified() ? "" : " [TLS NOT VERIFIED - no CA pasted]")
                            : " [PLAIN HTTP - the key is readable on the wire]";
   LOGF("net", "poll -> %s%s", url, warn);
@@ -343,6 +344,8 @@ bool netFetch(){
   }
 
   http.addHeader("Accept", "application/json");
+  LOG("net", "> GET (path + query from the URL above)");
+  LOG("net", ">   Accept: application/json");
   if (configSigned()){
     /* A signature over a 1970 timestamp is a request the backend must reject
        — api.md's appendix rejects anything older than 60 s — so say why
@@ -364,8 +367,12 @@ bool netFetch(){
     http.addHeader("X-Api-Key", cfg.key);
     http.addHeader("X-Timestamp", ts);
     http.addHeader("X-Signature", sig);
+    LOGF("net", ">   X-Api-Key: %s", cfg.key);
+    LOGF("net", ">   X-Timestamp: %s", ts);
+    LOGF("net", ">   X-Signature: %s", sig);
     LOGF("net", "auth: signed - key %.4s..., ts %s", cfg.key, ts);
   } else if (cfg.key[0]){
+    LOGF("net", ">   Authorization: Bearer %s", cfg.key);
     char bearer[LEN_KEY + 8];
     snprintf(bearer, sizeof bearer, "Bearer %s", cfg.key);
     http.addHeader("Authorization", bearer);
@@ -377,30 +384,44 @@ bool netFetch(){
   const int code = http.GET();
   bool ok = false;
 
-  if (code == 200){
+  if (code > 0){
+    /* Every response gets its status, headers and body logged before this
+       function decides anything from them — a poll that looked "bad" on
+       screen should never be a mystery on Serial.                        */
+    LOGF("net", "< HTTP %d (%lums)", code, (unsigned long)(millis() - t0));
+    LOGF("net", "<   Content-Type: %s",   http.header("Content-Type").length()   ? http.header("Content-Type").c_str()   : "(none)");
+    LOGF("net", "<   Content-Length: %s", http.header("Content-Length").length() ? http.header("Content-Length").c_str() : "(none)");
+    if (http.header("Server").length()) LOGF("net", "<   Server: %s", http.header("Server").c_str());
+    if (http.header("Retry-After").length()) LOGF("net", "<   Retry-After: %s", http.header("Retry-After").c_str());
+
     char* body = nullptr; size_t len = 0;
-    if (fetchBody(http, &body, &len)){
-      LOGF("net", "200 in %lums, %u bytes", (unsigned long)(millis() - t0), (unsigned)len);
+    const bool gotBody = fetchBody(http, &body, &len);
+
+    if (code == 200 && gotBody){
+      LOGF("net", "< body (%u bytes): %s", (unsigned)len, body);
       ok = parseSnapshot(body);
       if (ok) clearFault();
       else    setFault("BAD DATA", "payload rejected");
-    } else {
+    } else if (code == 200){
+      LOG("net", "< body: could not be read - see the reason logged above");
       setFault("BAD DATA", "body unreadable");
+    } else {
+      char detail[22];
+      const char* word = faultForStatus(code, detail, sizeof detail);
+      LOGF("net", "%d %s - %s, keeping the last good data", code, word, detail);
+      if (gotBody && len) LOGF("net", "< body (%u bytes): %s", (unsigned)len, body);
+      else                LOG("net", "< body: (empty or unreadable)");
+      if (code == 429){
+        /* api.md §7: honour Retry-After, clamped so a silly value cannot park
+           the device for a day.                                           */
+        long wait = http.header("Retry-After").toInt();
+        if (wait <= 0) wait = POLL_MIN_S;
+        if (wait > RETRY_AFTER_MAX_S) wait = RETRY_AFTER_MAX_S;
+        pollHoldUntil = millis() + (uint32_t)wait * 1000UL;
+        LOGF("net", "Retry-After %lds - next poll held off that long", wait);
+      }
+      setFault(word, detail);
     }
-  } else if (code > 0){
-    char detail[22];
-    const char* word = faultForStatus(code, detail, sizeof detail);
-    LOGF("net", "%d %s - %s, keeping the last good data", code, word, detail);
-    if (code == 429){
-      /* api.md §7: honour Retry-After, clamped so a silly value cannot park
-         the device for a day.                                             */
-      long wait = http.header("Retry-After").toInt();
-      if (wait <= 0) wait = POLL_MIN_S;
-      if (wait > RETRY_AFTER_MAX_S) wait = RETRY_AFTER_MAX_S;
-      pollHoldUntil = millis() + (uint32_t)wait * 1000UL;
-      LOGF("net", "Retry-After %lds - next poll held off that long", wait);
-    }
-    setFault(word, detail);
   } else {
     LOGF("net", "request failed after %lums: %s", (unsigned long)(millis() - t0),
          HTTPClient::errorToString(code).c_str());

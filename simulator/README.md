@@ -31,7 +31,13 @@ Nothing else. No `npm install` step — the server has no dependencies to fetch.
    ```
    cd path\to\pulsar\simulator
    ```
-3. Start it:
+3. Start it in the background:
+   ```
+   start.cmd
+   ```
+   Stop it with `stop.cmd`. Logs go to `log.txt`. You can also double-click either script in Explorer.
+
+   To keep it in the foreground instead:
    ```
    node server.js
    ```
@@ -54,6 +60,13 @@ Nothing else. No `npm install` step — the server has no dependencies to fetch.
 
 Same as macOS — a terminal, `cd` into `simulator/`, `node server.js`, then open
 `http://localhost:4180/`.
+
+On macOS / Linux you can also detach it:
+
+```
+./start.sh    # background; logs to log.txt
+./stop.sh     # stops that process
+```
 
 ### Changing the port
 
