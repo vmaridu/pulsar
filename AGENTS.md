@@ -80,8 +80,8 @@ listed is **future use** and must be documented as "future use", never silently 
 - 🔄 When the loop returns to the first screen, **fetch fresh data**
 - 🧮 Poll interval = `max(30, metric_count × 5)` seconds — never faster than 30 s
 - 👆 A 2 s hold on the glass forces a refresh regardless of where the cycle is
-- 🌐 **Nothing about the endpoint is compiled in.** The base URL, the API key and the
-  API secret come out of NVS, set over the setup hotspot → [device.md §6](docs/device.md#6--configuration).
+- 🌐 **Nothing about the endpoint is compiled in.** The full URL, the API key and the
+  API secret come out of NVS, set over the setup hotspot → [device.md §5](docs/device.md#5--configuration).
   A board with no URL shows `SETUP` and **no numbers at all** — there is no sample
   payload to fall back on, because a monitor showing invented data is worse than one
   admitting it has none

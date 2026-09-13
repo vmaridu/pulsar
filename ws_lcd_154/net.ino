@@ -7,12 +7,14 @@
    doesn't have "a" gateway any more than it has "a" metric, it shows
    whatever rows the backend sends, each one labelled.
 
-   NOTHING IS BAKED IN. The base URL, the API key and the API secret come out
-   of NVS (config.ino), set over the setup hotspot (hotspot.ino). A board with
-   no URL shows SETUP and no numbers: a monitor that invents data is worse
-   than one that admits it has none. The simulator (../simulator) serves this
-   exact shape over real HTTP, with controls to fake every fault below —
-   point a board at it and the whole error path is testable on a bench.
+   NOTHING IS BAKED IN. The full URL, the API key and the API secret come out
+   of NVS (config.ino), set over the setup hotspot (hotspot.ino) — the device
+   polls exactly that URL, nothing appended, nothing assumed about its shape.
+   A board with no URL shows SETUP and no numbers: a monitor that invents
+   data is worse than one that admits it has none. The simulator
+   (../simulator) serves this exact shape over real HTTP at /v1/gateway_health
+   — a convention for testing, not a path the device requires — with controls
+   to fake every fault below, so the whole error path is testable on a bench.
 
    Auth is one decision taken from one field, so there is no mode to set
    wrongly — api.md §1 and its HMAC appendix:
@@ -53,9 +55,6 @@
 #define FETCH_MS      5000      /* api.md §1: clients time out at 5 s */
 #define NET_MAX_BODY  8192      /* api.md §5 caps a body at 4 KB — this is the hard stop */
 #define RETRY_AFTER_MAX_S 900   /* however long a 429 asks for, we come back inside this */
-
-/* The one path every build asks for, appended to the configured base URL. */
-#define HEALTH_PATH "/v1/gateway_health"
 
 static uint32_t lastPoll      = 0;  /* millis() of the last completed poll */
 static uint32_t pollHoldUntil = 0;  /* a 429's Retry-After — nothing polls before this */
@@ -275,7 +274,7 @@ static const char* faultForStatus(int code, char* detail, size_t cap){
 
 /* One poll. Everything it decides, it logs — the URL, the auth it used, the
    status, the parse result, and the real error text when there is one.    */
-static bool netFetch(){
+bool netFetch(){
   const uint32_t t0 = millis();
 
   /* ---- the reasons not to even try, each of them said out loud */
@@ -298,8 +297,8 @@ static bool netFetch(){
     return false;
   }
 
-  char url[LEN_URL + 32];
-  snprintf(url, sizeof url, "%s%s", cfg.url, HEALTH_PATH);
+  char url[LEN_URL];
+  strlcpy(url, cfg.url, sizeof url);
   const bool https = !strncasecmp(url, "https://", 8);
 
   /* ---- the client. A pasted PEM root is checked against; without one the
@@ -421,7 +420,7 @@ static bool netFetch(){
 /* What the banner says before the first poll has had a chance to say
    anything — a blank screen with no explanation is the one thing a device
    with no keyboard must never do.                                         */
-static void netBegin(){
+void netBegin(){
   if (!configHasEndpoint())  setFault("SETUP", "hold LEFT 2 s");
   else if (!cfg.nnets)       setFault("SETUP", "no wi-fi saved");
   else                       setFault("OFFLINE", "joining wi-fi");
@@ -429,7 +428,7 @@ static void netBegin(){
 }
 
 /* How often the backend is asked: the cycle's lap time, floored at 30 s. */
-static uint32_t pollIntervalMs(){
+uint32_t pollIntervalMs(){
   uint32_t lap = (uint32_t)snap.nrows * SCREEN_MS;
   uint32_t min = (uint32_t)POLL_MIN_S * 1000UL;
   return lap > min ? lap : min;
@@ -439,7 +438,7 @@ static uint32_t pollIntervalMs(){
    lights the status hairline and sweeps the graph back in. A forced refresh
    also clears a Retry-After hold: a person asking by hand outranks a backend
    that asked us to wait.                                                  */
-static void refreshNow(){
+void refreshNow(){
   LOG("net", "forced refresh - glass held 2 s");
   pollHoldUntil = 0;
   beginCount();
@@ -449,14 +448,14 @@ static void refreshNow(){
 }
 
 /* ------------------------------------------------------------------ cycle */
-static void cycleBegin(){
+void cycleBegin(){
   screenT0 = millis();
   lastPoll = millis();
 }
 
 /* A person just chose this screen by hand, or came back from settings — give
    it a full SCREEN_MS before the cycle moves on.                          */
-static void cycleResetTimer(){ screenT0 = millis(); }
+void cycleResetTimer(){ screenT0 = millis(); }
 
 /* Called every frame. Advances the screen every 5 s, and when the cycle wraps
    back to the first screen it refetches — as long as the poll interval has
@@ -464,7 +463,7 @@ static void cycleResetTimer(){ screenT0 = millis(); }
 
    With nothing parsed yet there are no screens to turn, so the cycle just
    keeps asking on the interval until something answers.                   */
-static void cycleTick(){
+void cycleTick(){
   if (view != VIEW_MAIN) return;              /* settings and hotspot hold the cycle */
   const uint32_t now = millis();
   if (now - screenT0 < SCREEN_MS) return;

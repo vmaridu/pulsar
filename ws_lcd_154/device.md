@@ -40,11 +40,32 @@ The panel runs at `rotation = 1`.
 - 🔊 The **speaker hole faces out** instead of into the bench, which is the difference between hearing a critical and not
 - 📐 The panel is square, so **no layout number changes** — only which edge is up
 
+📌 **Exact pin assignments** (the physical silkscreen, LCD/touch/I²C/I²S/battery lines
+included) live in the `#define`s at the top of [`ws_lcd_154.ino`](ws_lcd_154.ino) — the
+source is the one copy of this fact, not restated here. `KEY_LEFT`/`KEY_RIGHT` are
+swapped there from the BOOT/PLUS silkscreen, to match a board wired backwards from
+Waveshare's own labelling; swap them back if yours isn't.
+
+### 🔋 Where the live values come from
+
+Everything except battery comes from the backend, over the configured URL. The battery
+is read off the ADC pin, behind a 1/3 divider (`analogReadMilliVolts() × 3.0`), gated by
+a divider-enable pin; a separate pull-up pin reads **LOW = charging** — also what lights
+the STATUS band's bolt icon. Percent comes from Waveshare's own voltage bands: <3.52 V →
+1 %, then 20/40/60/80/100.
+
+⏰ **The STATUS band's clock is the data's, not the wall's.** There is no RTC, and the
+time shown is the payload's own `measured_at`, formatted `MM/DD hh:mm AM` — the time the
+numbers were measured, which is the one worth knowing. Change `TZ_OFFSET_HOURS` at the
+top of the sketch to shift it. SNTP is asked for the real time on every join, but only so
+a **signed** request can carry a timestamp the backend will accept — it never moves the
+clock on screen.
+
 ---
 
 ## 2. 👆 Input
 
-The standard map → [device.md §2](../docs/device.md#2--input--the-standard-map). On this build:
+This build implements the standard input map:
 
 | Input                | Tap                       | Double-tap              | Hold 2 s                     |
 | -------------------- | ------------------------- | ----------------------- | ---------------------------- |
@@ -57,7 +78,7 @@ The standard map → [device.md §2](../docs/device.md#2--input--the-standard-ma
 - ⭕ Anything held past a tap shows a ring filling toward 2 s with the action written inside — `REFRESH`, `SETUP`, `EXIT`, `OFF`, `ON` — so you see it coming and can let go. A hold that is future use shows **no ring**: nothing is coming
 - 👆 **One glass, no zones.** Anywhere counts. A single tap waits 450 ms to be sure it is not the first half of a double-tap, and a finger that slides is not a tap
 - 🔙 **Off the main screen**, a tap on the glass goes back to it
-- 🌑 **RIGHT tap sleeps the panel only.** The cycle keeps turning, the poll keeps polling, and a critical still sounds in the dark → [device.md §2](../docs/device.md#-display-off-is-not-power-off)
+- 🌑 **RIGHT tap sleeps the panel only.** The cycle keeps turning, the poll keeps polling, and a critical still sounds in the dark → [device.md §1](../docs/device.md#-display-off-is-not-power-off)
 - 🔕 **RIGHT double-tap** mutes every sound until it is double-tapped again or the board restarts → [§5](#5--alert-sound-and-mute)
 - 🔌 **Off and on are both a 2-second hold of PWR.** The key powers the board up by itself; the firmware latches power (GPIO2) only once the hold reaches 2 s, so a brush against it does nothing. Off drops the latch — on battery that is truly off
 - 🔋 On USB the rail stays up whatever GPIO2 says, so off is the panel dark plus deep sleep, and PWR (GPIO5, an RTC pin) wakes it into the same 2 s hold
@@ -71,7 +92,7 @@ Orders · Created → Dispatched → Cancelled
 ```
 
 - ⏱️ **Each screen is up for 5 s** and then moves on by itself — no input needed at all
-- 🔄 **The wrap is the poll.** When it returns to the first screen it refetches, but never faster than `max(30, metrics × 5)` seconds → [device.md §1](../docs/device.md#1--the-cycle)
+- 🔄 **The wrap is the poll.** When it returns to the first screen it refetches, but never faster than `max(30, metrics × 5)` seconds → [device.md §1](../docs/device.md#1--screens)
 - 👆 A tap on the glass steps on early and gives the chosen screen a fresh 5 s
 - 📋 Every `metrics` entry in the order sent — up to five, each naming the `gateway` it came from
 - 🧭 No menu, no back button — keep tapping and you return where you started
@@ -144,7 +165,7 @@ Same y, same height, every frame. What changes is loudness, not position.
 - 🖋️ **During the flash every foreground turns to near-black ink** — numbers, labels, hairlines, the graph, the battery. No one colour reads on black, red, orange and grey alike (white on orange is under 3:1), so the ink follows the ground. The rest of the 5 s it is the normal screen, thresholds and all
 - ➖ Under an alert a rule parts the ALERT band from the BODY
 - 🔤 **Heading and subscript.** The level word at size 2, the message small under it at size 1
-- 🎨 These level colours are brighter than [device.md §7](../docs/device.md#7--colours) — this build paints them as whole bands, so they go to full strength
+- 🎨 These level colours are brighter than the shared palette's — this build paints them as whole bands, so they go to full strength
 - ✅ `alert` is required in every response, so this band always has something to draw — there is no empty state to design
 - 🔤 Levels spelled out, never abbreviated. `CRITICAL` is eight characters and there is room
 - 🚫 No glyph. The word and the colour say it
@@ -157,7 +178,7 @@ Same y, same height, every frame. What changes is loudness, not position.
 - ➖ **The rule above the FOOTER is the position** — one segment per metric screen, the current one lit
 - 🕐 **The clock is `MM/DD hh:mm AM`** of `measured_at` — the time of the reading, not the time now
 - ↔️ 6 px margin on every band
-- 🎨 Palette → [device.md §7](../docs/device.md#7--colours), with the brighter level colours above
+- 🎨 The shared palette, with the brighter level colours above
 
 ### 🔠 Text budget
 
@@ -191,7 +212,7 @@ Four groups, in the order you would ask the questions: what am I holding, what d
 | MAC                     | The chip's Wi-Fi station address, `esp_read_mac()` — the one a network's allowlist wants                |
 | **WI-FI** Network       | The saved network it actually joined. Not joined → what the radio is doing instead (`scanning`, `joining`, `waiting to retry`), or `none saved` in orange. Joined but walled in by a sign-in page → the name with `SIGN-IN` beside it, in orange |
 | Signal · IP             | `WiFi.RSSI()` and the address DHCP gave it, `-` when not joined                                         |
-| **BACKEND** Host        | Just the host out of the configured base URL — orange `NOT SET` on a board nobody has set up yet        |
+| **BACKEND** Host        | Just the host out of the configured URL — orange `NOT SET` on a board nobody has set up yet             |
 | Auth                    | `bearer` · `signed` · `no key`, then `tls ok` · `TLS UNVERIFIED` · `NO TLS`. Orange unless all of it is right |
 | **GATEWAYS**            | Every distinct `gateway` a row named, comma-joined (`Orders, Payments`) — the level dot beside them is `alert.level`, global to the response, not any one platform, and grey while a fetch fault stands |
 | ↳ right of it           | Screen count and how old the numbers are. With nothing parsed yet, the poll interval instead            |
@@ -201,7 +222,7 @@ Four groups, in the order you would ask the questions: what am I holding, what d
 
 ### 📶 The setup hotspot
 
-Hold **LEFT** 2 s. The board raises a WPA2 access point named after itself, answers every DNS name with its own address so the page opens on its own, and serves the setup page at `192.168.4.1` → [device.md §6](../docs/device.md#6--configuration).
+Hold **LEFT** 2 s. The board raises a WPA2 access point named after itself, answers every DNS name with its own address so the page opens on its own, and serves the setup page at `192.168.4.1` → [device.md §5](../docs/device.md#5--configuration).
 
 | Line                 | What                                                                       |
 | -------------------- | -------------------------------------------------------------------------- |

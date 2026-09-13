@@ -5,7 +5,7 @@
    platforms; every metric carries its own `gateway` attribute saying where
    it came from — there is no root `gateway` field, only the per-metric one.
 
-   Nothing about the endpoint is baked in. The base URL, the API key and the
+   Nothing about the endpoint is baked in. The full URL, the API key and the
    API secret are set over the device's own Wi-Fi hotspot — hold LEFT 2 s —
    and kept in NVS with the saved networks; config.ino owns the store,
    hotspot.ino the page, wifi.ino the joining, net.ino the poll. An
@@ -215,7 +215,7 @@ struct WifiNet {
    X-Api-Key and the secret signs each request — api.md §1 and its HMAC
    appendix. Two fields, no third field to contradict them.               */
 struct Config {
-  char    url[LEN_URL];              /* base URL — /v1/gateway_health is appended */
+  char    url[LEN_URL];              /* the full URL to poll, exactly as configured */
   char    key[LEN_KEY];
   char    secret[LEN_KEY];
   char    ca[LEN_CA];                /* optional PEM root; empty = TLS unverified */
@@ -455,8 +455,8 @@ static uint32_t toastT0 = 0;       /* a short message over the screen — "SOUND
 static const char* toastText = "";
 
 /* ------------------------------------------------------------- small utils */
-static float easeOut(float t){ t = 1 - t; return 1 - t*t*t; }
-static float clampf(float v, float a, float b){ return v < a ? a : v > b ? b : v; }
+float easeOut(float t){ t = 1 - t; return 1 - t*t*t; }
+float clampf(float v, float a, float b){ return v < a ? a : v > b ? b : v; }
 
 /* Every number on screen is at most 5 characters. Exact while it fits, then
    k · m · b (thousand, million, billion) with as many decimals as still fit:
@@ -505,7 +505,7 @@ static const char* fmtLatency(double ms, char* out, size_t cap){
    anything else (or no unit) is a plain compacted count. Returns the unit
    text to draw after the value, or NULL when there is none to draw
    separately (a share, or a bare count).                                 */
-static const char* fmtTileValue(double v, const char* unit, char* out, size_t cap){
+const char* fmtTileValue(double v, const char* unit, char* out, size_t cap){
   if (unit && !strcmp(unit, "ms")) return fmtLatency(v, out, cap);
   if (unit && !strcmp(unit, "%")){ fmtShare(v, 1, out, cap); return nullptr; }
   if (unit && !strcmp(unit, "s")){ snprintf(out, cap, "%.1f", v); return "s"; }
@@ -517,7 +517,7 @@ static const char* fmtTileValue(double v, const char* unit, char* out, size_t ca
    compacted so the number never needs more than 2 digits: 60+ s becomes
    minutes, 60+ m becomes hours. Sits in the heading tile's own second
    line — the row's span, not anything the tile itself carries. api.md §4. */
-static void spanCaption(int size, int count, const char* unit, char* out, size_t cap){
+void spanCaption(int size, int count, const char* unit, char* out, size_t cap){
   long span = (long)size * count;
   char u = (unit && unit[0]) ? (char)toupper(unit[0]) : 'M';
   if (u == 'S' && span >= 60){ span = (span + 30) / 60; u = 'M'; }
@@ -525,7 +525,7 @@ static void spanCaption(int size, int count, const char* unit, char* out, size_t
   snprintf(out, cap, "LAST %ld%c", span, u);
 }
 /* 4s ago · 3m ago · 2h ago */
-static void ageText(uint32_t ms, char* out, size_t cap){
+void ageText(uint32_t ms, char* out, size_t cap){
   const uint32_t s = ms / 1000;
   if (s < 5)          snprintf(out, cap, "just now");
   else if (s < 60)    snprintf(out, cap, "%lus ago", (unsigned long)s);
@@ -562,7 +562,7 @@ static int txt(const char* s, int x, int y, uint8_t size, uint16_t c,
 /* `struct` in these signatures is required: Arduino IDE injects prototypes
    above the type definitions, and without it the compile dies with
    `'Level' does not name a type`. */
-static const struct Level& levelNow(){
+const struct Level& levelNow(){
   if (faultWord[0])                    return LV_FAULT;   /* cannot reach the backend */
   if (!strcmp(snap.level, "critical")) return LV_CRIT;
   if (!strcmp(snap.level, "warning"))  return LV_WARN;
@@ -572,19 +572,19 @@ static const struct Level& levelNow(){
 /* What the ALERT band actually prints. A fault speaks over the payload's
    alert — the numbers under it are held, and saying "INFO" above held
    numbers would read as good news. api.md §6.                            */
-static const char* alertWord(const struct Level& L){
+const char* alertWord(const struct Level& L){
   return faultWord[0] ? faultWord : L.word;
 }
-static const char* alertDetail(){
+const char* alertDetail(){
   return faultWord[0] ? faultDetail : snap.message;
 }
 /* Set or clear the fault banner. Only ever called by net.ino and wifi.ino,
    and every change is logged there — never set silently.                 */
-static void setFault(const char* word, const char* detail){
+void setFault(const char* word, const char* detail){
   strlcpy(faultWord,   word   ? word   : "", sizeof faultWord);
   strlcpy(faultDetail, detail ? detail : "", sizeof faultDetail);
 }
-static void clearFault(){ faultWord[0] = faultDetail[0] = 0; }
+void clearFault(){ faultWord[0] = faultDetail[0] = 0; }
 /* There is no root `gateway` any more — a device shows whatever rows the
    backend sends, each named on its own. For the one place that still wants
    a single label (the settings screen), the first row stands for all of
@@ -598,7 +598,7 @@ static const char* deviceGateway(){
 static bool alertFlash(const struct Level& L){
   return L.flashes && millis() - screenT0 < ALERT_FLASH_MS;
 }
-static const struct Theme& themeFor(const struct Level& L){
+const struct Theme& themeFor(const struct Level& L){
   if (!alertFlash(L)) return TH_DARK;
   if (&L == &LV_CRIT) return TH_RED;
   if (&L == &LV_WARN) return TH_ORANGE;
@@ -619,7 +619,7 @@ static float batteryVolts(){
   for (int i = 0; i < 8; i++) mv += analogReadMilliVolts(PIN_BAT_ADC);
   return (mv / 8.0f) / 1000.0f * 3.0f;
 }
-static int batteryPercent(){
+int batteryPercent(){
   float v = batteryVolts();
   if (v < 3.52f) return 1;
   if (v < 3.64f) return 20;
@@ -628,10 +628,88 @@ static int batteryPercent(){
   if (v < 4.00f) return 80;
   return 100;
 }
-static bool charging(){ return digitalRead(PIN_CHARGING) == LOW; }
+bool charging(){ return digitalRead(PIN_CHARGING) == LOW; }
 
 /* ------------------------------------------------------------------ toast */
-static void showToast(const char* s){ toastText = s; toastT0 = millis(); }
+void showToast(const char* s){ toastText = s; toastT0 = millis(); }
+
+/* ----------------------------------------------------- forward declarations
+   The IDE's ctags-based prototype scanner reads every .ino file as if it
+   were all C++, and does not reliably parse this sketch's mix of nested
+   structs, references and multi-file calls — it was found silently failing
+   to prototype whole batches of functions, in ways that shifted with
+   unrelated edits elsewhere. Every function called from a file other than
+   the one that defines it is declared explicitly here instead, so the build
+   no longer depends on that scanner at all. None of these are `static`: a
+   `static` definition can't satisfy an extern-linkage prototype, and that
+   mismatch is what an "undefined reference" at link time, rather than a
+   compile error, means — so the matching definitions had `static` dropped
+   too. Purely-internal helpers, used only within their own file, keep it.
+
+   Grouped by the file that defines them; alphabetical within each group. */
+
+/* config.ino */
+bool        configApplyJson(JsonObjectConst in, char* err, size_t errcap);
+bool        configHasEndpoint();
+void        configJson(JsonDocument& doc);
+void        configLoad();
+bool        configSave();
+bool        configSigned();
+bool        configTlsVerified();
+const char* secName(uint8_t s);
+void        urlHostOf(const char* url, char* out, size_t cap);
+
+/* dashboard.ino */
+void        beginCount();
+void        drawDashboard();
+void        drawToast();
+void        nextScreen();
+
+/* hotspot.ino */
+void        drawHotspot();
+void        hotspotStart();
+void        hotspotStop();
+void        hotspotTick();
+
+/* input.ino */
+void        drawHoldOverlay();
+void        handleKeys();
+void        handleTouch();
+void        holdRing(float p, const char* label);
+void        keysBegin();
+
+/* intro.ino */
+void        bootIntro();
+
+/* net.ino */
+void        cycleBegin();
+void        cycleResetTimer();
+void        cycleTick();
+bool        netFetch();
+void        netBegin();
+uint32_t    pollIntervalMs();
+void        refreshNow();
+
+/* power.ino */
+void        displayToggle();
+void        powerOff();
+void        powerOnHold();
+
+/* settings.ino */
+void        drawSettings();
+
+/* sound.ino */
+void        alertSound();
+void        introSound();
+void        soundBegin();
+void        toggleMute();
+
+/* wifi.ino */
+void        wifiBegin();
+void        wifiResume();
+const char* wifiStateName(uint8_t s);
+void        wifiSuspend();
+void        wifiTick();
 
 /* =========================================================================
    Render

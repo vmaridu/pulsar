@@ -7,8 +7,7 @@
    Two namespaces, because they are two different concerns and a person may
    well replace one without touching the other:
 
-       "gw"    u   base URL, "https://host[/prefix]" — /v1/gateway_health
-                   is appended at poll time, api.md §1
+       "gw"    u   the full URL to poll, exactly as given — api.md §1
                k   API key — the bearer token, or the public X-Api-Key
                s   API secret — set it and requests are signed instead
                ca  one pasted PEM root, optional, empty = TLS unverified
@@ -35,7 +34,7 @@
 /* ------------------------------------------------------------------ helpers */
 
 /* What a security mode is called on the wire between the page and here. */
-static const char* secName(uint8_t s){
+const char* secName(uint8_t s){
   return s == SEC_ENT ? "enterprise" : s == SEC_OPEN ? "open" : "psk";
 }
 static uint8_t secFromName(const char* s){
@@ -61,39 +60,33 @@ static void copyTrimmed(char* dst, size_t cap, const char* src){
 
 /* Is there enough to try a poll at all? The key is not required — a backend
    may not want one — but the URL is the whole address.                    */
-static bool configHasEndpoint(){ return cfg.url[0] != 0; }
+bool configHasEndpoint(){ return cfg.url[0] != 0; }
 
 /* Set if an API secret is stored: the key is then the public X-Api-Key and
    each request is signed, rather than the key being a bearer token.
    api.md's HMAC appendix. One field decides it; there is no mode to set
    wrongly beside it.                                                      */
-static bool configSigned(){ return cfg.secret[0] != 0; }
+bool configSigned(){ return cfg.secret[0] != 0; }
 
 /* TLS with no root to check against is TLS that a machine in the middle can
    read. It is allowed — a lot of backends sit behind a private CA nobody
    wants to paste — but net.ino says so on every single poll.             */
-static bool configTlsVerified(){ return cfg.ca[0] != 0; }
+bool configTlsVerified(){ return cfg.ca[0] != 0; }
 
-/* A base URL, tidied. Strips the trailing slash, and strips a trailing
-   /v1/gateway_health if someone pasted the whole endpoint rather than its
-   base — that is the obvious mistake to make and it costs nothing to
-   forgive. Returns false for anything that is not http(s).               */
+/* Tidies a pasted URL — trims whitespace, checks it is http(s). Nothing else:
+   this is the exact URL the device polls, so nothing is stripped or assumed
+   about its shape. Returns false for anything that is not http(s).        */
 static bool configNormalizeUrl(char* url, size_t cap){
   copyTrimmed(url, cap, url);
   if (!url[0]) return true;                           /* empty is "not configured", not invalid */
   const bool https = !strncasecmp(url, "https://", 8);
   if (!https && strncasecmp(url, "http://", 7)) return false;
-  for (int n = (int)strlen(url); n > 0 && url[n - 1] == '/'; n--) url[n - 1] = 0;
-  const char* tail = "/v1/gateway_health";
-  const size_t tl = strlen(tail), ul = strlen(url);
-  if (ul > tl && !strcasecmp(url + ul - tl, tail)) url[ul - tl] = 0;
-  for (int n = (int)strlen(url); n > 0 && url[n - 1] == '/'; n--) url[n - 1] = 0;
-  return url[0] != 0;
+  return true;
 }
 
-/* Just the host out of the configured base URL — the scheme and any path are
+/* Just the host out of the configured URL — the scheme and any path are
    noise on a line this narrow, and the host is the part you check.        */
-static void urlHostOf(const char* url, char* out, size_t cap){
+void urlHostOf(const char* url, char* out, size_t cap){
   out[0] = 0;
   if (!url || !url[0]){ strlcpy(out, "NOT SET", cap); return; }
   const char* p = strstr(url, "://");
@@ -107,7 +100,7 @@ static void urlHostOf(const char* url, char* out, size_t cap){
 
 /* ---------------------------------------------------------------- load/save */
 
-static void configLoad(){
+void configLoad(){
   memset(&cfg, 0, sizeof cfg);
 
   Preferences p;
@@ -153,7 +146,7 @@ static void configLoad(){
   }
 }
 
-static bool configSave(){
+bool configSave(){
   bool ok = true;
   Preferences p;
   if (p.begin("gw", false)){
@@ -183,7 +176,7 @@ static bool configSave(){
 /* The config as the setup page reads it. Every password comes out empty with
    a flag beside it — see the header. Everything else comes out whole,
    because you cannot edit a list you cannot see.                         */
-static void configJson(JsonDocument& doc){
+void configJson(JsonDocument& doc){
   doc["url"]       = cfg.url;
   doc["key"]       = "";
   doc["keySet"]    = cfg.key[0]    != 0;
@@ -224,7 +217,7 @@ static void keepOrSet(char* dst, size_t cap, JsonVariantConst v, const char* old
    in. On a problem it fills `err` and changes nothing at all.
 
    Returns true when `cfg` was replaced (the caller then saves it).        */
-static bool configApplyJson(JsonObjectConst in, char* err, size_t errcap){
+bool configApplyJson(JsonObjectConst in, char* err, size_t errcap){
   err[0] = 0;
   if (in.isNull()){ strlcpy(err, "body is not a JSON object", errcap); return false; }
 

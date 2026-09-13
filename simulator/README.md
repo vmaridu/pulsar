@@ -74,14 +74,14 @@ PORT=8080 node server.js
 
 The device needs to reach this machine's LAN IP, not `localhost` — find it with
 `ipconfig` (Windows) or `ifconfig` / `ip addr` (macOS/Linux). Then hold **LEFT** on the
-device for 2 s, join the hotspot it raises, and put this in as the **base URL**:
+device for 2 s, join the hotspot it raises, and put this in as the **URL** — the device
+polls exactly what you paste, nothing appended:
 
 ```
-http://<this-machine's-IP>:4180
+http://<this-machine's-IP>:4180/v1/gateway_health
 ```
 
-Leave off `/v1/gateway_health` — the device appends it. Leave the API key and secret
-empty too; this server does not check them.
+Leave the API key and secret empty too; this server does not check them.
 
 - 🔓 **Plain `http://` is fine here and nowhere else.** The device allows it, and says
   `[PLAIN HTTP - the key is readable on the wire]` on every poll — which is exactly right

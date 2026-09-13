@@ -10,7 +10,7 @@ info:
     it.
 servers:
   - url: https://example.invalid
-    description: your backend (replace with a real base_url)
+    description: your backend (replace with its real origin)
   - url: http://localhost:4180
     description: this simulator, once `node server.js` is running
 

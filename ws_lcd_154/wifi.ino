@@ -82,7 +82,7 @@ static const char* strFindNoCase(const char* hay, const char* needle){
 
 /* ------------------------------------------------------------------ state */
 
-static const char* wifiStateName(uint8_t s){
+const char* wifiStateName(uint8_t s){
   switch (s){
     case WS_IDLE:      return "idle";
     case WS_SCAN:      return "scanning";
@@ -440,7 +440,7 @@ static const char* wifiStatusName(wl_status_t s){
 }
 
 /* --------------------------------------------------------------- lifecycle */
-static void wifiBegin(){
+void wifiBegin(){
   WiFi.persistent(false);            /* the config here is the only config — NVS is ours, not the driver's */
   WiFi.setAutoReconnect(false);      /* this state machine decides what to join and when */
   WiFi.mode(WIFI_STA);
@@ -457,7 +457,7 @@ static void wifiBegin(){
 /* The hotspot needs the radio to itself, and coming back from it the saved
    networks may be completely different ones — so resuming always starts over
    from a fresh scan rather than trying to pick up where it left off.      */
-static void wifiSuspend(){
+void wifiSuspend(){
   if (wifiState == WS_SUSPENDED) return;
   LOG("wifi", "suspended - the setup hotspot has the radio");
   if (WiFi.scanComplete() == -1) WiFi.scanDelete();
@@ -465,7 +465,7 @@ static void wifiSuspend(){
   wifiNoteDown();
   wifiGo(WS_SUSPENDED);
 }
-static void wifiResume(){
+void wifiResume(){
   LOG("wifi", "resuming - starting over with the saved networks");
   WiFi.mode(WIFI_STA);
   wifiNoteDown();
@@ -474,7 +474,7 @@ static void wifiResume(){
 }
 
 /* ------------------------------------------------------------------- tick */
-static void wifiTick(){
+void wifiTick(){
   const uint32_t now = millis();
 
   switch (wifiState){

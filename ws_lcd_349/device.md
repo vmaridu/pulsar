@@ -43,7 +43,7 @@ Waveshare **ESP32-S3-Touch-LCD-3.49**, run landscape. Every metric is on screen 
 
 ### 🎨 STATUS and ALERT share the top bar
 
-A landscape board needs a strip for the gateway name, battery and clock anyway — the **STATUS** band. So that same strip carries **ALERT** as well, and it costs no rows to say so. The other two bands are the columns (**BODY**) and each column's own name line (**FOOTER**) → [device.md §3](../docs/device.md#3--the-four-bands).
+A landscape board needs a strip for the gateway name, battery and clock anyway — the **STATUS** band. So that same strip carries **ALERT** as well, and it costs no rows to say so. The other two bands are the columns (**BODY**) and each column's own name line (**FOOTER**) → [device.md §1](../docs/device.md#1--screens).
 
 | Option            | Cost                              |
 | ----------------- | --------------------------------- |
@@ -53,7 +53,7 @@ A landscape board needs a strip for the gateway name, battery and clock anyway �
 
 - 🎯 26 rows were already spent, so **all 146 remaining rows go to content**
 - 🌑 **At `info` the bar stays dark** — a level-coloured edge, the word, the message. The board is calm at rest
-- 🚨 **`warning`, `critical` and a fetch fault tint it**, and then flash **the whole screen** — bar and every column alike — the level colour in near-black ink for 500 ms every 5 s → [device.md §3](../docs/device.md#-the-alert-is-the-whole-screen)
+- 🚨 **`warning`, `critical` and a fetch fault tint it**, and then flash **the whole screen** — bar and every column alike — the level colour in near-black ink for 500 ms every 5 s → [device.md §1](../docs/device.md#-the-alert-is-the-whole-screen)
 - 🏷️ Needs no glyph: the level word sits right on it, and the colour is the rest of the sentence
 - 📍 Same pixels either way — what changes is loudness, never position
 - 🔋 **Charging shows an explicit bolt** beside the battery percentage, not just a colour change
@@ -89,7 +89,7 @@ Inside a column, top to bottom — 128 px wide, rows 26 → 172:
 - 🈳 Fewer than five rows leaves columns **empty**, never stretched. Four rows shown above, fifth slot unused
 - 🔵 The summary column carries a slightly lighter ground and an accent name, so the aggregate is not mistaken for a part
 - 🏷️ The span caption is drawn **once**, under the summary column — every column shares the clock, so five copies would be five lies waiting to disagree
-- 🎨 Palette → [device.md §7](../docs/device.md#7--colours). This build leans on it harder: the level colour backs a 640 px strip, so the near-black ink rule is what makes one bar work on green, orange, red *and* grey
+- 🎨 This build leans on the shared palette harder: the level colour backs a 640 px strip, so the near-black ink rule is what makes one bar work on green, orange, red *and* grey
 
 ### 🔠 Text budget
 
@@ -106,7 +106,7 @@ Inside a column, top to bottom — 128 px wide, rows 26 → 172:
 
 ## 4. 👆 Input
 
-The standard map → [device.md §2](../docs/device.md#2--input--the-standard-map). This board has **no PLUS key** — only PWR, BOOT and RESET — so what LEFT does on the square build falls to the glass here.
+This board has **no PLUS key** — only PWR, BOOT and RESET — so what LEFT does on the square build falls to the glass here.
 
 | Input                | Tap                  | Double-tap              | Hold 2 s                     |
 | -------------------- | -------------------- | ----------------------- | ---------------------------- |
@@ -116,7 +116,7 @@ The standard map → [device.md §2](../docs/device.md#2--input--the-standard-ma
 | **BOOT**             | **Display on / off** | **Sound mute / unmute** | _future use_                 |
 
 - 🖥️ **There is no metric cycle to walk** — every metric is already on screen, so a tap on a column has nothing to go to. It stays future use rather than inventing a gesture
-- 🔄 The data still refetches on the shared interval, `max(30, metric_count × 5)` seconds → [device.md §1](../docs/device.md#1--the-cycle)
+- 🔄 The data still refetches on the shared interval, `max(30, metric_count × 5)` seconds → [device.md §1](../docs/device.md#1--screens)
 - ⏱️ **Every hold is 2 s**, exactly as on the square build
 - 🚫 **No gateway cycling.** One endpoint, one response — whatever `gateway` names its rows carry → [api.md §2](../docs/api.md#2--the-object)
 
@@ -128,15 +128,15 @@ Cycle, input, bands, logging, speaker, configuration and palette are shared → 
 
 - 🧠 Sprite is 640 × 172 × 16 bpp = **220 KB**, twice the square build's. `fillScreen()` in `loop()` is the one call that costs you the frame here
 - ↔️ **No screen transition at all.** Everything is on screen already; the only motion is the count-up, the graph sweep and the alert flash
-- 🔇 **The speaker is not fitted.** Nothing sounds until you add one, which makes [device.md §5](../docs/device.md#5--the-speaker) theoretical until you do
+- 🔇 **The speaker is not fitted.** Nothing sounds until you add one, which makes [device.md §3](../docs/device.md#3--what-it-speaks) theoretical until you do
 - 🔋 An 18650 is a much bigger cell, so a dark screen is less about survival and more about not lighting a desk at night — and it is a **BOOT tap** away
-- 🪵 Serial at **115200**, same log lines as the square build → [device.md §4](../docs/device.md#4--logging)
+- 🪵 Serial at **115200**, same log lines as the square build → [device.md §2](../docs/device.md#2--logging)
 
 ---
 
 ## 6. ☑️ On-device checklist
 
-**Serial Monitor at 115200** throughout → [device.md §4](../docs/device.md#4--logging).
+**Serial Monitor at 115200** throughout → [device.md §2](../docs/device.md#2--logging).
 
 - [ ] 640 × 172 landscape, columns, ALERT and STATUS share the top bar
 - [ ] Every column shares one graph scale

@@ -13,25 +13,17 @@ A desk display that answers one question: **is your API gateway healthy?**
 ## 📡 The contract
 
 ```
-GET {base_url}/v1/gateway_health
+GET {url}
 Authorization: Bearer <token>
 ```
 
 - 📦 One `GET`, one JSON object under **4 KB** — a bearer token, or a signed request when you set an API secret
 - 🩺 An `alert` verdict — `info` · `warning` · `critical` + one 20-char line
-- 📊 Up to **5 rows**, each with **1–5 stat tiles** plus a bucketed series named by `buckets_value_type` — today always `total_count`
+- 📊 Up to **5 rows**, max **5 aggregate stats** per metric
 - 🏷️ Each row carries a **`gateway`** attribute, so a backend that merges several platforms still says where a number came from
 - 🚫 Nothing derived is ever sent — a tile carries `name` + `value` + optional `unit`/`level`, nothing computed from anything else on the wire
 
 📖 **Every field, limit and guideline → [docs/api.md](docs/api.md)**
-
-## 🎛️ What it does
-
-- 🗂️ **5 metrics = 5 screens** — an attention limit, not a rendering one
-- 🔄 Screens turn on their own every 5 s; tap the glass to steer, hold it 2 s to force a poll
-- 🖥️ Narrow displays walk screens one at a time; wide ones show every metric side by side
-- 🚨 Alerts pulse: `warning`, `critical` and a lost connection flash for **500 ms every 5 s**, and only `critical` makes a sound
-- 🌑 The screen going dark changes nothing — polling and alerts carry on
 
 ## 🎛️ Controls
 
@@ -42,23 +34,12 @@ Authorization: Bearer <token>
 | **POWER** (PWR)   | _future use_           | _future use_      | **Power off / on**     |
 | **RIGHT** (BOOT)  | **Display on/off**     | **Mute / unmute** | _future use_           |
 
-🔧 **What each one means → [docs/device.md](docs/device.md#2--input--the-standard-map)**
-
-## 🧭 Design rules
-
-- 🧮 **Nothing derived is sent.** Four counters and a clock produce everything on screen
-- 🚦 **4xx and 5xx never blend.** One is the caller's fault, one is yours
-- 📍 **The verdict never moves.** Same place, same size, at every level
-- ⚠️ **A fetch failure is a warning, never an outage** — and never silent either
-- 🪵 **Everything is on the serial port at 115200** — every press, every poll, every failure
-
 ## 📚 Docs
 
 | Path                                    | Owns                                                        |
 | --------------------------------------- | ----------------------------------------------------------- |
-| 🤖 **[AGENTS.md](AGENTS.md)**            | Working agreement for AI assistants — Claude and Cursor both |
 | 📡 **[docs/api.md](docs/api.md)**        | The contract — endpoint, payload, every field, limits        |
-| 🔧 **[docs/device.md](docs/device.md)**  | Shared behaviour — cycle, input, bands, logging, speaker     |
+| 🔧 **[docs/device.md](docs/device.md)**  | Shared behaviour — screens, logging, sound, errors, configuration |
 | 🖥️ `ws_lcd_154/` · `ws_lcd_349/`         | One folder per supported display — firmware, docs and mockup together |
 | ↳ `<display>/device.md`                 | Hardware, screen layout, on-device checklist                 |
 | ↳ `<display>/mockup.html`               | Interactive mockup running a real payload                    |
@@ -67,25 +48,7 @@ Authorization: Bearer <token>
 
 ## 🚀 Getting started
 
-1. 🔧 Serve `GET /v1/gateway_health` against **[docs/api.md](docs/api.md)**
-2. 📶 Point a device at it — hold LEFT 2 s, join the hotspot → **[docs/device.md](docs/device.md#6--configuration)**
-3. 🖼️ Open a display's `mockup.html` to see it rendered before any hardware exists
-
-> ⚠️ **ws_lcd_154 firmware runs today** — it joins your Wi-Fi and polls the URL you give it. ws_lcd_349 is layout and contract only.
-
-## 📶 Setting one up
-
-Hold **LEFT** for 2 s. The board raises its own WPA2 Wi-Fi, shows you the name and password
-on its screen, and serves a page at `192.168.4.1` where you set:
-
-- 🔗 the **base URL**, and the **API key** and **API secret** it authenticates with
-- 📶 up to **six Wi-Fi networks in priority order** — open, WPA2, or WPA2-Enterprise (802.1X)
-- 🏨 per network, the **sign-in page** credentials for a guest network that has one
-
-Save and restart, and the device's own screen tells you whether it worked.
-🔧 **The whole flow → [docs/device.md §6](docs/device.md#6--configuration)**
-
-## 🗺️ Roadmap
-
-- ☁️ Cloud control panel — fleets, OTA updates, remote config
-- 🔐 OAuth2 token rotation
+1. 📡 Implement `GET {url}` against **[docs/api.md](docs/api.md)** — or want to test the contract first? Point at **[simulator/](simulator/)** and get real data with no backend
+2. 🖥️ Choose a device and flash it — **[ws_lcd_154/](ws_lcd_154/)** firmware runs today ([flashable `.bin`](#), [flashing guide](ws_lcd_154/README.md)); **[ws_lcd_349/](ws_lcd_349/)** is layout and contract only so far
+3. 📶 Hold **LEFT** for 2 s to raise the device's setup hotspot, join it, and fill in the full URL, API key/secret and your Wi-Fi networks at `192.168.4.1` → **[docs/device.md §5](docs/device.md#5--configuration)**
+4. 🖼️ Or skip hardware entirely — open a display's `mockup.html` to see it rendered

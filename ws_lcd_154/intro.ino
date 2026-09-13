@@ -151,7 +151,7 @@ static void blendFrame(uint16_t* dst, const uint16_t* src, uint32_t n, uint32_t 
    screen 2 the label. For the fade the dashboard is painted once into a
    PSRAM copy, and each frame from I_END - I_FADE onward is blended toward
    it.                                                                    */
-static void bootIntro(){
+void bootIntro(){
   for (int i = 0; i < STARS; i++){
     starX[i] = introRand() * 239; starY[i] = introRand() * 239;
     starB[i] = 0.10f + introRand() * 0.25f; starPh[i] = introRand() * 2 * PI;

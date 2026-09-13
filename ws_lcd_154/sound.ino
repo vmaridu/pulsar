@@ -175,7 +175,7 @@ static void requestSound(int16_t* buf, int len){
 
 /* Before the boot intro, so its hum has something to play through: find the
    codec, render both sounds once, start the task that streams them. */
-static void soundBegin(){
+void soundBegin(){
   audioOK = codecBegin();
   LOGF("boot", "audio: %s", audioOK ? "ES8311 ok" : "NO CODEC - alerts are silent");
   if (!audioOK) return;
@@ -202,13 +202,13 @@ static void soundBegin(){
 }
 
 /* called by render() in the frame a critical flash first shows */
-static void alertSound(){ requestSound(alertBuf, alertLen); }
+void alertSound(){ requestSound(alertBuf, alertLen); }
 
 /* called once, right as bootIntro() (intro.ino) starts drawing screen 1 */
-static void introSound(){ requestSound(introBuf, introLen); }
+void introSound(){ requestSound(introBuf, introLen); }
 
 /* RIGHT double-tap. RAM only — every restart comes back with sound. */
-static void toggleMute(){
+void toggleMute(){
   soundMuted = !soundMuted;
   LOGF("sound", "%s", soundMuted ? "muted until restart" : "on");
   showToast(soundMuted ? "SOUND OFF" : "SOUND ON");

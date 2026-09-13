@@ -38,7 +38,7 @@ static void joinGateways(char* out, size_t cap){
 }
 
 /* ---------------------------------------------------------------- settings */
-static void drawSettings(){
+void drawSettings(){
   cv->fillScreen(C_BG);
   txt("SETTINGS", X_L, 8, 2, C_CY, 'l', true);
   cv->fillRect(X_L, 28, X_R - X_L, 1, C_LINE);

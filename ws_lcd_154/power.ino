@@ -26,7 +26,7 @@
 /* ---------------------------------------------------------------- display */
 
 /* RIGHT tap. The panel only — see the header. */
-static void displayToggle(){
+void displayToggle(){
   displayAwake = !displayAwake;
   if (displayAwake){
     panel->displayOn();
@@ -64,7 +64,7 @@ static void powerDown(){
   esp_deep_sleep_start();
 }
 
-static void powerOff(){
+void powerOff(){
   cv->fillScreen(RGB565_BLACK);
   txt("OFF", 120, 112, 2, C_DIM, 'c', true);
   cv->flush();
@@ -74,7 +74,7 @@ static void powerOff(){
 
 /* First thing after the panel is up. Started by the power key — from off, or
    woken from sleep — it has to be held 2 s before power is latched.        */
-static void powerOnHold(){
+void powerOnHold(){
   pinMode(KEY_POWER, INPUT_PULLUP);
   const bool woke = esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_EXT0;
   if (digitalRead(KEY_POWER) != LOW){

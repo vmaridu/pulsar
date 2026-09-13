@@ -19,7 +19,7 @@
 
 /* ----------------------------------------------------------------- cycle
    snapshot the screen being left, so the next one's numbers count up from it */
-static void beginCount(){
+void beginCount(){
   const Row& r = snap.rows[curRow];
   for (int i = 0; i < MAX_TILES; i++)
     countFromP[i] = i < r.ntiles ? r.tiles[i].value : 0;
@@ -28,7 +28,7 @@ static void beginCount(){
 
 /* the next metric screen, wrapping. Driven by the 5 s cycle in net.ino and
    by a tap on the glass.                                                  */
-static void nextScreen(){
+void nextScreen(){
   beginCount();
   curRow = snap.nrows ? (curRow + 1) % snap.nrows : 0;
   sweepT0 = millis();
@@ -297,7 +297,7 @@ static void drawFoot(const struct Theme& th){
 
 /* ------------------------------------------------------------------ toast */
 /* a short message in a box over the middle of the screen, gone after 1.2 s */
-static void drawToast(){
+void drawToast(){
   if (!toastT0 || millis() - toastT0 > 1200) return;
   const int w = (int)strlen(toastText) * 12 + 28, x = 120 - w / 2, y = 100;
   cv->fillRect(x, y, w, 40, C_BG);
@@ -309,7 +309,7 @@ static void drawToast(){
    for all of them: during an alert flash every band is lit together, which
    is what makes the whole screen the alert. The boot intro paints this once
    too, to cross-fade into it.                                             */
-static void drawDashboard(){
+void drawDashboard(){
   const Level& L = levelNow();
   const Theme& th = themeFor(L);
   drawStatus(th);

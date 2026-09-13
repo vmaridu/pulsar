@@ -59,7 +59,7 @@ static Key keys[K_COUNT] = {
 };
 
 /* the ring: 60 ticks round the centre filling clockwise, the action inside */
-static void holdRing(float p, const char* label){
+void holdRing(float p, const char* label){
   cv->fillCircle(120, 120, 60, C_BG);
   cv->drawCircle(120, 120, 60, C_LINE);
   const int lit = (int)(clampf(p, 0, 1) * 60);
@@ -86,7 +86,7 @@ static void showMain(){
 
 /* a key already down at boot (the power key, just held to switch on) is
    ignored until it is let go                                              */
-static void keysBegin(){
+void keysBegin(){
   for (int i = 0; i < K_COUNT; i++){
     pinMode(keys[i].pin, INPUT_PULLUP);
     keys[i].down = keys[i].fired = digitalRead(keys[i].pin) == LOW;
@@ -135,7 +135,7 @@ static void onHold(int k){
   }
 }
 
-static void handleKeys(){
+void handleKeys(){
   const uint32_t now = millis();
   for (int i = 0; i < K_COUNT; i++){
     Key& k = keys[i];
@@ -175,7 +175,7 @@ struct TouchState { bool down, fired; uint32_t t0, seen; int16_t x0, y0, x, y; }
 static TouchState tp;
 static uint32_t touchPending = 0;
 
-static void handleTouch(){
+void handleTouch(){
   if (!touchOK) return;
   const uint32_t now = millis();
   int16_t x[2], y[2];
@@ -217,7 +217,7 @@ static void handleTouch(){
 
 /* drawn over whatever is on screen while something is on its way to 2 s.
    A key whose hold is future use shows no ring — there is nothing coming. */
-static void drawHoldOverlay(){
+void drawHoldOverlay(){
   const uint32_t now = millis();
   if (tp.down && !tp.fired && view == VIEW_MAIN && now - tp.t0 >= TAP_MS){
     holdRing((now - tp.t0) / (float)HOLD_MS, "REFRESH");

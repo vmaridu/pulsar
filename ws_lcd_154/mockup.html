@@ -756,8 +756,8 @@ const NET = { connected: true, rssi: -58, ip: '192.168.1.42', ssid: 'Office',
 const CFG = { url: 'https://api.example.com', key: '7f3a9c21', secret: '', ca: '', nets: 2 };
 const cfgSigned = () => CFG.secret !== '';
 const cfgTls    = () => CFG.ca !== '';
-/* Just the host out of the base URL — the scheme and any path are noise on a
-   line this narrow, and the host is the part you check.                    */
+/* Just the host out of the configured URL — the scheme and any path are noise
+   on a line this narrow, and the host is the part you check.               */
 const urlHost = u => u ? (u.split('://')[1] || u).split('/')[0] : 'NOT SET';
 /* This session's hotspot password, made fresh every time the AP is raised —
    the same alphabet the firmware uses, with no character to squint at.    */
@@ -828,7 +828,7 @@ function drawSettings(){
 
 /* The setup hotspot. Hold PLUS 2 s and the board raises its own WPA2 Wi-Fi,
    answers every DNS name with its own address so the page opens by itself,
-   and serves the setup page at 192.168.4.1 — the base URL, the API key and
+   and serves the setup page at 192.168.4.1 — the full URL, the API key and
    secret, and the networks to reach them over. Everything needed to get in,
    in the order it is needed. Tap or hold PLUS again to go back, and the
    access point goes down with the screen.                                 */
