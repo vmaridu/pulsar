@@ -8,26 +8,31 @@
      GLASS  anywhere   tap: next metric screen
                        double-tap: future use
                        hold 2 s: force a refresh
-     LEFT   GPIO0      tap: settings screen on / off
+     DOWN   GPIO0      tap: settings screen on / off
                        double-tap: future use
                        hold 2 s: the setup hotspot — hotspot.ino
      POWER  PWR  GPIO5 tap: future use
                        double-tap: future use
                        hold 2 s: power off · from off, hold 2 s: on
-     RIGHT  GPIO4      tap: display on / off
+     UP     GPIO4      tap: display on / off
                        double-tap: sound mute / unmute (until restart)
-                       hold 2 s: future use
+                       hold 2 s: lock the screen, or — already locked — open
+                                 the unlock keypad. Only once armed: real
+                                 data has shown at least once, and this is a
+                                 touch SKU (the keypad needs the glass) —
+                                 lock.ino
 
-   LEFT and RIGHT are physical positions, not silkscreen names — this board's
+   DOWN and UP are physical positions, not silkscreen names — this board's
    PLUS/BOOT keys are wired the opposite of Waveshare's own labeling, so
    KEY_LEFT/KEY_RIGHT are swapped in ws_lcd_154.ino to match. Nothing here cares
-   which GPIO is which; it only ever talks about LEFT and RIGHT.
+   which GPIO is which; it only ever talks about DOWN and UP.
 
-   Off the main screen, a tap on the glass goes back to it.
+   Off the main screen, a tap on the glass goes back to it — except the lock
+   keypad, which reads a tap as a digit instead; DOWN backs out of that one.
 
    Tap timing: a key or finger with a double-tap action waits DOUBLE_TAP_MS
    before firing its single tap, so one gesture never fires both. A key with
-   no double-tap action fires its tap the moment it is released — LEFT opens
+   no double-tap action fires its tap the moment it is released — DOWN opens
    settings with no lag.
 
    While anything is held past a tap, a ring fills toward the 2 s mark with
@@ -44,7 +49,7 @@
 #define TOUCH_LIFT_MS     60     /* the controller drops the odd sample mid-touch — lifted only after this */
 #define TOUCH_MOVE_PX     24     /* a finger that travels further is not a tap */
 
-enum { K_LEFT, K_POWER, K_RIGHT, K_COUNT };
+enum { K_DOWN, K_POWER, K_UP, K_COUNT };
 struct Key {
   uint8_t     pin;
   const char* name;
@@ -53,9 +58,9 @@ struct Key {
   uint32_t    t0, pending;       /* pending: a tap waiting to see if a second follows */
 };
 static Key keys[K_COUNT] = {
-  { KEY_LEFT,  "LEFT",  false, false, false, 0, 0 },
+  { KEY_LEFT,  "DOWN",  false, false, false, 0, 0 },
   { KEY_POWER, "POWER", false, false, false, 0, 0 },
-  { KEY_RIGHT, "RIGHT", true,  false, false, 0, 0 },   /* double-tap mutes */
+  { KEY_RIGHT, "UP",    true,  false, false, 0, 0 },   /* double-tap mutes */
 };
 
 /* the ring: 60 ticks round the centre filling clockwise, the action inside */
@@ -92,20 +97,20 @@ void keysBegin(){
     keys[i].down = keys[i].fired = digitalRead(keys[i].pin) == LOW;
     keys[i].pending = 0;
   }
-  LOG("boot", "keys ready - LEFT settings | POWER future use | RIGHT display, double-tap mute");
+  LOG("boot", "keys ready - DOWN settings | POWER future use | UP display, double-tap mute");
 }
 
 static void onTap(int k){
   switch (k){
-    case K_LEFT:
+    case K_DOWN:
       if (view == VIEW_HOTSPOT) hotspotStop();
-      if (view == VIEW_MAIN){ view = VIEW_SETTINGS; LOG("key", "LEFT tap -> settings"); }
-      else { showMain(); LOG("key", "LEFT tap -> back to main"); }
+      if (view == VIEW_MAIN){ view = VIEW_SETTINGS; LOG("key", "DOWN tap -> settings"); }
+      else { showMain(); LOG("key", "DOWN tap -> back to main"); }
       break;
     case K_POWER:
       LOG("key", "POWER tap -> future use (hold 2 s to switch off)");
       break;
-    case K_RIGHT:
+    case K_UP:
       displayToggle();                              /* power.ino — logs what it did */
       break;
   }
@@ -113,24 +118,32 @@ static void onTap(int k){
 
 static void onDoubleTap(int k){
   switch (k){
-    case K_LEFT:  LOG("key", "LEFT double-tap -> future use");  break;
+    case K_DOWN:  LOG("key", "DOWN double-tap -> future use");  break;
     case K_POWER: LOG("key", "POWER double-tap -> future use"); break;
-    case K_RIGHT: LOG("key", "RIGHT double-tap -> mute"); toggleMute(); break;   /* sound.ino */
+    case K_UP:    LOG("key", "UP double-tap -> mute"); toggleMute(); break;   /* sound.ino */
   }
 }
 
 static void onHold(int k){
   switch (k){
-    case K_LEFT:
-      if (view == VIEW_HOTSPOT){ LOG("key", "LEFT hold -> leaving the setup hotspot"); showMain(); }
-      else { LOG("key", "LEFT hold -> setup hotspot"); view = VIEW_HOTSPOT; hotspotStart(); }
+    case K_DOWN:
+      if (view == VIEW_HOTSPOT){ LOG("key", "DOWN hold -> leaving the setup hotspot"); showMain(); }
+      else { LOG("key", "DOWN hold -> setup hotspot"); view = VIEW_HOTSPOT; hotspotStart(); }
       break;
     case K_POWER:
       LOG("key", "POWER hold -> power off");
       powerOff();                                   /* power.ino */
       break;
-    case K_RIGHT:
-      LOG("key", "RIGHT hold -> future use");
+    case K_UP:
+      if (!lockArmed()){                             /* lock.ino — no data yet, or no touch to type a code with */
+        LOG("key", "UP hold -> future use");
+      } else if (lockIsLocked()){
+        LOG("key", "UP hold -> opening the unlock keypad");
+        lockOpenKeypad();                            /* lock.ino */
+      } else {
+        LOG("key", "UP hold -> locked");
+        lockEngage();                                /* lock.ino */
+      }
       break;
   }
 }
@@ -179,7 +192,29 @@ void handleTouch(){
   if (!touchOK) return;
   const uint32_t now = millis();
   int16_t x[2], y[2];
-  if (touch.getPoint(x, y, 1)){ tp.seen = now; tp.x = x[0]; tp.y = y[0]; }
+  if (touch.getPoint(x, y, 1)){
+    tp.seen = now;
+    /* CST816 reports raw panel coordinates, not screen coordinates — this
+       board's canvas is rotated 90 degrees right (PANEL_ROTATION 1), and
+       nothing needed to know that until a tap started meaning a screen
+       *position* instead of just a gesture (lock.ino's keypad). Two rounds
+       of on-device testing on the keypad, empirically, not guessed:
+         round 1: the column came back exactly inverted (1 -> the 3rd
+                  column's digit, 2 -> the 2nd, 3 -> the 1st) — fixed by
+                  swapping the axes outright instead of rotating them
+         round 2: with the column now right, the row came back inverted
+                  too — the header strip above the grid (dots/title, never
+                  meant to be tappable) registered as the bottom row, the
+                  top button row registered as the middle row, and the
+                  middle row registered as the top — fixed by inverting
+                  the remaining axis
+       Both axes are right now; a smaller boundary issue remains between
+       the middle and bottom rows specifically (lock.ino has the detail).
+       "lock: tap at" (lock.ino) still logs the resolved cell on every tap,
+       so if anything is still off, that log is the whole diagnosis.      */
+    tp.x = y[0];
+    tp.y = 239 - x[0];
+  }
   const bool down = tp.seen && now - tp.seen < TOUCH_LIFT_MS;
 
   if (down && !tp.down){
@@ -189,6 +224,18 @@ void handleTouch(){
     tp.down = false;
     const bool still = abs(tp.x - tp.x0) < TOUCH_MOVE_PX && abs(tp.y - tp.y0) < TOUCH_MOVE_PX;
     if (!still){ LOG("touch", "slide - ignored (a tap must not travel)"); touchPending = 0; }
+    /* The keypad reads every non-sliding release as a digit — no TAP_MS
+       deadline here, unlike the rest of the glass: a person aiming at one
+       button on a small grid routinely holds it past 400 ms, and there is
+       no competing double-tap or hold gesture on this view to protect
+       against. Dropping the deadline is what actually fixes "the keypad
+       doesn't register" — it was never a missing tap, it was a tap that
+       arrived a bit later than TAP_MS and got silently discarded.        */
+    else if (view == VIEW_LOCK){
+      LOGF("touch", "lock: tap at %d,%d", tp.x, tp.y);
+      lockHandleTap(tp.x, tp.y);                  /* lock.ino — a keypad digit, not navigation */
+      touchPending = 0;
+    }
     else if (!tp.fired && tp.seen - tp.t0 < TAP_MS){
       if (view != VIEW_MAIN){
         LOG("touch", "tap -> back to main");
@@ -226,9 +273,13 @@ void drawHoldOverlay(){
   for (int i = 0; i < K_COUNT; i++){
     const Key& k = keys[i];
     if (!k.down || k.fired || now - k.t0 < TAP_MS) continue;
-    if (i == K_RIGHT) continue;                     /* RIGHT hold is future use */
-    const char* label = i == K_POWER ? "OFF"
-                      : view == VIEW_HOTSPOT ? "EXIT" : "SETUP";
+    const char* label;
+    if (i == K_UP){
+      if (!lockArmed()) continue;                   /* not armed yet — genuinely future use */
+      label = lockIsLocked() ? "UNLOCK" : "LOCK";
+    } else {
+      label = i == K_POWER ? "OFF" : (view == VIEW_HOTSPOT ? "EXIT" : "SETUP");
+    }
     holdRing((now - k.t0) / (float)HOLD_MS, label);
     return;
   }

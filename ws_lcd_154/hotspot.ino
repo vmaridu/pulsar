@@ -2,7 +2,7 @@
    The setup hotspot — the board's own Wi-Fi, the page it serves, and the
    screen that tells you how to get in.
 
-   HOLD LEFT 2 s. The board raises an access point named after itself, serves
+   HOLD DOWN 2 s. The board raises an access point named after itself, serves
    one page at 192.168.4.1, and everything on that page is everything the
    firmware does not bake in: the full URL to poll, the API key, the API
    secret, and the networks to reach them over, in priority order.
@@ -139,13 +139,14 @@ static void apHandleConfigPost(){
   {
     JsonObjectConst in = doc.as<JsonObjectConst>();
     JsonArrayConst nets = in["nets"].is<JsonArrayConst>() ? in["nets"].as<JsonArrayConst>() : JsonArrayConst();
-    LOGF("cfg", "hotspot: posted url=\"%s\" key=%s secret=%s ca=%s nets=%u",
+    LOGF("cfg", "hotspot: posted url=\"%s\" key=%s secret=%s ca=%s lock=%s nets=%u",
          (const char*)(in["url"] | ""),
          strlen(in["key"] | "")    ? "given" : "kept/none",
          (in["secretClear"] | false) ? "cleared" :
            strlen(in["secret"] | "") ? "given" : "kept/none",
          (in["caClear"] | false)     ? "cleared" :
            strlen(in["ca"] | "")     ? "given" : "kept/none",
+         strlen(in["lockCode"] | "") ? "given" : "kept",
          (unsigned)nets.size());
   }
 
@@ -268,7 +269,7 @@ void hotspotStart(){
 }
 
 void hotspotStop(){
-  /* Leaving by a LEFT tap calls this twice — once from onTap, once from inside
+  /* Leaving by a DOWN tap calls this twice — once from onTap, once from inside
      showMain() — so it has to be safe to call when nothing is up. apPass is
      the session marker: hotspotStart() sets it first and this clears it last. */
   if (!apPass[0] && !apServer && !apDns) return;
@@ -300,7 +301,7 @@ void drawHotspot(){
   if (!apServer || !apPass[0]){
     txt("HOTSPOT FAILED", 120, 100, 2, C_OR, 'c', true);
     txt("the radio would not raise it", 120, 126, 1, C_DIM2, 'c');
-    txt("TAP LEFT - BACK", 120, 196, 1, C_DIM, 'c');
+    txt("TAP DOWN - BACK", 120, 196, 1, C_DIM, 'c');
     return;
   }
 
@@ -333,7 +334,7 @@ void drawHotspot(){
   }
 
   cv->fillRect(X_L, 184, X_R - X_L, 1, C_LINE);
-  txt("TAP LEFT - BACK", 120, 192, 1, C_DIM, 'c');
-  txt("HOLD LEFT 2 S - BACK", 120, 204, 1, C_DIM2, 'c');
+  txt("TAP DOWN - BACK", 120, 192, 1, C_DIM, 'c');
+  txt("HOLD DOWN 2 S - BACK", 120, 204, 1, C_DIM2, 'c');
   txt("THE AP CLOSES WHEN YOU LEAVE", 120, 220, 1, C_DIM2, 'c');
 }

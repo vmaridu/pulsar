@@ -10,7 +10,7 @@ Behaviour every build shares — the pixels are each build's own.
 
 One metric per screen, shown for **5 s**, then the next. Wrapping back to the
 first screen fetches fresh data, never faster than `max(30, metric_count × 5)`
-seconds. A 2 s hold on the glass forces a poll now, wherever the cycle is.
+seconds. A 2 s hold on the touch input forces a poll now, wherever the cycle is.
 
 Every screen lays out as four fixed bands:
 
@@ -92,17 +92,19 @@ data while it is broken is worse than one that admits it has none.
 
 Every failure gets its own banner rather than a blank or silently stale
 screen — no endpoint configured, no network in range, a sign-in page in the
-way, a rejected key, a host that never answers. The device keeps retrying and
-clears the banner the moment a poll succeeds.
+way, a rejected key, a host that never answers. One of these, `NO CLOCK`,
+reads as `warning` rather than the grey fault colour: a signed board that
+hasn't yet heard back from SNTP is waiting on itself, not on the network, so
+it doesn't get the same colour as a real connection failure. The device
+keeps retrying and clears the banner the moment a poll succeeds.
 
 ---
 
 ## 5. ⚙️ Configuration
 
-Nothing about the endpoint is compiled in. Hold **LEFT** 2 s to raise the
-device's own setup hotspot — a WPA2 network named after the board, with a
-password shown only on its screen — and open the page it serves at
-`192.168.4.1`:
+Nothing about the endpoint is compiled in. A 2 s hold raises the device's own
+setup hotspot — a WPA2 network named after the board, with a password shown
+only on its screen — and opens the page it serves at `192.168.4.1`:
 
 - The **full URL** to poll, exactly as your backend serves it — nothing is
   appended — an **API key**, and an optional **API secret**: set the secret
@@ -113,7 +115,59 @@ password shown only on its screen — and open the page it serves at
 - **How long a mute lasts** — 5 m / 10 m / 30 m / 1 h / 6 h / 12 h / 24 h, or
   never — before it clears itself on top of the usual double-tap and restart
   → [§3](#3--what-it-speaks). Defaults to 30 minutes
+- **The clock's own time zone**, picked from a list of real zones rather than
+  a raw offset — daylight saving is then handled automatically, for the life
+  of the board, never a number someone has to remember to change twice a
+  year. This only shifts what the on-screen clock reads: every signed
+  request still carries raw UTC, unaffected by whatever zone is picked
+  → [api.md §8](api.md#8--hmac)
+- **The privacy lock's 6-digit code**, and **how long an unlocked screen stays
+  that way** before it re-locks itself — same set as the mute timeout, default
+  30 minutes → [§6](#6--privacy-lock)
 
 A stored secret never comes back to the page — it reports that one exists,
 never what it is, and leaving the field empty on save means "keep it." Save
 and restart, and the device's own screen says whether it worked.
+
+---
+
+## 6. 🔒 Privacy lock
+
+BODY and FOOTER — the actual stats and graph — can be held behind a 6-digit
+code, entered on an on-screen keypad. STATUS and ALERT are unaffected either
+way: the level, the message and the whole-screen flash read exactly the
+same locked or not, and neither sound nor any other control changes at all.
+This is strictly about who can read the numbers.
+
+- **Locking needs no code** — only taking the screen back out of view does.
+  The same gesture that locks it, held again while already locked, raises
+  the keypad instead
+- **Six digits**, entered on the touch surface, checked once the sixth is
+  in. The right code unlocks; the wrong one just clears what was typed and
+  counts as a try. The digit just pressed may show briefly before masking
+  to a dot, the same way a phone's PIN entry does — but never more than
+  the one most recent digit, and only ever on this device's own screen
+- **The code's digits are only ever ones the keypad can actually enter** —
+  a build with no way to type a given digit back in must never accept a
+  code containing it, checked at the same time the code is saved
+- **Five wrong codes inside a rolling 30 minutes** blocks the keypad until
+  enough of that window has passed. This survives a restart — the count
+  and when it last grew are stored, not just held in memory — and a
+  correct code clears it outright, on the theory that proving you know it
+  now outweighs a handful of old mistakes
+- **The code itself is never logged, and never shown back once saved** —
+  not stored, not typed, right or wrong — only that an attempt happened
+  and whether it was accepted, the same rule every other secret on this
+  device follows. The one exception is the brief on-screen digit above,
+  which never reaches a log. Defaults to `123456` until changed on the
+  setup page → [§5](#5--configuration)
+- **Every restart locks it again**, whether or not it was unlocked before —
+  the safe state is always the default, never something earned back
+- **An unlocked screen re-locks itself on its own** after a configurable
+  time, same set of options as the mute timeout → [§5](#5--configuration)
+- **Only armed once real data has shown at least once**, and only on
+  hardware that can actually type a code back in. A board with neither
+  never locks itself at all — there is nothing yet to hide, or no way to
+  ask for the code back
+- **Settings and the setup hotspot are unaffected** — this only ever hides
+  the stats, never the device's own diagnostics

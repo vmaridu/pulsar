@@ -4,26 +4,27 @@
 
    Screen 1 (0.0 – 3.0 s)   The pulsar alone, full screen — a bright core and
                             two straight beams reaching almost to every edge,
-                            turning steadily, humming low in step with them
-                            (sound.ino). No text, nothing else.
+                            turning steadily, firing a torpedo-launch burst
+                            every time a beam sweeps past top (sound.ino).
+                            No text, nothing else.
    Screen 2 (3.0 – 5.0 s)   A plain black screen with bold PULSAR on it,
                             stencil-cut, centred, coloured with a slow
                             light-blue-to-red gradient that drifts across the
-                            letters. Silent — the hum stopped with screen 1.
+                            letters. Silent — the fire stopped with screen 1.
    Cross-fade (4.4 – 5.0 s) The dashboard is painted once into a PSRAM copy
                             and the last 0.6 s of screen 2 blends toward it
                             in RGB565 — real pixels, not a wipe.
 
-   The hum is rendered ONCE into a buffer at boot and streamed, exactly like
-   the critical alert — never synthesised live. An earlier version did
-   synthesise live, on core 0, and starved that core's idle task past the
-   watchdog and boot-looped the board. That is why sound.ino always renders
-   first and only ever streams from here on.
+   The intro sound is rendered ONCE into a buffer at boot and streamed,
+   exactly like the critical alert — never synthesised live. An earlier
+   version did synthesise live, on core 0, and starved that core's idle task
+   past the watchdog and boot-looped the board. That is why sound.ino always
+   renders first and only ever streams from here on.
 
    Mirrors the "boot intro" button in ws_lcd_154/mockup.html.
    =========================================================================== */
 
-static const float I_ANIM_END = 3.0f;       /* screen 1 (the pulsar, humming) runs 0..this */
+static const float I_ANIM_END = 3.0f;       /* screen 1 (the pulsar, firing) runs 0..this */
 static const float I_END      = 5.0f;       /* hand over to the dashboard */
 static const float I_FADE     = 0.6f;       /* the cross-fade, at the very end — overlaps screen 2 */
 static const float SPIN_HZ    = 1.3f;       /* turns a second — steady */
@@ -147,7 +148,7 @@ static void blendFrame(uint16_t* dst, const uint16_t* src, uint32_t n, uint32_t 
   }
 }
 
-/* Blocks setup() for I_END seconds: screen 1 the pulsar (humming), then
+/* Blocks setup() for I_END seconds: screen 1 the pulsar (firing), then
    screen 2 the label. For the fade the dashboard is painted once into a
    PSRAM copy, and each frame from I_END - I_FADE onward is blended toward
    it.                                                                    */

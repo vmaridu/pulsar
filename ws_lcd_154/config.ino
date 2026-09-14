@@ -12,6 +12,14 @@
                s   API secret — set it and requests are signed instead
                ca  one pasted PEM root, optional, empty = TLS unverified
                mt  minutes until a mute auto-clears; 0 = never — sound.ino
+               tz  index into TZ_TABLE (ws_lcd_154.ino) — the STATUS band's
+                   display-only clock zone, daylight saving and all.
+                   Signed requests never read this; they sign raw UTC — net.ino
+               lk  the privacy lock's 6-digit code — lock.ino. Defaults to
+                   "123456" the first time this key is ever read, same as
+                   every other secret here: never sent back, never logged
+               lt  minutes until an unlocked screen re-locks itself; 0 =
+                   never (only a manual lock or a restart) — lock.ino
 
        "wifi"  v   layout version; a blob written by an older struct is
                    dropped rather than read back as nonsense
@@ -115,6 +123,13 @@ void configLoad(){
        never confused with a user explicitly choosing "never" (0), which
        only ever gets stored by an actual save.                            */
     cfg.muteTimeoutMin = p.getUShort("mt", 30);
+    cfg.tzIndex        = (uint8_t)p.getUChar("tz", TZ_DEFAULT_INDEX);
+    if (cfg.tzIndex >= TZ_COUNT) cfg.tzIndex = TZ_DEFAULT_INDEX;   /* a stale index from a smaller table */
+    /* "123456" only the very first time — after that, whatever was saved,
+       same disambiguation the mute timeout above already relies on.      */
+    if (p.isKey("lk")) p.getString("lk", cfg.lockCode, sizeof cfg.lockCode);
+    else                strlcpy(cfg.lockCode, "123456", sizeof cfg.lockCode);
+    cfg.lockTimeoutMin = p.getUShort("lt", 30);
     p.end();
   } else {
     LOG("cfg", "no \"gw\" namespace yet - first boot, nothing configured");
@@ -147,6 +162,10 @@ void configLoad(){
   LOGF("cfg", "%u saved network%s", (unsigned)cfg.nnets, cfg.nnets == 1 ? "" : "s");
   if (cfg.muteTimeoutMin) LOGF("cfg", "mute auto-clears after %u minutes", (unsigned)cfg.muteTimeoutMin);
   else                    LOG("cfg", "mute auto-clear: never (only a double-tap or a restart clears it)");
+  LOGF("cfg", "display clock: %s (signed requests still sign raw UTC seconds, always)",
+       TZ_TABLE[cfg.tzIndex].label);
+  if (cfg.lockTimeoutMin) LOGF("cfg", "lock auto-relocks after %u minutes", (unsigned)cfg.lockTimeoutMin);
+  else                    LOG("cfg", "lock auto-relock: never (only a manual lock or a restart re-locks it)");
   for (int i = 0; i < cfg.nnets; i++){
     const WifiNet& w = cfg.nets[i];
     LOGF("cfg", "  %d. \"%s\" %s%s", i + 1, w.ssid, secName(w.security),
@@ -163,6 +182,9 @@ bool configSave(){
     ok &= p.putString("s",  cfg.secret) > 0 || cfg.secret[0] == 0;
     ok &= p.putString("ca", cfg.ca)     > 0 || cfg.ca[0]     == 0;
     ok &= p.putUShort("mt", cfg.muteTimeoutMin) > 0;
+    ok &= p.putUChar("tz", cfg.tzIndex) > 0;
+    ok &= p.putString("lk", cfg.lockCode) > 0;
+    ok &= p.putUShort("lt", cfg.lockTimeoutMin) > 0;
     p.end();
   } else { ok = false; }
 
@@ -194,6 +216,15 @@ void configJson(JsonDocument& doc){
   doc["signed"]    = configSigned();
   doc["maxNets"]   = MAX_NETWORKS;
   doc["muteTimeoutMin"] = cfg.muteTimeoutMin;
+  doc["tzIndex"]        = cfg.tzIndex;
+  doc["lockCodeSet"]    = cfg.lockCode[0] != 0;   /* never the code itself — same rule as every secret here */
+  doc["lockTimeoutMin"] = cfg.lockTimeoutMin;
+
+  /* TZ_TABLE (ws_lcd_154.ino) is the one copy of this list — sent here so
+     the setup page never hardcodes its own second copy to drift out of
+     sync with it.                                                        */
+  JsonArray tz = doc["tzones"].to<JsonArray>();
+  for (uint8_t i = 0; i < TZ_COUNT; i++) tz.add(TZ_TABLE[i].label);
 
   JsonArray arr = doc["nets"].to<JsonArray>();
   for (int i = 0; i < cfg.nnets; i++){
@@ -265,6 +296,54 @@ bool configApplyJson(JsonObjectConst in, char* err, size_t errcap){
       return false;
     }
     next.muteTimeoutMin = (uint16_t)mt;
+  }
+
+  /* ---- the display clock's zone — an index into TZ_TABLE, never a raw
+     offset: a fixed number can't be right through a daylight-saving change,
+     and this field never touches signed requests either way (those always
+     sign time(nullptr) directly, in net.ino, never this).                */
+  {
+    const long tzi = in["tzIndex"] | TZ_DEFAULT_INDEX;
+    if (tzi < 0 || tzi >= TZ_COUNT){
+      snprintf(err, errcap, "%ld is not a valid time zone", tzi);
+      return false;
+    }
+    next.tzIndex = (uint8_t)tzi;
+  }
+
+  /* ---- the privacy lock's own code. Blank means "keep the one you have" —
+     the same convention as the API secret and every Wi-Fi password: this
+     page never shows what is already stored, only that something is.
+     1-9 only, never 0: the on-device keypad is a 3x3 grid of 1-9 with no
+     0 key at all (lock.ino), so a code this device could never type back
+     in must never be accepted here either.                              */
+  {
+    const char* lk = in["lockCode"] | "";
+    if (lk[0]){
+      if (strlen(lk) != 6 || strspn(lk, "123456789") != 6){
+        strlcpy(err, "the lock code must be exactly 6 digits, 1-9 (no zero)", errcap);
+        return false;
+      }
+      strlcpy(next.lockCode, lk, sizeof next.lockCode);
+    } else {
+      strlcpy(next.lockCode, cfg.lockCode, sizeof next.lockCode);
+    }
+  }
+
+  /* ---- how long an unlocked screen stays that way before it re-locks
+     itself — the same fixed set as the mute timeout above, and rejected
+     outright if it is anything else the page could not actually have sent. */
+  {
+    const long lt = in["lockTimeoutMin"] | 30;
+    static const long ALLOWED[] = { 0, 5, 10, 30, 60, 360, 720, 1440 };
+    bool validLt = false;
+    for (size_t i = 0; i < sizeof(ALLOWED) / sizeof(ALLOWED[0]); i++)
+      if (lt == ALLOWED[i]){ validLt = true; break; }
+    if (!validLt){
+      snprintf(err, errcap, "%ld is not a valid lock timeout", lt);
+      return false;
+    }
+    next.lockTimeoutMin = (uint16_t)lt;
   }
 
   /* ---- networks, in the order the page listed them: that order IS the

@@ -1,7 +1,7 @@
 # 🔌 Flashing Pulsar onto the board — from Windows
 
-Nothing about the backend is compiled in. Once it's flashed, hold **LEFT** for 2 s to
-configure it → [docs/device.md §5](../docs/device.md#5--configuration).
+Nothing about the backend is compiled in. Once it's flashed, hold **DOWN** for 2 s to
+configure it → [docs/functional-requirements.md §5](../docs/functional-requirements.md#5--configuration).
 
 - 📄 Sketch → this same folder — keep **every** `.ino`/`.cpp`/`.h` file here, flat, the IDE opens them all as tabs. The mockup and the build's own docs live right beside them, since Arduino ignores extensions it doesn't compile:
 
@@ -16,7 +16,7 @@ configure it → [docs/device.md §5](../docs/device.md#5--configuration).
   | `wifi.ino`                           | Joining saved networks — priority, enterprise, captive portals    |
   | `hotspot.ino`                        | The setup hotspot, the page it serves, and its screen             |
   | `settings.ino`                       | The settings screen                                               |
-  | `sound.ino`                          | The boot-intro hum, the critical alert sound, and mute             |
+  | `sound.ino`                          | The boot-intro torpedo fire, the critical alert sound, and mute    |
   | `net.ino`                            | Poll scheduling and the HTTPS `GET`                               |
   | `es8311.cpp` / `.h` / `es8311_reg.h` | Speaker codec driver (Espressif, Apache-2.0), from Waveshare's demo |
   | `README.md`                          | This file — flashing and troubleshooting                          |
@@ -57,7 +57,7 @@ configure it → [docs/device.md §5](../docs/device.md#5--configuration).
 
 > If SensorLib asks to install dependencies, say yes.
 
-🔊 **Nothing extra for the boot-intro hum or the critical alert sound.** `ESP_I2S` is part of the ESP32 board package from step 2, and the codec driver ships in the sketch folder.
+🔊 **Nothing extra for the boot-intro torpedo fire or the critical alert sound.** `ESP_I2S` is part of the ESP32 board package from step 2, and the codec driver ships in the sketch folder.
 
 📶 **Nothing extra for the radio or the setup page either.** `WiFi`, `HTTPClient`, `WebServer`, `DNSServer`, `Preferences` and mbedtls all come with the ESP32 core. WPA2-Enterprise needs **core 3.x** — that is where `WiFi.begin(ssid, WPA2_AUTH_PEAP, …)` lives.
 
@@ -104,9 +104,10 @@ Other things that bite:
 | Uploads fine, screen stays black               | Check **PSRAM = OPI PSRAM**, then look at Serial Monitor @ 115200                                                             |
 | Screen is sideways from what you expect        | It is meant to be: `PANEL_ROTATION 1`, a quarter turn right so it reads while charging. Change that one line to undo it       |
 | Screen draws, touch does nothing               | Non-touch SKU. Screens still turn by themselves every 5 s — serial prints `touch: NOT FOUND`                                 |
-| LEFT and RIGHT feel swapped                    | This build already assumes PLUS/BOOT are wired backwards from Waveshare's own labelling — swap `KEY_LEFT`/`KEY_RIGHT`'s pin numbers back in `ws_lcd_154.ino` if yours isn't |
+| DOWN and UP feel swapped                       | This build already assumes PLUS/BOOT are wired backwards from Waveshare's own labelling — swap `KEY_LEFT`/`KEY_RIGHT`'s pin numbers back in `ws_lcd_154.ino` if yours isn't |
 | Board keeps restarting into the intro          | An older sketch — its intro soundtrack tripped the task watchdog. Flash this version; serial `boot: reset:` names the cause  |
-| Critical flashes but no sound                  | Look for the crossed speaker in the STATUS band — it is muted; double-tap the RIGHT key. No icon: serial says `audio: NO CODEC` |
+| Critical flashes but no sound                  | Look for the crossed speaker in the STATUS band — it is muted; double-tap the UP key. No icon: serial says `audio: NO CODEC` |
+| Screen is locked and you don't know the code   | The code is set on the setup page and never shown back — hold DOWN 2 s to raise the hotspot and set a new one; that always works even while locked |
 | Board dies as soon as PWR is let go            | Released before the ring closed — hold the full 2 s                                                                          |
 | `es8311.h: No such file`                       | The three `es8311*` files are not beside `ws_lcd_154.ino` — keep the whole folder together                                          |
 | Garbled or mirrored display                    | Wrong board variant — confirm it is the 1.54″ 240 × 240                                                                      |
@@ -115,7 +116,7 @@ Other things that bite:
 real data over a real network, plus buttons to fake every fault.
 
 Everything about what the device does once it's running — the setup flow, the dashboard,
-controls, banners, serial log format — is in **[docs/device.md](../docs/device.md)**, not
+controls, banners, serial log format — is in **[docs/functional-requirements.md](../docs/functional-requirements.md)**, not
 here.
 
 ## 7. 📦 Producing a flashable binary
@@ -169,4 +170,4 @@ esptool.py --chip esp32s3 -p <PORT> write_flash 0x0 ws_lcd_154-full.bin
 ---
 
 Contract → [`../docs/api.md`](../docs/api.md) · Behaviour and configuration →
-[`../docs/device.md`](../docs/device.md) · This build's hardware → [`device.md`](device.md)
+[`../docs/functional-requirements.md`](../docs/functional-requirements.md) · This build's hardware → [`device.md`](device.md)

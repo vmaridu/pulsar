@@ -446,7 +446,7 @@ void wifiBegin(){
   WiFi.mode(WIFI_STA);
   wifiNoteDown();
   if (!cfg.nnets){
-    LOG("wifi", "no saved networks - the radio stays idle. Hold LEFT 2 s to add one");
+    LOG("wifi", "no saved networks - the radio stays idle. Hold DOWN 2 s to add one");
     wifiGo(WS_SUSPENDED);
     return;
   }

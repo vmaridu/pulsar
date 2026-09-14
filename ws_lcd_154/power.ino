@@ -13,7 +13,7 @@
      • On USB the rail stays up whatever GPIO2 says, so "off" is the panel
        dark plus deep sleep, and the power key wakes it into the same 2 s hold.
 
-   DISPLAY OFF IS NOT POWER OFF. A tap on RIGHT sleeps the panel and kills the
+   DISPLAY OFF IS NOT POWER OFF. A tap on UP sleeps the panel and kills the
    backlight, and nothing else stops: the cycle keeps turning, the poll keeps
    polling, and a critical still sounds in the dark. That is the whole point —
    the speaker is there for when you are not looking at it.
@@ -25,17 +25,17 @@
 
 /* ---------------------------------------------------------------- display */
 
-/* RIGHT tap. The panel only — see the header. */
+/* UP tap. The panel only — see the header. */
 void displayToggle(){
   displayAwake = !displayAwake;
   if (displayAwake){
     panel->displayOn();
     digitalWrite(PIN_LCD_BL, HIGH);
-    LOG("key", "RIGHT tap -> display on (polling and alerts never stopped)");
+    LOG("key", "UP tap -> display on (polling and alerts never stopped)");
   } else {
     digitalWrite(PIN_LCD_BL, LOW);
     panel->displayOff();
-    LOG("key", "RIGHT tap -> display off (still polling, a critical still sounds)");
+    LOG("key", "UP tap -> display off (still polling, a critical still sounds)");
   }
 }
 

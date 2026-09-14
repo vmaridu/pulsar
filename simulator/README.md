@@ -94,14 +94,16 @@ polls exactly what you paste, nothing appended:
 http://<this-machine's-IP>:4180/v1/gateway_health
 ```
 
-Leave the API key and secret empty too; this server does not check them.
+Leave the API key and secret empty too — by default this server doesn't check them. Turn
+**Auth** on in the control page below if you want to test real HMAC signing instead → [Using
+the control page](#using-the-control-page).
 
 - 🔓 **Plain `http://` is fine here and nowhere else.** The device allows it, and says
   `[PLAIN HTTP - the key is readable on the wire]` on every poll — which is exactly right
   for a laptop on your own bench and exactly wrong for anything else
 - 🧯 **This is the cheapest way to see the error screens.** Arm a fault and watch
-  `NO ACCESS`, `THROTTLED`, `BACKEND` or `OFFLINE` land on real hardware, over a real
-  network, without breaking anything you care about → [api.md §6](../docs/api.md#6--errors)
+  `NO ACCESS`, `SERVER ERROR` (a 429 or a 5xx) or `OFFLINE` land on real hardware, over a
+  real network, without breaking anything you care about → [api.md §6](../docs/api.md#6--errors)
 
 ---
 
@@ -110,7 +112,8 @@ Leave the API key and secret empty too; this server does not check them.
 | Section     | What it does                                                                           |
 | ----------- | --------------------------------------------------------------------------------------- |
 | **Devices** | Every device that has polled this session, by `X-Device-Mac` — a green dot while it's polled in the last 2 minutes, poll count, last outcome. In memory only: last 10 devices, last 500 polls each, gone when the process stops |
-| **Alert**   | Sets `alert.level` and `alert.message` for the next poll. `warning`/`critical` are what make a device's whole screen flash; `critical` also sounds. The message box is pre-filled with a sensible default per level — edit it if you want something else, 20 characters max |
+| **Auth**    | Off by default (no headers are checked at all). Switch it on and every poll must carry a valid [HMAC signature](../docs/api.md#8--hmac) — set both the API key and secret shown here on the device's setup page and it starts signing on its own. Acts instantly, same as Faults |
+| **Alert**   | Sets `alert.level` and `alert.message` for the next poll. `warning`/`critical` are what make a device's whole screen flash; `critical` sounds a full alert, `warning` a shorter, quieter notice. The message box is pre-filled with a sensible default per level — edit it if you want something else, 20 characters max |
 | **Metrics** | One card per screen. Each has a live sparkline of its current `buckets` and a pattern dropdown — pick one and hit **Apply** to reshape that row's graph. the aggregate tiles' shares recompute to match automatically |
 | **Faults**  | Makes the **next** poll misbehave instead of succeeding — a slow response, a non-200 status, broken JSON, or a payload missing something the contract requires. Stays armed until you clear it, so you can watch a device retry against the same problem more than once |
 | **Log**     | Every hit on `/v1/gateway_health`, and every change made on this page, newest first |

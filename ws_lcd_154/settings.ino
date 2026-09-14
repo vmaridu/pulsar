@@ -1,5 +1,5 @@
 /* ===========================================================================
-   The settings screen — LEFT tap. Everything the board knows about itself,
+   The settings screen — DOWN tap. Everything the board knows about itself,
    read-only. Tap again to go back.
 
    Read-only is the point: this is the screen you look at when the device is
@@ -8,7 +8,7 @@
    address did it get? Where is it pointing? Is the key being signed, and is
    the TLS actually checked? How old are the numbers?
 
-   EDITING happens over the setup hotspot — hold LEFT 2 s — because a
+   EDITING happens over the setup hotspot — hold DOWN 2 s — because a
    touchscreen the size of a stamp is a bad place to type a URL.
    hotspot.ino owns that.
 
@@ -99,8 +99,8 @@ void drawSettings(){
   }
 
   cv->fillRect(X_L, 184, X_R - X_L, 1, C_LINE);
-  txt("TAP LEFT - BACK", 120, 188, 1, C_DIM, 'c');
-  txt("HOLD LEFT 2 S - SETUP HOTSPOT", 120, 199, 1, C_CY, 'c');
-  txt("TAP RIGHT - DISPLAY OFF", 120, 210, 1, C_DIM2, 'c');
-  txt("2 TAPS RIGHT - SOUND", 120, 221, 1, C_DIM2, 'c');
+  txt("TAP DOWN - BACK", 120, 188, 1, C_DIM, 'c');
+  txt("HOLD DOWN 2 S - SETUP HOTSPOT", 120, 199, 1, C_CY, 'c');
+  txt("TAP UP - DISPLAY OFF", 120, 210, 1, C_DIM2, 'c');
+  txt("2 TAPS UP - SOUND", 120, 221, 1, C_DIM2, 'c');
 }

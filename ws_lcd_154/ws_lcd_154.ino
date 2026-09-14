@@ -6,11 +6,17 @@
    it came from — there is no root `gateway` field, only the per-metric one.
 
    Nothing about the endpoint is baked in. The full URL, the API key and the
-   API secret are set over the device's own Wi-Fi hotspot — hold LEFT 2 s —
+   API secret are set over the device's own Wi-Fi hotspot — hold DOWN 2 s —
    and kept in NVS with the saved networks; config.ino owns the store,
    hotspot.ino the page, wifi.ino the joining, net.ino the poll. An
    unconfigured board says SETUP and shows no numbers at all: a monitor that
    invents data is worse than one that admits it has none.
+
+   Once real data is showing, the screen locks itself down to the STATUS and
+   ALERT bands only — BODY and FOOTER, the actual stats, stay hidden behind a
+   lock icon until a 6-digit code is entered on an on-screen keypad. Hold UP
+   2 s to lock it (no code needed) or, while locked, to raise that keypad.
+   lock.ino owns all of it; it never touches sound, or any other button.
 
    Screen — four fixed bands, named. Say these names:
        STATUS 0..20 | ALERT 20..56 | BODY 56..216 | FOOTER 216..240
@@ -34,14 +40,23 @@
        hotspot.ino        the setup hotspot, the page it serves, its screen
        settings.ino       the settings screen
        sound.ino          the alert sound and mute
+       lock.ino           the privacy lock — code, keypad, auto-relock
        net.ino            poll scheduling and the HTTPS GET
        es8311.*           vendor codec driver, do not edit
 
    Input — the standard map, the whole contract. Anything not here is FUTURE USE:
        GLASS  tap: next metric screen · double-tap: future · hold 2 s: refresh
-       LEFT   tap: settings on/off    · double-tap: future · hold 2 s: setup hotspot
+       DOWN   tap: settings on/off    · double-tap: future · hold 2 s: setup hotspot
        POWER  tap: future             · double-tap: future · hold 2 s: off / on
-       RIGHT  tap: display on/off     · double-tap: mute   · hold 2 s: future
+       UP     tap: display on/off     · double-tap: mute   · hold 2 s: lock / unlock
+
+   DOWN and UP are physical positions on the case, not silkscreen names — see
+   KEY_LEFT/KEY_RIGHT below. UP hold 2 s locks the screen (BODY and FOOTER
+   hidden behind a lock icon) with no code needed, or — while already
+   locked — raises a keypad to enter the 6-digit code and clear it. Only
+   armed once real data has shown at least once, and only on a touch SKU:
+   there is no way to type a code with three keys alone, so a non-touch board
+   never locks itself at all — see ws_lcd_154/device.md.
 
    Serial is the debugger: 115200 baud, every input, action and poll is logged.
 
@@ -112,7 +127,7 @@
    story. 115200 baud. Every key, every touch, the action each one caused,
    every poll and every failure prints one line:
 
-       [   1234ms] key: RIGHT tap -> display off
+       [   1234ms] key: UP tap -> display off
 
    Log state changes and actions, never frames — the render loop runs at
    ~25 fps and would bury everything that matters.                         */
@@ -148,23 +163,21 @@
 /* Keys, left to right on the case. This board's PLUS/BOOT keys are wired the
    opposite of Waveshare's own silkscreen — GPIO4 sits physically on the
    right, GPIO0 physically on the left — so the two are swapped here rather
-   than in input.ino: KEY_LEFT and KEY_RIGHT are the physical positions,
-   whichever name is printed on the key. Every press prints on Serial with
-   its GPIO. KEY_POWER is wired to the power circuit and has to stay on 5. */
-#define KEY_LEFT       0     /* physically left  — tap: settings on / off · hold 2 s: hotspot     */
-#define KEY_POWER      5     /* PWR              — tap: future use        · hold 2 s: off, and on */
-#define KEY_RIGHT      4     /* physically right — tap: display on / off  · double-tap: mute      */
-
-/* Clock offset applied to measured_at. No RTC and no NTP in this build,
-   so the time on screen is the time the payload says it was measured,
-   shown MM/DD hh:mm AM.                                                   */
-#define TZ_OFFSET_HOURS  0
+   than in input.ino: KEY_LEFT and KEY_RIGHT name the physical positions,
+   whichever silkscreen name is printed on the key. The logical roles input.ino
+   assigns them are DOWN and UP, not LEFT/RIGHT — a physical-position macro
+   feeding a differently-named logical key is intentional, not a mismatch.
+   Every press prints on Serial with its GPIO. KEY_POWER is wired to the
+   power circuit and has to stay on 5. */
+#define KEY_LEFT       0     /* physically left  — DOWN: settings on / off · hold 2 s: hotspot    */
+#define KEY_POWER      5     /* PWR              — tap: future use         · hold 2 s: off, and on */
+#define KEY_RIGHT      4     /* physically right — UP: display on / off    · double-tap: mute      */
 
 /* --------------------------------------------------------------- config
    What a person sets over the setup page, and the only place the endpoint
    and the networks come from — nothing here is baked into the firmware.
    config.ino loads and saves it, hotspot.ino edits it, wifi.ino and net.ino
-   read it. docs/device.md §6 is the owner of what each field means.
+   read it. docs/functional-requirements.md §5 is the owner of what each field means.
 
    MAX_NETWORKS is deliberately not 5: api.md already has two different
    caps of five — 5 metric screens and 5 tiles per screen (AGENTS.md §10) —
@@ -214,6 +227,37 @@ struct WifiNet {
    the key is a bearer token, secret set means the key is the public
    X-Api-Key and the secret signs each request — api.md §1 and its HMAC
    appendix. Two fields, no third field to contradict them.               */
+
+/* The STATUS band's clock is display-only, and a raw UTC offset cannot show
+   it correctly for half the year in any zone that observes daylight saving
+   — the clock would read an hour wrong every spring and every autumn until
+   someone remembered to change a number. A POSIX TZ string carries the
+   actual transition RULE (which week, which month), so the C library's own
+   localtime_r() applies daylight saving automatically, forever, for
+   whichever zone is picked — one setenv("TZ", ...); tzset(); at boot
+   (ws_lcd_154.ino's setup(), right after configLoad()) is the whole cost.
+   This never touches what net.ino signs: time(nullptr) always returns raw
+   UTC seconds regardless of TZ — only localtime_r() reads it, gmtime_r()
+   and time() never do.                                                   */
+struct TzZone { const char* label; const char* posix; };
+static const TzZone TZ_TABLE[] = {
+  { "UTC",                          "UTC0" },
+  { "US Eastern (New York)",        "EST5EDT,M3.2.0,M11.1.0" },
+  { "US Central (Chicago)",         "CST6CDT,M3.2.0,M11.1.0" },
+  { "US Mountain (Denver)",         "MST7MDT,M3.2.0,M11.1.0" },
+  { "US Mountain, no DST (Phoenix)","MST7" },
+  { "US Pacific (Los Angeles)",     "PST8PDT,M3.2.0,M11.1.0" },
+  { "US Alaska (Anchorage)",        "AKST9AKDT,M3.2.0,M11.1.0" },
+  { "US Hawaii (Honolulu)",         "HST10" },
+  { "UK (London)",                  "GMT0BST,M3.5.0/1,M10.5.0" },
+  { "Central Europe (Berlin)",      "CET-1CEST,M3.5.0,M10.5.0/3" },
+  { "India (Kolkata)",              "IST-5:30" },
+  { "Japan (Tokyo)",                "JST-9" },
+  { "Australia Eastern (Sydney)",   "AEST-10AEDT,M10.1.0,M4.1.0/3" },
+};
+#define TZ_COUNT ((uint8_t)(sizeof(TZ_TABLE) / sizeof(TZ_TABLE[0])))
+#define TZ_DEFAULT_INDEX 1     /* US Eastern (New York) — this device's own default */
+
 struct Config {
   char     url[LEN_URL];              /* the full URL to poll, exactly as configured */
   char     key[LEN_KEY];
@@ -222,6 +266,15 @@ struct Config {
   WifiNet  nets[MAX_NETWORKS];
   uint8_t  nnets;
   uint16_t muteTimeoutMin;            /* minutes until a mute clears itself; 0 = never — sound.ino */
+  uint8_t  tzIndex;                    /* index into TZ_TABLE — display-only clock zone, applied via
+                                          setenv("TZ",...)/tzset() at boot. NEVER read by net.ino:
+                                          signed requests always sign raw UTC seconds — time(nullptr),
+                                          never localtime_r() — unaffected by whatever this is set to. */
+  char     lockCode[7];                /* the privacy lock's 6-digit code, plus NUL — lock.ino.
+                                          Defaults to "123456"; never sent back to the setup page or
+                                          printed to Serial, same rule as the API secret.            */
+  uint16_t lockTimeoutMin;             /* minutes until an unlocked screen re-locks itself on its own;
+                                          0 = never (only a manual lock or a restart) — lock.ino      */
 };
 static Config cfg;
 
@@ -394,6 +447,7 @@ static uint8_t  curRow = 0;                  /* which metric screen is up */
 #define VIEW_MAIN      0
 #define VIEW_SETTINGS  1
 #define VIEW_HOTSPOT   2
+#define VIEW_LOCK      3
 static uint8_t  view = VIEW_MAIN;
 static char     deviceName[20] = "pulsar";   /* pulsar-xxxxxx from the MAC — set in setup() */
 static uint8_t  macAddr[6];
@@ -565,6 +619,11 @@ static int txt(const char* s, int x, int y, uint8_t size, uint16_t c,
    above the type definitions, and without it the compile dies with
    `'Level' does not name a type`. */
 const struct Level& levelNow(){
+  /* NO CLOCK is this device waiting on its own SNTP, not a connectivity
+     problem with the backend — orange, not the grey every other fault
+     gets, so it doesn't read as "can't reach you" when it's really
+     "give me a second." Still a fault: still holds the last good data. */
+  if (faultWord[0] && !strcmp(faultWord, "NO CLOCK")) return LV_WARN;
   if (faultWord[0])                    return LV_FAULT;   /* cannot reach the backend */
   if (!strcmp(snap.level, "critical")) return LV_CRIT;
   if (!strcmp(snap.level, "warning"))  return LV_WARN;
@@ -683,6 +742,18 @@ void        keysBegin();
 /* intro.ino */
 void        bootIntro();
 
+/* lock.ino */
+void        drawLock();
+void        drawLockedBody(const struct Theme& th);
+void        lockBegin();
+void        lockDigit(char d);
+void        lockEngage();
+bool        lockIsLocked();
+void        lockHandleTap(int16_t x, int16_t y);
+void        lockOpenKeypad();
+void        lockTick();
+bool        lockArmed();
+
 /* net.ino */
 void        cycleBegin();
 void        cycleResetTimer();
@@ -722,6 +793,7 @@ static void render(){
   if (!displayAwake) return;                 /* panel asleep — polls and alerts carry on */
   if (view == VIEW_SETTINGS) drawSettings();
   else if (view == VIEW_HOTSPOT) drawHotspot();
+  else if (view == VIEW_LOCK) drawLock();
   else drawDashboard();
   drawHoldOverlay();        /* a key or a finger on its way to a 2 s hold — input.ino */
   drawToast();
@@ -803,10 +875,15 @@ void setup(){
      out of range, is a working board with an honest banner on it. The first
      poll happens the moment wifi.ino gets online.                        */
   configLoad();                    /* config.ino — the endpoint and the saved networks */
+  lockBegin();                     /* lock.ino — the persisted lockout count, if any */
+  /* Display-only: the STATUS band's clock reads through this; net.ino's
+     signing clock (time(nullptr)) never does — see the TZ_TABLE comment. */
+  setenv("TZ", TZ_TABLE[cfg.tzIndex < TZ_COUNT ? cfg.tzIndex : TZ_DEFAULT_INDEX].posix, 1);
+  tzset();
   buildThemes();
   netBegin();                      /* net.ino — the banner starts out saying what we wait for */
   wifiBegin();                     /* wifi.ino — joining runs in the background from here */
-  soundBegin();             /* codec, the critical alert and the intro hum — before the intro needs either — sound.ino */
+  soundBegin();             /* codec, the critical alert and the intro's torpedo fire — before the intro needs either — sound.ino */
   bootIntro();              /* once per power-on, hums with the beams, fades into the dashboard — intro.ino */
   if (soundMuted) showToast("SOUND OFF");  /* the brown-out mute check inside soundBegin() ran before
                                                anything was on screen to show it on — say it now instead */
@@ -814,7 +891,7 @@ void setup(){
   cycleBegin();             /* start the 5 s screen rotation — net.ino */
   LOGF("boot", "ready - %u saved network%s, endpoint %s, poll every %lus",
        (unsigned)cfg.nnets, cfg.nnets == 1 ? "" : "s",
-       cfg.url[0] ? cfg.url : "NOT SET - hold LEFT 2 s",
+       cfg.url[0] ? cfg.url : "NOT SET - hold DOWN 2 s",
        (unsigned long)(pollIntervalMs() / 1000));
 }
 
@@ -826,6 +903,7 @@ void loop(){
   cycleTick();              /* 5 s per screen, refetch when the loop wraps — net.ino */
   alertTick();
   soundTick();              /* auto-clears a mute once its configured timeout elapses — sound.ino */
+  lockTick();               /* auto-relocks an unlocked screen once its timeout elapses — lock.ino */
   render();                 /* ~25 fps; the alert flash and the count-up need it */
   delay(28);
 }

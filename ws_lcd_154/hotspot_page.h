@@ -115,6 +115,39 @@ cursor:pointer}
 </section>
 
 <section>
+  <h2>Clock</h2>
+  <label>Time zone
+    <select id="tzIndex"></select></label>
+  <p class="hint">Only changes what the STATUS band shows — the time a reading was measured, in this
+     zone's own local time, daylight saving included automatically. Signed requests always sign the
+     raw UTC clock underneath, never this.</p>
+</section>
+
+<section>
+  <h2>Lock</h2>
+  <label>6-digit code (1-9, no zero)
+    <input id="lockCode" type="password" inputmode="numeric" pattern="[1-9]*" maxlength="6"
+      autocomplete="off" spellcheck="false"></label>
+  <label>Auto-relock after
+    <select id="lockTimeout">
+      <option value="5">5 minutes</option>
+      <option value="10">10 minutes</option>
+      <option value="30">30 minutes</option>
+      <option value="60">1 hour</option>
+      <option value="360">6 hours</option>
+      <option value="720">12 hours</option>
+      <option value="1440">24 hours</option>
+      <option value="0">Never (only a manual lock or a restart)</option>
+    </select></label>
+  <p class="hint">Hold the UP key 2 s to lock the screen down to just the alert band, or — while
+     it's already locked — to raise this same keypad and unlock it again. Digits 1-9 only —
+     the on-device keypad is a 3x3 grid with no 0 key, so a code with a zero in it could
+     never be typed back in. Defaults to <code>123456</code> until you set your own. Five
+     wrong tries inside 30 minutes locks the keypad out for a while, so it can't just be
+     guessed at.</p>
+</section>
+
+<section>
   <h2>Wi-Fi networks</h2>
   <p class="hint">Top of the list wins. The device joins the highest one it can
      actually see, and if none of them are in range it simply keeps trying — that
@@ -280,6 +313,19 @@ function load(keep){
     $('ca').placeholder     = c.caSet ? 'saved - leave blank to keep'
                                       : '-----BEGIN CERTIFICATE-----';
     $('muteTimeout').value = String(c.muteTimeoutMin != null ? c.muteTimeoutMin : 30);
+    /* TZ_TABLE (ws_lcd_154.ino, via configJson()) is the one copy of this
+       list — built here each load rather than hardcoded a second time.   */
+    var tzSel = $('tzIndex');
+    tzSel.textContent = '';
+    (c.tzones || []).forEach(function(label, i){
+      var o = document.createElement('option');
+      o.value = String(i);
+      o.textContent = label;
+      tzSel.appendChild(o);
+    });
+    tzSel.value = String(c.tzIndex != null ? c.tzIndex : 1);
+    $('lockCode').placeholder = c.lockCodeSet ? 'saved - leave blank to keep' : '123456 (default)';
+    $('lockTimeout').value = String(c.lockTimeoutMin != null ? c.lockTimeoutMin : 30);
     st.nets = c.nets || [];
     draw();
     if (!keep) say(c.url ? 'Pointing at ' + c.url : 'No endpoint set yet.', c.url ? '' : 'bad');
@@ -300,6 +346,10 @@ function save(reboot){
       say('"' + nets[i].ssid + '" needs a password.', 'bad'); return;
     }
   }
+  var lockCode = $('lockCode').value;
+  if (lockCode && !/^[1-9]{6}$/.test(lockCode)){
+    say('The lock code must be exactly 6 digits, 1-9 (no zero).', 'bad'); return;
+  }
   var body = {
     url: $('url').value.trim(),
     key: $('key').value,
@@ -308,6 +358,9 @@ function save(reboot){
     ca: $('ca').value.trim(),
     caClear: $('caClear').checked,
     muteTimeoutMin: parseInt($('muteTimeout').value, 10),
+    tzIndex: parseInt($('tzIndex').value, 10),
+    lockCode: lockCode,
+    lockTimeoutMin: parseInt($('lockTimeout').value, 10),
     nets: nets
   };
   say('Saving…');

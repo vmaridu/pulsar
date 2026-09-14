@@ -8,8 +8,9 @@ rules into them, never let them drift. Edit *this* file and both tools follow.
 
 | Looking for…                          | Go to                                             |
 | -------------------------------------- | -------------------------------------------------- |
+| What every build must do, device-agnostic | [docs/product-requirements.md](docs/product-requirements.md) |
 | The wire contract (what a backend sends) | [docs/api.md](docs/api.md)                        |
-| Behaviour shared by every build         | [docs/device.md](docs/device.md)                  |
+| Behaviour shared by every build         | [docs/functional-requirements.md](docs/functional-requirements.md) |
 | The square board's firmware + pixels    | [ws_lcd_154/](ws_lcd_154/) — flat folder, `.ino` files + `device.md` + `README.md` + `mockup.html` |
 | The landscape board (mockup only so far)| [ws_lcd_349/](ws_lcd_349/) — same flat pattern    |
 | A fake backend to point either build at | [simulator/](simulator/) — `node server.js`, zero deps |
@@ -60,20 +61,24 @@ listed is **future use** and must be documented as "future use", never silently 
 | Input             | Tap                        | Double-tap              | Hold 2 s                 |
 | ----------------- | -------------------------- | ----------------------- | ------------------------ |
 | **Glass** (touch) | Next metric screen         | *future use*            | **Force refresh**        |
-| **LEFT** (PLUS)   | **Settings screen** on/off | *future use*            | **Setup hotspot**        |
+| **DOWN** (PLUS)   | **Settings screen** on/off | *future use*            | **Setup hotspot**        |
 | **POWER** (PWR)   | *future use*               | *future use*            | **Power off / on**       |
-| **RIGHT** (BOOT)  | **Display on/off**         | **Sound mute / unmute** | *future use*             |
+| **UP** (BOOT)     | **Display on/off**         | **Sound mute / unmute** | **Lock the screen**, or open the unlock keypad → [functional-requirements.md §6](docs/functional-requirements.md#6--privacy-lock) |
 
 - ⏱️ **Every hold is 2 s**, keys and glass alike, and shows a filling ring with the
   action named inside so it can be abandoned
 - 🔕 **Mute never survives a restart** — RAM only. (One exception: a brown-out reset
   starts muted, so a sagging supply cannot loop the sound.) It also clears itself on
   its own after a configurable timeout (5 m–24 h, or never; default 30 m), set on the
-  setup page → [device.md §5](docs/device.md#5--configuration)
+  setup page → [functional-requirements.md §5](docs/functional-requirements.md#5--configuration)
 - 🔔 **`warning` and any connection fault get a short, quiet notice sound**, not the
   full `critical` alert — the two are never mistaken for each other by ear alone
 - 🌑 **Display off is the panel only.** Polling, alerts and the speaker keep running —
   a critical still sounds with the screen dark
+- 🔒 **The privacy lock hides BODY and FOOTER behind a 6-digit code** — STATUS and
+  ALERT, sound and every other key are untouched. No code is needed to lock, only
+  to unlock; it re-arms on its own after a configurable timeout (same set as mute's,
+  default 30 m) and always boots locked → [functional-requirements.md §6](docs/functional-requirements.md#6--privacy-lock)
 - 🔙 Off the main screen, a glass tap returns to it
 - 📝 When you change this table, change it **here first**, then in the code and in every
   readme in the same commit
@@ -85,7 +90,7 @@ listed is **future use** and must be documented as "future use", never silently 
 - 🧮 Poll interval = `max(30, metric_count × 5)` seconds — never faster than 30 s
 - 👆 A 2 s hold on the glass forces a refresh regardless of where the cycle is
 - 🌐 **Nothing about the endpoint is compiled in.** The full URL, the API key and the
-  API secret come out of NVS, set over the setup hotspot → [device.md §5](docs/device.md#5--configuration).
+  API secret come out of NVS, set over the setup hotspot → [functional-requirements.md §5](docs/functional-requirements.md#5--configuration).
   A board with no URL shows `SETUP` and **no numbers at all** — there is no sample
   payload to fall back on, because a monitor showing invented data is worse than one
   admitting it has none
@@ -130,6 +135,7 @@ untouched by the compiler.
 | `hotspot.ino`       | The setup hotspot, the page it serves, its screen        |
 | `settings.ino`      | The settings screen                                      |
 | `sound.ino`         | The alert sound and mute                                 |
+| `lock.ino`          | The privacy lock — code, keypad, auto-relock             |
 | `net.ino`           | Poll scheduling and the HTTPS GET                        |
 | `es8311.*`          | Vendor codec driver — do not edit                        |
 | `README.md`         | Flashing and troubleshooting                             |
@@ -150,8 +156,9 @@ untouched by the compiler.
   is a bug
 - 🌐 **HTML mockups are standalone.** No hyperlinks out of them at all, ever
 - 🎯 **To the point.** No duplicated tables across files — one owner per fact:
+  - `docs/product-requirements.md` owns device-agnostic product requirements — what, never how
   - `docs/api.md` owns the wire contract
-  - `docs/device.md` owns behaviour shared by all builds
+  - `docs/functional-requirements.md` owns behaviour shared by all builds
   - `<build>/device.md` owns that build's pixels and hardware
   - `<build>/README.md` owns flashing and troubleshooting
 - 🔁 The mockups must render **the same logic as the firmware** — same bands, same
@@ -175,7 +182,6 @@ Authored in hex, quantised to RGB565.
 
 ## 9. ⛔ Standing rules
 
-- 🚫 **No shake gesture, no secret knock.** Removed; never suggest it back
 - 🚫 No `platform` field anywhere
 - 🚫 Nothing derived on the wire — no error rate, no throughput, no `window_minutes`
 - 🚫 Never `fillScreen()` inside `loop()`
@@ -236,7 +242,7 @@ from `sum(buckets)` locally, never store or send it.
   screen. It never sounds or flashes anything; it only changes that tile's colour.
   The device never computes it — no baked-in "`4XX` past 2% is orange" any more.
   A backend that wants a tile to read as trouble sends `"level": "warning"` (or
-  `"critical"`) itself → [api.md §4](docs/api.md#-level--a-tiles-own-colour)
+  `"critical"`) itself → [api.md §4](docs/api.md#-level--a-tiles-own-severity)
 
 ## 11. 🛡️ Render defensively — always
 

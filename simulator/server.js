@@ -18,6 +18,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { URL } = require('url');
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4180;
@@ -82,9 +83,12 @@ function retotal(r, p4pct, p5pct) {
 
 function defaultMetrics() {
   return [
+    /* c4/c5 deliberately over 5 digits — AGENTS.md §10's own compaction
+       example is 184000 -> "184K"; this exercises that path (and 2XX/5XX
+       alongside it) against real client code, not just the formula.       */
     row('Orders', 'Created',
-      [649,625,606,646,647,632,636,610,640,616,607,641,621,633,633,
-       613,614,611,607,627,648,609,630,627,632,610,631,618,630,634], 109, 15, 42, 180),
+      [38940,37500,36360,38760,38820,37920,38160,36600,38400,36960,36420,38460,37260,37980,37980,
+       36780,36840,36660,36420,37620,38880,36540,37800,37620,37920,36600,37860,37080,37800,38040], 184000, 205000, 42, 180),
     row('Orders', 'Dispatched',
       [304,302,302,291,302,296,313,291,309,302,302,300,285,298,289,
        287,285,306,302,303,314,302,291,313,288,293,303,299,290,292], 40, 5, 55, 230),
@@ -175,6 +179,44 @@ function devicesJSON() {
       active: now - d.lastSeen < ACTIVE_MS,
       recent: d.history.slice(0, 20),
     }));
+}
+
+/* ------------------------------------------------------------------ auth
+   Off by default — every other feature here ignores whatever auth headers
+   a device sends, on purpose (README: "this server does not check them").
+   Flip it on to actually exercise docs/api.md §8's HMAC path — the device
+   only sends X-Api-Key/X-Timestamp/X-Signature once an API secret is set,
+   so this is what proves the signing is byte-for-byte correct, not just
+   that it compiles. Hardcoded and unchanging, and readable enough to type
+   into the setup page by hand rather than copy-paste.                    */
+const AUTH_API_KEY    = 'pulsar_demo_key';
+const AUTH_API_SECRET = 'pulsar_demo_secret';
+const AUTH_SKEW_S     = 60;     // api.md §8: reject a timestamp older (or newer) than this
+let   authEnabled     = false;
+
+/* `reqPath` is req.url exactly as Node hands it over — scheme and host
+   already stripped, which is exactly what the string-to-sign wants.      */
+function checkAuth(req, reqPath){
+  if (req.headers['authorization'])
+    return { ok: false, reason: 'sent Authorization - set an API secret on the device, not just a key' };
+  const key = req.headers['x-api-key'];
+  const ts  = req.headers['x-timestamp'];
+  const sig = req.headers['x-signature'];
+  if (!key || !ts || !sig)
+    return { ok: false, reason: 'missing X-Api-Key / X-Timestamp / X-Signature' };
+  if (key !== AUTH_API_KEY) return { ok: false, reason: 'wrong X-Api-Key' };
+
+  const tsNum = Number(ts);
+  if (!Number.isFinite(tsNum)) return { ok: false, reason: 'X-Timestamp is not a number' };
+  if (Math.abs(Math.floor(Date.now() / 1000) - tsNum) > AUTH_SKEW_S)
+    return { ok: false, reason: `X-Timestamp more than ${AUTH_SKEW_S}s from the server's clock` };
+
+  const stringToSign = `GET\n${reqPath}\n${ts}\n`;
+  const expected = crypto.createHmac('sha256', AUTH_API_SECRET).update(stringToSign).digest('hex');
+  const got = Buffer.from(sig, 'hex'), want = Buffer.from(expected, 'hex');
+  if (got.length !== want.length || !crypto.timingSafeEqual(got, want))
+    return { ok: false, reason: 'signature does not match' };
+  return { ok: true };
 }
 
 /* ------------------------------------------------------- bucket patterns
@@ -270,6 +312,18 @@ function readBody(req) {
 
 function handleGatewayHealth(req, res) {
   const dev = touchDevice(req);
+
+  if (authEnabled){
+    const check = checkAuth(req, req.url);
+    if (!check.ok){
+      logHit(`GET /v1/gateway_health -> 401 (auth: ${check.reason})`);
+      recordPoll(dev, 401, 'auth: ' + check.reason);
+      res.writeHead(401, { 'Content-Type': 'text/plain' });
+      res.end('');
+      return;
+    }
+  }
+
   const fault = STATE.fault ? FAULTS[STATE.fault] : null;
 
   if (fault && fault.kind === 'delay') {
@@ -363,7 +417,14 @@ async function handleApi(req, res, pathname) {
       patterns: Object.fromEntries(Object.entries(PATTERNS).map(([k, v]) => [k, v.label])),
       faults: Object.fromEntries(Object.entries(FAULTS).map(([k, v]) => [k, v.label])),
       log: LOG.slice(0, 20),
+      auth: { enabled: authEnabled, apiKey: AUTH_API_KEY, apiSecret: AUTH_API_SECRET },
     });
+  }
+  if (pathname === '/api/auth' && req.method === 'POST') {
+    const body = JSON.parse((await readBody(req)) || '{}');
+    authEnabled = !!body.enabled;
+    logHit(`UI -> auth ${authEnabled ? 'ON - HMAC required, key/secret in the Auth panel' : 'off'}`);
+    return sendJSON(res, 200, { ok: true, auth: { enabled: authEnabled, apiKey: AUTH_API_KEY, apiSecret: AUTH_API_SECRET } });
   }
   if (pathname === '/api/alert' && req.method === 'POST') {
     const body = JSON.parse((await readBody(req)) || '{}');

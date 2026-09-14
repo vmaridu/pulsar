@@ -390,10 +390,10 @@ static const char* faultForStatus(int code, char* detail, size_t cap){
   if (code >= 300 && code < 400){ snprintf(detail, cap, "fix the url (%d)", code); return "REDIRECT"; }
   if (code == 401 || code == 403){ snprintf(detail, cap, "key rejected (%d)", code); return "NO ACCESS"; }
   if (code == 404){ strlcpy(detail, "wrong url", cap); return "NOT FOUND"; }
-  if (code == 429){ strlcpy(detail, "backing off", cap); return "THROTTLED"; }
-  if (code >= 500){ snprintf(detail, cap, "backend said %d", code); return "BACKEND"; }
+  if (code == 429){ strlcpy(detail, "backing off", cap); return "SERVER ERROR"; }
+  if (code >= 500){ snprintf(detail, cap, "backend said %d", code); return "SERVER ERROR"; }
   snprintf(detail, cap, "http %d", code);
-  return "BACKEND";
+  return "SERVER ERROR";
 }
 
 /* One poll. Everything it decides, it logs — the URL, the auth it used, the
@@ -403,8 +403,8 @@ bool netFetch(){
 
   /* ---- the reasons not to even try, each of them said out loud */
   if (!configHasEndpoint()){
-    LOG("net", "no endpoint configured - hold LEFT 2 s, join the hotspot, set the URL");
-    setFault("SETUP", "hold LEFT 2 s");
+    LOG("net", "no endpoint configured - hold DOWN 2 s, join the hotspot, set the URL");
+    setFault("SETUP", "hold DOWN 2 s");
     lastPoll = millis();
     return false;
   }
@@ -587,7 +587,7 @@ bool netFetch(){
    anything — a blank screen with no explanation is the one thing a device
    with no keyboard must never do.                                         */
 void netBegin(){
-  if (!configHasEndpoint())  setFault("SETUP", "hold LEFT 2 s");
+  if (!configHasEndpoint())  setFault("SETUP", "hold DOWN 2 s");
   else if (!cfg.nnets)       setFault("SETUP", "no wi-fi saved");
   else                       setFault("OFFLINE", "joining wi-fi");
   LOGF("net", "waiting: %s - %s", faultWord, faultDetail);

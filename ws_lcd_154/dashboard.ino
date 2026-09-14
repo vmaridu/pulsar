@@ -71,10 +71,15 @@ static void drawStatus(const struct Theme& th){
   char pcs[8]; snprintf(pcs, sizeof pcs, "%d%%", pc);
   txt(pcs, bx + 24, y + 6, 1, th.ink ? th.tx : C_DIM2);   /* fixed slot — no jitter whether charging or not */
 
-  /* the reading's clock — MM/DD hh:mm AM of measured_at, because this build
-     has no RTC and no NTP. It is the time of the data, not the time now.  */
-  time_t t = (time_t)(snap.measured_at + TZ_OFFSET_HOURS * 3600L);
-  struct tm tmv; gmtime_r(&t, &tmv);
+  /* the reading's clock — MM/DD hh:mm AM of measured_at, shown in the zone
+     picked on the setup page (cfg.tzIndex — ws_lcd_154.ino's TZ_TABLE),
+     daylight saving applied automatically by localtime_r() itself, never
+     computed here. This build has no RTC, so it can't show "now" on its
+     own — this is always the time of the data, not the time now. Nothing
+     to do with the clock signed requests use: that's raw UTC seconds from
+     time(nullptr), which localtime_r() never touches — net.ino.          */
+  time_t t = (time_t)snap.measured_at;
+  struct tm tmv; localtime_r(&t, &tmv);
   const int h12 = tmv.tm_hour % 12 ? tmv.tm_hour % 12 : 12;
   char clk[24]; snprintf(clk, sizeof clk, "%02d/%02d %02d:%02d %s", tmv.tm_mon + 1, tmv.tm_mday,
                          h12, tmv.tm_min, tmv.tm_hour < 12 ? "AM" : "PM");
@@ -196,14 +201,14 @@ static void drawEmptyBody(const struct Theme& th){
   txt("NO DATA YET", 120, y + 38, 2, th.dim, 'c', true);
   if (!configHasEndpoint()){
     txt("this board has no endpoint", 120, y + 68, 1, th.dim, 'c');
-    txt("HOLD LEFT 2 S", 120, y + 88, 2, th.ink ? th.tx : C_CY, 'c', true);
+    txt("HOLD DOWN 2 S", 120, y + 88, 2, th.ink ? th.tx : C_CY, 'c', true);
     txt("join the wi-fi it raises, set the url", 120, y + 110, 1, th.dim, 'c');
   } else {
     char host[40]; urlHostOf(cfg.url, host, sizeof host);
     txt("waiting on", 120, y + 68, 1, th.dim, 'c');
     txt(host, 120, y + 82, 1, th.ink ? th.tx : C_TX, 'c', true);
     txt(faultDetail[0] ? faultDetail : "nothing has answered yet", 120, y + 104, 1, th.dim, 'c');
-    txt("HOLD LEFT 2 S TO CHANGE IT", 120, y + 124, 1, th.dim, 'c');
+    txt("HOLD DOWN 2 S TO CHANGE IT", 120, y + 124, 1, th.dim, 'c');
   }
 }
 
@@ -314,6 +319,8 @@ void drawDashboard(){
   const Theme& th = themeFor(L);
   drawStatus(th);
   drawAlert(L);
-  drawBody(th);
-  drawFoot(th);
+  /* the privacy lock (lock.ino) only ever hides BODY and FOOTER — STATUS and
+     ALERT above are drawn exactly the same whether locked or not           */
+  if (lockIsLocked()) drawLockedBody(th);
+  else { drawBody(th); drawFoot(th); }
 }

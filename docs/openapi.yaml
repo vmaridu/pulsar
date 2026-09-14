@@ -102,7 +102,7 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
-      description: Required unless HMAC is configured (see docs/api.md appendix)
+      description: Required unless HMAC is configured (see docs/api.md §8)
 
   schemas:
     GatewayHealth:
