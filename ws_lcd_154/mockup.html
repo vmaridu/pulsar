@@ -569,10 +569,8 @@ function drawStatus(th){
   /* clock, centred — MM/DD hh:mm AM of measured_at */
   g.text(clockText(), W/2, y + 6, 1, th.dim, 'c');
 
-  /* wi-fi: three ascending bars, right */
-  const wx = W - 11;
-  for (let i = 0; i < 3; i++)
-    g.fillRect(wx + i*4 - 8, y + 12 - i*3, 2, 3 + i*3, th.ink ? th.tx : C.dim);
+  /* wi-fi: a dot and three arcs, lit by signal — same shape as ws_lcd_349's */
+  drawWifiIcon(229, y + 15, th);
 
   /* muted: a small speaker with a cross, left of the wi-fi */
   if (st.muted) drawMuteIcon(200, y + 6, th.ink ? th.tx : C.dim);
@@ -1166,6 +1164,28 @@ function drawMuteIcon(x, y, c){
 function drawChargeIcon(x, y, c){
   g.tri(x + 5, y,     x,     y + 4, x + 4, y + 4, c);
   g.tri(x + 4, y + 3, x + 6, y + 3, x + 1, y + 8, c);
+}
+/* a Wi-Fi fan: a dot and three arcs, lit by signal — ~10 x 8, anchored by
+   its bottom-centre. Mirrors dashboard.ino's own drawWifiIcon() exactly,
+   scaled down from ws_lcd_349's version. Replaces the old three ascending
+   bars, which read as a phone's signal icon, not Wi-Fi's. */
+const WIFI_RADII = [2, 4, 6];
+const WIFI_CS = [], WIFI_SN = [];
+for (let i = 0; i < 31; i++){ const a = (-135 + i*3) * Math.PI/180; WIFI_CS.push(Math.cos(a)); WIFI_SN.push(Math.sin(a)); }
+function drawWifiIcon(cx, cy, th){
+  const ink = th.ink;
+  const lit = NET.connected ? (NET.rssi > -55 ? 3 : NET.rssi > -65 ? 2 : NET.rssi > -75 ? 1 : 0) : 0;
+  const on = ink ? th.tx : C.dim, off = ink ? th.rule : C.dim2;
+  for (let k = 0; k < 3; k++){
+    const c = k < lit ? on : off;
+    for (let i = 0; i < 31; i++) g.px(cx + Math.round(WIFI_RADII[k]*WIFI_CS[i]), cy + Math.round(WIFI_RADII[k]*WIFI_SN[i]), c);
+  }
+  g.circle(cx, cy, 1, ink ? th.tx : (NET.connected ? (NET.portalBlocked ? C.or : C.dim) : C.dim2));
+  if (!NET.connected){
+    const sc = ink ? th.tx : C.or;
+    g.line(cx - 5, cy + 1, cx + 5, cy - 7, sc);
+    g.line(cx - 4, cy + 1, cx + 6, cy - 7, sc);
+  }
 }
 
 /* ==========================================================================

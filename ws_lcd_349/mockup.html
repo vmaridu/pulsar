@@ -233,7 +233,7 @@ const GLASS_MM = [85.616, 23.006], CASE_MM = 98.5;
 /* what the radio reports once it's joined a saved network — set over the
    setup hotspot on real hardware, standing in for an already-set-up board
    here, same as ws_lcd_154/mockup.html's own NET. Settings screen only. */
-const NET = { ssid: 'Office', rssi: -58, ip: '192.168.1.42' };
+const NET = { connected: true, portalBlocked: false, ssid: 'Office', rssi: -58, ip: '192.168.1.42' };
 
 const q565 = hex => {
   const v = parseInt(hex.slice(1), 16);
@@ -524,13 +524,31 @@ function drawBattery(x, y, th){
   if (st.plugged) drawChargeIcon(x+bw+3, y+3, ink ? th.tx : C.cy);   // vertically centred beside the shell (shell spans y..y+14)
   g.text(Math.round(pctv*100) + '%', x+bw + (st.plugged ? 21 : 10), y+3, 1, ink ? th.tx : C.dim2, 'l', true);
 }
-/* four ascending bars, bottom-aligned, even width and gap — anchored by
-   their own right edge so the icon can sit flush against a margin */
-function drawWifi(xRight, yBase, c){
-  const n = 4, bw = 3, gap = 2, heights = [5, 8, 11, 14];
-  const left = xRight - (n*bw + (n-1)*gap);
-  for (let i = 0; i < n; i++)
-    g.fillRect(left + i*(bw+gap), yBase - heights[i], bw, heights[i], c);
+/* a Wi-Fi fan: a dot and three arcs, lit by signal — 24 x 15, anchored by
+   its bottom-centre. Mirrors dashboard.ino's own drawWifiIcon() exactly:
+   not joined dims the whole fan and adds a slash through it (a different
+   shape at a glance, not just a dimmer one); joined but walled in by a
+   sign-in page turns the dot orange. */
+const WIFI_RADII = [5, 9, 13];
+const WIFI_CS = [], WIFI_SN = [];
+for (let i = 0; i < 31; i++){ const a = (-135 + i*3) * Math.PI/180; WIFI_CS.push(Math.cos(a)); WIFI_SN.push(Math.sin(a)); }
+function drawWifiIcon(cx, cy, th){
+  const ink = th.ink;
+  const lit = NET.connected ? (NET.rssi > -55 ? 3 : NET.rssi > -65 ? 2 : NET.rssi > -75 ? 1 : 0) : 0;
+  const on = ink ? th.tx : C.dim, off = ink ? th.rule : C.dim2;
+  for (let k = 0; k < 3; k++){
+    const c = k < lit ? on : off;
+    for (let i = 0; i < 31; i++){
+      g.px(cx + Math.round(WIFI_RADII[k]*WIFI_CS[i]), cy + Math.round(WIFI_RADII[k]*WIFI_SN[i]), c);
+      g.px(cx + Math.round((WIFI_RADII[k]+1)*WIFI_CS[i]), cy + Math.round((WIFI_RADII[k]+1)*WIFI_SN[i]), c);
+    }
+  }
+  g.circle(cx, cy, 1, ink ? th.tx : (NET.connected ? (NET.portalBlocked ? C.or : C.dim) : C.dim2));
+  if (!NET.connected){
+    const sc = ink ? th.tx : C.or;
+    g.line(cx - 9, cy + 1, cx + 9, cy - 15, sc);
+    g.line(cx - 8, cy + 1, cx + 10, cy - 15, sc);
+  }
 }
 
 /* part 1 — STATUS (battery, wifi) over ALERT (level, message, clock).
@@ -552,8 +570,8 @@ function drawPart1(th){
   g.fillRect(x, 0, w, H, th.bg);
 
   drawBattery(x + 12, 6, th);
-  drawWifi(x + w - 12, 20, ink ? th.tx : C.dim);
-  if (st.muted) drawMuteIcon(x + w - 46, 6, ink ? th.tx : C.dim);   // left of the wifi bars, same convention as ws_lcd_154's STATUS band
+  drawWifiIcon(x + w - 22, 20, th);
+  if (st.muted) drawMuteIcon(x + w - 46, 6, ink ? th.tx : C.dim);   // left of the wifi fan, same convention as ws_lcd_154's STATUS band
   g.hFade(x + 10, statusH, w - 20, ink ? th.rule : C.line);
 
   /* everything below the divider is centred — level, message and clock

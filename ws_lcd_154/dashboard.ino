@@ -118,7 +118,7 @@ static void drawStatus(const struct Theme& th){
   /* Wi-Fi — a dot and three arcs, lit by signal, same shape as ws_lcd_349's */
   drawWifiIcon(229, y + 15, th);
 
-  /* muted: a small speaker with a cross, left of the Wi-Fi bars */
+  /* muted: a small speaker with a cross, left of the Wi-Fi fan */
   if (soundMuted) drawMuteIcon(200, y + 6, th.ink ? th.tx : C_DIM);
 
   /* the poll hairline brightens for a moment after a forced refresh */
