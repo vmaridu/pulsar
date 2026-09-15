@@ -10,46 +10,31 @@
 [hidden]{display:none!important}
 body{margin:0;background:var(--bg);color:var(--tx);font-family:var(--mono);font-size:12px;
      -webkit-font-smoothing:antialiased}
-.wrap{max-width:860px;margin:0 auto;padding:30px 20px 56px}
+.wrap{max-width:900px;margin:0 auto;padding:26px 20px 56px}
 
-header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+header{display:flex;justify-content:center;align-items:baseline;gap:12px;flex-wrap:wrap}
 header h1{font-size:14px;font-weight:600;margin:0;letter-spacing:.02em}
 header .sub{color:var(--dim2);font-size:10.5px}
 header .dot{color:var(--cy)}
 
-/* ---------- device stage ---------- */
-.deviceStage{position:relative;margin:34px 0 18px;padding:44px 16px;border-radius:22px;
+/* ---------- device stage: the glass, centred, its case around it ---------- */
+.deviceStage{position:relative;margin:26px 0 14px;padding:36px 16px;border-radius:22px;
   display:flex;justify-content:center;
   background:radial-gradient(ellipse 70% 80% at 50% 50%,rgba(34,211,238,.06),transparent 72%)}
-
-.caseWrap{position:relative;width:min(92vw,760px);aspect-ratio:640/172;transition:aspect-ratio .3s ease}
-.caseWrap.device{aspect-ratio:672/212}
-.panel{position:absolute;inset:0;border-radius:5px;overflow:hidden;background:#000;
-  box-shadow:0 0 0 1px var(--line2),0 26px 60px -22px #000,0 0 44px -22px rgba(34,211,238,.35);
-  transition:left .3s ease,top .3s ease,width .3s ease,height .3s ease,border-radius .3s ease}
-.caseWrap.device .panel{left:2.381%;top:12.2642%;width:95.2381%;height:81.1321%;border-radius:2px}
-.panel canvas{display:block;width:100%;height:100%;image-rendering:pixelated}
-/* actual size: the wrap gets an exact px width computed from a real mm
-   figure, overriding the responsive min(92vw,760px) above; height then
-   just follows from the aspect-ratio already set on .caseWrap */
-.caseWrap.real .panel{border-radius:1px}
-.caseWrap.real .caseBody{stroke-width:1.4}
-
 .caseArt{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity .3s;pointer-events:none}
 .caseWrap.device .caseArt{opacity:1}
 .caseBody{fill:none;stroke:var(--cy);stroke-width:2}
-/* the three case buttons stay clickable even though the rest of the SVG
-   (outline, body) is click-through — each is a <g> with an invisible
-   generous hit area plus the small visible glyph */
+.caseWrap.real .caseBody{stroke-width:1.4}
+/* the case keys stay clickable although the rest of the SVG is click-through */
 .caseBtn{pointer-events:auto;cursor:pointer}
 .caseBtn .hitArea{fill:transparent}
 .caseKey{fill:none;stroke:var(--cy);stroke-width:1.6;opacity:.85;transition:opacity .15s,filter .15s}
 .caseIcon{fill:var(--cy);opacity:.85;transition:opacity .15s,filter .15s}
 .caseBtn.pressed .caseKey,.caseBtn.pressed .caseIcon{opacity:1;filter:drop-shadow(0 0 4px rgba(34,211,238,.7))}
 
-/* ---------- controls ---------- */
+/* ---------- controls: one pill row, then cards, all centred ---------- */
 .controlRow{display:flex;justify-content:center}
-.controls{display:inline-flex;gap:3px;padding:3px;border:1px solid var(--line);border-radius:9px;background:var(--pane)}
+.controls{display:inline-flex;gap:3px;padding:3px;border:1px solid var(--line);border-radius:9px;background:var(--pane);flex-wrap:wrap;justify-content:center}
 .controls button{border:none;background:transparent;color:var(--dim);border-radius:6px;
   padding:7px 13px;font-family:var(--mono);font-size:11px;cursor:pointer;
   display:inline-flex;align-items:center;gap:6px}
@@ -57,12 +42,9 @@ header .dot{color:var(--cy)}
 .controls button.on{background:#07222a;color:var(--cy)}
 kbd{border:1px solid var(--line);border-radius:3px;padding:0 4px;font-size:9px;color:var(--dim2)}
 
-.note{color:var(--dim2);font-size:10.5px;line-height:1.6;max-width:420px;text-align:center;
-  margin:14px auto 0}
-
 .calib{display:flex;flex-direction:column;gap:9px;align-items:center;
   border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--pane);
-  margin:14px auto 0;width:min(92vw,420px)}
+  margin:12px auto 0;width:min(92vw,560px)}
 .calRow{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;justify-content:center;
   color:var(--dim);font-size:10.5px}
 .calib input{width:60px;background:#0e131c;border:1px solid var(--line2);color:var(--tx);
@@ -72,9 +54,8 @@ kbd{border:1px solid var(--line);border-radius:3px;padding:0 4px;font-size:9px;c
   color:var(--dim2);font-size:10px;text-align:center;padding:6px}
 .calNote{margin:0;color:var(--dim2);font-size:10px;line-height:1.55;max-width:300px;text-align:center}
 
-/* ---------- rail cards (interact, alert level, log) ---------- */
 .card{border:1px solid var(--line);border-radius:9px;background:var(--pane);padding:12px 14px;
-  width:min(92vw,420px);margin:14px auto 0}
+  width:min(92vw,560px);margin:12px auto 0}
 .card h3{margin:0 0 10px;font-size:10px;font-weight:500;color:var(--dim2);
   letter-spacing:.14em;text-transform:uppercase}
 .row{display:flex;gap:7px;flex-wrap:wrap}
@@ -90,11 +71,36 @@ kbd{border:1px solid var(--line);border-radius:3px;padding:0 4px;font-size:9px;c
 .lv[data-l=info].on{border-color:#1a6b3d;background:#071c11;color:var(--gr)}
 .lv[data-l=warning].on{border-color:#7a3a0a;background:#1d0e04;color:var(--or)}
 .lv[data-l=critical].on{border-color:#7d2532;background:#1f070c;color:var(--rd)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:11px;margin-top:11px}
+.kv b{font-weight:400;color:var(--dim2)}
+.kv span{color:var(--tx);text-align:right}
+.meter{height:2px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:11px}
+.meter i{display:block;height:100%;width:0;background:var(--cy);transition:width .25s linear}
+pre.json{margin:0;font-size:10.5px;line-height:1.6;color:#9fb2cc;max-height:300px;overflow:auto;
+  white-space:pre-wrap;word-break:break-word}
+pre.json .k{color:var(--cy)} pre.json .n{color:#e6edf7} pre.json .s{color:#a9e39a}
 .log{font-size:10.5px;line-height:1.75;color:var(--dim2);max-height:150px;overflow:auto}
 .log b{color:var(--dim);font-weight:400}
 .log .t{color:#3d4a5f;margin-right:7px}
+/* the two long cards fold shut so the page fits one screen; click to open */
+details.fold summary{list-style:none;cursor:pointer;font-size:10px;font-weight:500;color:var(--dim2);
+  letter-spacing:.14em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+details.fold summary::-webkit-details-marker{display:none}
+details.fold summary::before{content:"▸";color:var(--dim2);font-size:10px}
+details.fold[open] summary::before{content:"▾"}
+details.fold summary:hover{color:var(--dim)}
+details.fold > :not(summary){margin-top:10px}
+footer{margin-top:24px;color:var(--dim2);font-size:10.5px;text-align:center}
 
-footer{margin-top:36px;color:var(--dim2);font-size:10.5px;line-height:1.8;text-align:center}
+/* the strip: the glass inset in a wide case, three keys top right */
+.caseWrap{position:relative;width:min(92vw,760px);aspect-ratio:640/172;transition:aspect-ratio .3s ease}
+.caseWrap.device{aspect-ratio:672/212}
+.panel{position:absolute;inset:0;border-radius:5px;overflow:hidden;background:#000;
+  box-shadow:0 0 0 1px var(--line2),0 26px 60px -22px #000,0 0 44px -22px rgba(34,211,238,.35);
+  transition:left .3s ease,top .3s ease,width .3s ease,height .3s ease,border-radius .3s ease}
+.caseWrap.device .panel{left:2.381%;top:12.2642%;width:95.2381%;height:81.1321%;border-radius:2px}
+.panel canvas{display:block;width:100%;height:100%;image-rendering:pixelated}
+.caseWrap.real .panel{border-radius:1px}
 </style>
 
 <div class="wrap">
@@ -111,18 +117,18 @@ footer{margin-top:36px;color:var(--dim2);font-size:10.5px;line-height:1.8;text-a
     </div>
     <svg class="caseArt" viewBox="0 0 672 212" preserveAspectRatio="none" aria-hidden="true">
       <rect x="1" y="1" width="670" height="210" rx="14" ry="14" class="caseBody"/>
-      <g class="caseBtn" data-btn="left" title="tap: settings · hold 2s: setup hotspot">
+      <g class="caseBtn" data-btn="left" title="LEFT — hold 2s: power off / on · a press resets the board (it sits on the power circuit)">
         <circle cx="594" cy="13" r="7.7" class="hitArea"/>
         <circle cx="594" cy="13" r="7" class="caseKey" fill="none"/>
-        <path d="M596.1,8.8 L590.5,13 L596.1,17.2 Z" class="caseIcon"/>
+        <circle cx="594" cy="13.7" r="3.5" class="caseKey" fill="none"/>
+        <line x1="594" y1="8.1" x2="594" y2="13" class="caseKey"/>
       </g>
-      <g class="caseBtn" data-btn="power" title="hold 2s: power off / on">
+      <g class="caseBtn" data-btn="reset" title="RESET — restarts the board">
         <circle cx="616" cy="13" r="7.7" class="hitArea"/>
         <circle cx="616" cy="13" r="7" class="caseKey" fill="none"/>
-        <circle cx="616" cy="13.7" r="3.5" class="caseKey" fill="none"/>
-        <line x1="616" y1="8.1" x2="616" y2="13" class="caseKey"/>
+        <circle cx="616" cy="13" r="2.2" class="caseIcon"/>
       </g>
-      <g class="caseBtn" data-btn="right" title="tap: display on/off · double-tap: mute · hold 2s: lock / unlock">
+      <g class="caseBtn" data-btn="right" title="RIGHT — tap: display on/off · double-tap: mute · hold 2s: lock / unlock keypad">
         <circle cx="638" cy="13" r="7.7" class="hitArea"/>
         <circle cx="638" cy="13" r="7" class="caseKey" fill="none"/>
         <path d="M635.9,8.8 L641.5,13 L635.9,17.2 Z" class="caseIcon"/>
@@ -134,8 +140,8 @@ footer{margin-top:36px;color:var(--dim2);font-size:10.5px;line-height:1.8;text-a
 <div class="controlRow">
   <div class="controls">
     <button id="doIntro">▶ replay boot<kbd>b</kbd></button>
-    <button id="tgCase" class="on" title="v">device view<kbd>v</kbd></button>
-    <button id="tgReal" title="z">actual size<kbd>z</kbd></button>
+    <button id="tgCase" class="on">device view<kbd>v</kbd></button>
+    <button id="tgReal">actual size<kbd>z</kbd></button>
   </div>
 </div>
 <div class="calib" id="calib" hidden>
@@ -151,16 +157,13 @@ footer{margin-top:36px;color:var(--dim2);font-size:10.5px;line-height:1.8;text-a
 <div class="card">
   <h3>Interact</h3>
   <div class="row">
-    <button class="b" id="doNext">▸ next metric<kbd>n</kbd></button>
+    <button class="b" id="doNext">▸ next metric<kbd>→</kbd></button>
     <button class="b" id="doHold">⏸ pause cycle<kbd>h</kbd></button>
-    <button class="b act" id="doPwr">🔌 on charger<kbd>p</kbd></button>
+    <button class="b" id="doPoll">poll now<kbd>p</kbd></button>
+    <button class="b act" id="doPwr">🔌 on charger<kbd>space</kbd></button>
     <button class="b" id="doLock">🔒 lock<kbd>l</kbd></button>
     <button class="b" id="doUnlock">🔓 unlock<kbd>u</kbd></button>
   </div>
-  <p class="hint" style="color:var(--dim2);font-size:10px;margin:9px 0 0">
-    Top-right case buttons: left arrow (tap: settings · hold 2s: setup hotspot), power
-    (hold 2s: off/on), right arrow (tap: display · double-tap: mute · hold 2s: lock/unlock).
-  </p>
 </div>
 
 <div class="card">
@@ -176,13 +179,28 @@ footer{margin-top:36px;color:var(--dim2);font-size:10.5px;line-height:1.8;text-a
 </div>
 
 <div class="card">
-  <h3>Log</h3>
-  <div class="log" id="log"></div>
+  <h3>Polling</h3>
+  <div class="meter"><i id="bar"></i></div>
+  <div class="kv">
+    <b>interval</b><span id="kInt">—</span>
+    <b>next poll</b><span id="kNext">—</span>
+    <b>screen</b><span id="kScr">—</span>
+    <b>display</b><span id="kDisp">on</span>
+    <b>measured_at</b><span id="kMeas">—</span>
+  </div>
 </div>
 
-<footer>
-  Build in ws_lcd_349/device.md · shared behaviour in docs/functional-requirements.md · contract in docs/api.md.
-</footer>
+<details class="card fold">
+  <summary>Response · <span id="jName" style="color:var(--cy)"></span></summary>
+  <pre class="json" id="json"></pre>
+</details>
+
+<details class="card fold">
+  <summary>Log</summary>
+  <div class="log" id="log"></div>
+</details>
+
+<footer>Build in ws_lcd_349/device.md · shared behaviour in docs/functional-requirements.md · contract in docs/api.md.</footer>
 </div>
 
 <script>
@@ -520,6 +538,15 @@ function drawWifi(xRight, yBase, c){
    itself carries colour. The whole-screen flash (see frame()) still turns
    this whole column, and every other, solid — that happens through `th`,
    not a fill this function hardcodes. */
+/* the message's two lines: up to MSG_CHARS on the first, split at the last
+   space that keeps it inside; the rest on the second, cut at MSG_CHARS */
+const MSG_CHARS = 16;
+function splitMessage(s){
+  if (s.length <= MSG_CHARS) return [s, ''];
+  let cut = s.lastIndexOf(' ', MSG_CHARS);
+  if (cut < 1) cut = MSG_CHARS;
+  return [s.slice(0, cut), s.slice(cut).trim().slice(0, MSG_CHARS)];
+}
 function drawPart1(th){
   const x = COL_X[0], w = COL_W[0], ink = th.ink, statusH = TOP_BAR_H, cx = x + w/2;
   g.fillRect(x, 0, w, H, th.bg);
@@ -535,9 +562,13 @@ function drawPart1(th){
   const lv = level(), fault = !!SNAP.fault;
   const wordC = ink ? th.tx : (fault ? C.gy : LV[lv].c);
   g.text(fault ? 'OFFLINE' : LV[lv].w, cx, statusH + 24, 3, wordC, 'c', true);
+  /* the message in its own size, bright and bold under the word — one line
+     when it fits MSG_CHARS, else two, broken at a space (dashboard.ino) */
   const msg = (fault ? 'no route to host' : SNAP.alert.message).slice(0, 20);
-  g.text(msg, cx, statusH + 68, 1.5, th.tx, 'c', true);
-  if (fault) g.text('HELD', cx, statusH + 92, 1.2, wordC, 'c', true);
+  const [l1, l2] = splitMessage(msg);
+  if (l2){ g.text(l1, cx, 76, 2, th.tx, 'c', true); g.text(l2, cx, 95, 2, th.tx, 'c', true); }
+  else g.text(l1, cx, 85, 2, th.tx, 'c', true);
+  if (fault) g.text('HELD', cx, 118, 1, wordC, 'c', true);
   g.text(dateText() + '   ' + timeText(), cx, H - 30, 1.5, th.dim, 'c');
 
   g.vFade(x + w - 1, 0, H, ink ? th.rule : C.line);
@@ -654,20 +685,19 @@ function drawLockedPlaceholder(th){
   g.fillRect(cx - 2, ringCY + bodyH*0.4, 4, bodyH*0.3, th.bg);
 
   g.text('LOCKED', cx, ringCY + bodyH + 18, 2.2, lc, 'c', true);
-  g.text('HOLD RIGHT ARROW TO UNLOCK', cx, ringCY + bodyH + 42, 1, th.dim, 'c');
+  g.text('HOLD RIGHT 2 S, ENTER CODE', cx, ringCY + bodyH + 42, 1, th.dim, 'c');
 }
 
-/* the unlock keypad — six columns: the leftmost shows the 6-digit entry
-   so far (one slot per digit, the most recent briefly shown before it
-   masks to a dot); the other five each split top/bottom into two digits,
-   0-9 across the ten cells. functional-requirements.md §6. */
+/* the unlock keypad — seven equal columns across the 640 px, the same
+   split as lock.ino: the first two hold the entry readout (six dots, the
+   most recent digit briefly shown before it masks), the other five each
+   split top/bottom into a digit — 1-5 across the top, 6-0 across the
+   bottom. A tap on the readout backs out. functional-requirements.md §6. */
 const KEYPAD_DIGITS = [[1,2,3,4,5],[6,7,8,9,0]];
-/* seven parts: the first two hold the entry readout, the other five each
-   split top/bottom into a digit — 5 columns x 2 rows = 0-9. */
 function keypadCols(){ return Array.from({ length: 8 }, (_, i) => Math.round(i * W / 7)); }
 function keypadDigitAt(dx, dy){
   const KX = keypadCols();
-  if (dx < KX[2]) return null;              // the entry area — not clickable
+  if (dx < KX[2]) return null;              // the readout — a tap there backs out, see glassTap()
   let col = 0;
   for (let i = 2; i < 7; i++) if (dx >= KX[i]) col = i - 2;
   return KEYPAD_DIGITS[dy < H/2 ? 0 : 1][col];
@@ -701,6 +731,8 @@ function drawKeypadScreen(th){
   }
   if (lockRateLimited())
     g.text('TOO MANY TRIES · WAIT ' + lockWaitMinutes() + ' MIN', ecx, dotY + 30, 1, C.rd, 'c', true);
+  else
+    g.text('TAP HERE - BACK', ecx, dotY + 30, 1, th.dim, 'c');
   g.vFade(KX[2], 0, H, ink ? th.rule : C.line);
 
   /* the ten digit cells */
@@ -713,8 +745,6 @@ function drawKeypadScreen(th){
     }
   }
   g.hFade(KX[2], H/2, W - KX[2], ink ? th.rule : C.line2);
-
-  g.text('TAP A DIGIT · HOLD RIGHT ARROW TO CANCEL', (KX[2] + W)/2, H - 14, 1, th.dim, 'c');
 }
 
 /* ==========================================================================
@@ -975,6 +1005,10 @@ function toggleFault(){
    is what's hidden, same as BODY/FOOTER on the square build.
    ========================================================================== */
 const lockIsLocked = () => st.locked;
+/* the mockup boots unlocked for convenience (real hardware always boots
+   locked); a reset here re-locks only once the lock has been used at all,
+   so a first look at the page stays open */
+let lockEverEngaged = false;
 function lockRecentFails(){
   const now = Date.now();
   st.lockFails = st.lockFails.filter(t => now - t < LOCK_FAIL_WINDOW_MS);
@@ -986,18 +1020,24 @@ function lockWaitMinutes(){
   return Math.ceil((LOCK_FAIL_WINDOW_MS - (Date.now() - Math.min(...st.lockFails))) / 60000);
 }
 function lockClear(){ st.lockEntry = ''; }
-/* RIGHT arrow held 2 s while unlocked — no code needed to take the data out of view */
+/* RIGHT held 2 s while unlocked — no code needed to take the data out of view */
 function lockEngage(){
   if (st.locked) return;
-  st.locked = true;
+  st.locked = true; lockEverEngaged = true;
   if (st.view === 'lock') st.view = 'main';
   log('lock: <b>locked</b>'); sync();
 }
-/* RIGHT arrow held 2 s while already locked — raises the keypad */
+/* RIGHT held 2 s while already locked — raises the keypad */
 function lockOpenKeypad(){
   if (!st.locked) return;
   lockClear(); st.view = 'lock';
   log('lock: keypad opened'); sync();
+}
+/* a tap on the readout — leaves the keypad without entering anything */
+function lockCloseKeypad(){
+  if (st.view !== 'lock') return;
+  lockClear(); st.view = 'main';
+  log('lock: keypad closed, still locked'); sync();
 }
 function lockSubmit(){
   if (lockRateLimited()){ lockClear(); return; }
@@ -1040,7 +1080,7 @@ function lockTick(){
 
 /* ==========================================================================
    Settings and setup-hotspot — minimal stand-in screens, full width.
-   Whatever view is up, a LEFT-arrow tap always returns to the dashboard.
+   Whatever view is up, a tap on the glass always returns to the dashboard.
    ========================================================================== */
 /* settings — the same three vertical parts the dashboard itself uses
    (COL_X/COL_W), each a themed group of label/value pairs: label small
@@ -1048,44 +1088,50 @@ function lockTick(){
    consistent indent — not one centred column of run-together text. */
 function drawSettingsScreen(th){
   g.fillRect(0, 0, W, H, th.bg);
-  g.text('SETTINGS', W/2, 8, 1.6, th.tx, 'c', true);
-  g.hFade(W/2 - 80, 24, 160, th.rule);
+  g.text('SETTINGS', W/2, 4, 1.6, th.tx, 'c', true);
+  g.hFade(W/2 - 80, 21, 160, th.rule);
 
-  /* same information ws_lcd_154's own settings screen shows — device and
-     battery, wi-fi, and the backend/gateways — just grouped into three
-     columns instead of one long scroll, since there's width to spend. */
+  /* the same rows settings.ino draws, in the same three parts: what am I
+     holding, what did it join and where is it pointing, what came back.
+     Sound is not listed — the crossed speaker in STATUS already says it;
+     the padlock says the lock. */
   const cols = [
     { title: 'DEVICE', rows: [
-        ['BATTERY', '82% · ' + (st.plugged ? 'CHARGING' : 'ON BATTERY')],
-        ['DISPLAY', st.screen ? 'ON' : 'OFF'],
-        ['SOUND',   st.muted ? 'MUTED' : 'ON'],
-        ['LOCK',    st.locked ? 'LOCKED' : 'UNLOCKED'],
+        ['BATTERY', '82% ' + (st.plugged ? 'CHARGING' : 'ON BATTERY')],
+        ['NAME',    'pulsar-3fa2c1'],
+        ['MAC',     'A0:B1:C2:3F:A2:C1'],
       ] },
-    { title: 'WI-FI', rows: [
-        ['NETWORK', NET.ssid],
-        ['SIGNAL',  NET.rssi + ' dBm'],
-        ['IP',      NET.ip],
+    { title: 'WI-FI / BACKEND', rows: [
+        ['NETWORK',     NET.ssid],
+        ['SIGNAL / IP', NET.rssi + ' dBm  ' + NET.ip],
+        ['HOST',        'api.example.com'],
+        ['AUTH',        'signed / tls ok'],
       ] },
-    { title: 'GATEWAY', rows: [
-        ['MEASURED', dateText() + ' ' + timeText()],
-        ['METRICS',  SNAP.metrics.length + ' screens'],
-        ['POLL EVERY', Math.round(pollInterval() / 1000) + ' s'],
+    { title: 'DATA', rows: [
+        ['GATEWAYS',  joinGateways()],
+        ['MEASURED',  dateText() + ' ' + timeText()],
+        ['LAST POLL', SNAP.metrics.length + ' screens, ' + Math.max(0, Math.round((Date.now() - st.lastPoll) / 1000)) + 's ago'],
+        ['POLLS',     'every ' + Math.round(pollInterval() / 1000) + ' s'],
       ] },
   ];
 
+  /* rows 26 px apart: label, a 2 px gap, the value, 5 px of air — four rows
+     end at 147, clear of the footer at 156 */
   cols.forEach((col, i) => {
     const x = COL_X[i] + 14, w = COL_W[i];
-    g.text(col.title, x, 28, 1.1, th.dim, 'l', true);
-    g.hFade(x, 42, w - 24, th.rule);
+    g.text(col.title, x, 26, 1.1, th.dim, 'l', true);
+    g.hFade(x, 38, w - 24, th.rule);
+    if (i === 2) g.fillRect(x + 36, 27, 5, 5, SNAP.fault ? C.gy : LV[level()].c);
     col.rows.forEach((row, j) => {
-      const ry = 52 + j*24;
+      const ry = 45 + j*26;
       g.text(row[0], x, ry, 1, th.dim);
-      g.text(row[1], x, ry + 11, 1.3, th.tx, 'l', true);
+      g.text(row[1], x, ry + 10, 1.3, th.tx, 'l', true);
     });
-    if (i > 0) g.vFade(COL_X[i], 26, H - 52, th.rule);
+    if (i > 0) g.vFade(COL_X[i], 22, H - 44, th.rule);
   });
 
-  g.text('TAP LEFT ARROW · BACK', W/2, H - 14, 1, th.dim, 'c');
+  g.hFade(W/2 - 200, 150, 400, th.rule);
+  g.text('TAP - BACK     SETUP HOTSPOT: HOLD THE LEFT PART OF THE DASHBOARD 2 S', W/2, 156, 1, th.dim, 'c');
 }
 function drawHotspotScreen(th){
   g.fillRect(0, 0, W, H, th.bg);
@@ -1094,23 +1140,27 @@ function drawHotspotScreen(th){
   g.text('join', cx, 62, 1.3, th.dim, 'c');
   g.text('pulsar-3fa2c1', cx, 82, 2, C.cy, 'c', true);
   g.text('then open the page it offers', cx, 108, 1.3, th.dim, 'c');
-  g.text('TAP LEFT ARROW - BACK', cx, H - 14, 1, th.dim, 'c');
+  g.text('TAP - BACK   HOLD 2 S - BACK   THE AP CLOSES WHEN YOU LEAVE', cx, H - 14, 1, th.dim, 'c');
 }
 
 /* ==========================================================================
-   Gestures — the three case buttons, same tap/double-tap/hold-2s map as
-   ws_lcd_154's own DOWN/PWR/UP keys, renamed for a landscape strip with no
-   physical DOWN key: LEFT ARROW stands in for DOWN, RIGHT ARROW for UP.
+   Gestures — the same map as input.ino. The keys are LEFT and RIGHT, with
+   RESET between them. LEFT sits on the board's power circuit: a press of
+   it resets the chip before any firmware sees the key, so LEFT is power
+   and nothing else. The standard map's DOWN roles — settings, the setup
+   hotspot — live on the glass instead, on the dashboard's left part
+   (STATUS / ALERT), which is on screen whenever the dashboard is, locked
+   or not. The other two parts carry the refresh hold.
    ========================================================================== */
 function settingsToggle(){
-  if (st.view !== 'main'){ st.view = 'main'; log('LEFT tap → back to dashboard'); return; }
-  st.view = 'settings'; log('LEFT tap → settings');
+  if (st.view !== 'main'){ st.view = 'main'; log('glass double-tap → back to dashboard'); return; }
+  st.view = 'settings'; log('glass double-tap on the left part → settings');
 }
 /* held again while already up, this exits instead of re-opening — same
    as ws_lcd_154's own DOWN-hold toggling the hotspot screen on and off. */
 function hotspotToggle(){
-  if (st.view === 'hotspot'){ st.view = 'main'; log('LEFT hold 2s → exit setup hotspot'); }
-  else { st.view = 'hotspot'; log('LEFT hold 2s → setup hotspot'); }
+  if (st.view === 'hotspot'){ st.view = 'main'; log('glass hold 2s → exit setup hotspot'); }
+  else { st.view = 'hotspot'; log('glass hold 2s on the left part → setup hotspot'); }
 }
 function screenToggle(){
   st.screen = !st.screen;
@@ -1121,39 +1171,89 @@ function muteToggle(){
   log('RIGHT double-tap → sound ' + (st.muted ? 'off' : 'on'));
 }
 function rightHold(){
-  if (lockIsLocked()) lockOpenKeypad(); else lockEngage();
+  if (lockIsLocked()){ log('RIGHT hold 2s → opening the unlock keypad'); lockOpenKeypad(); }
+  else { log('RIGHT hold 2s → locked'); lockEngage(); }
 }
 function powerToggle(){
   st.off = !st.off;
-  if (st.off){ st.offT0 = Date.now(); log('POWER hold 2s → off'); }
-  else log('POWER hold 2s → on');
+  if (st.off){ st.offT0 = Date.now(); log('LEFT hold 2s → off'); }
+  else log('LEFT hold 2s → on');
+}
+/* on real hardware a press of LEFT pulses the power rail — the chip
+   resets and boots again, intro and all. RESET does the same by design. */
+function boardReset(key){
+  if (st.off){ log(key + ' press → nothing, the board is off (hold LEFT 2 s)'); return; }
+  log(key === 'LEFT' ? 'LEFT press → the board resets (that key is on the power circuit)' : 'RESET → the board restarts');
+  st.view = 'main'; st.screen = true;
+  if (lockEverEngaged) st.locked = true;       // every restart boots locked — AGENTS.md §3
+  lockClear();
+  startIntro();
+}
+
+/* --- the glass: tap, double-tap and hold, by part ---------------------------
+   A tap anywhere steps to the next metric screen; off the main screen a tap
+   goes back. A double-tap on the LEFT part (x < COL_X[1]) opens settings.
+   A 2 s hold on the left part raises the setup hotspot; on the other two
+   parts it forces a refresh. On the keypad every tap is a digit, or a tap
+   on the readout to back out — no hold does anything there.            */
+function glassTap(dx, dy){
+  if (st.off) return;
+  if (!st.screen){ log('glass tap → ignored, display is off (tap RIGHT to wake it)'); return; }
+  if (st.view === 'lock'){
+    const d = keypadDigitAt(dx, dy);
+    if (d === null) lockCloseKeypad(); else lockDigit(d);
+    return;
+  }
+  if (st.view !== 'main'){ st.view = 'main'; log('glass tap → back to dashboard'); return; }
+  nextManual();
+}
+function glassDoubleTap(leftPart){
+  if (st.off || !st.screen) return;
+  if (st.view === 'lock'){ log('glass double-tap on the keypad → two digits'); return; }
+  if (st.view !== 'main'){ st.view = 'main'; log('glass double-tap → back to dashboard'); return; }
+  if (!leftPart){ log('glass double-tap on the right parts → future use'); return; }
+  settingsToggle();
+}
+function glassHold(leftPart){
+  if (st.view === 'hotspot' || (st.view === 'main' && leftPart)) hotspotToggle();
+  else if (st.view === 'main'){ log('glass hold 2s on the right parts → force refresh'); poll(true, 'glass hold'); }
+  else if (st.view === 'lock') log('glass hold on the keypad → nothing, a keypad only takes taps');
+  else log('glass hold 2s → nothing here');
 }
 
 /* ==========================================================================
    Hold — every hold is 2 s and shows a filling ring with the action named
    inside, on the SCREEN itself (not just a glow on the physical button),
-   so it can be watched and abandoned. AGENTS.md §3. BTNS tracks each case
-   button's own press so the ring's fill and the actual firing share one
+   so it can be watched and abandoned. AGENTS.md §3. BTNS tracks each
+   input's own press so the ring's fill and the actual firing share one
    clock instead of a separate setTimeout per button.
    ========================================================================== */
 const HOLD_MS = 2000, HOLD_SHOW_MS = 150;   // a brief delay before the ring shows, so a plain tap never flickers one
-const BTNS = { left: { down:false, t0:0, fired:false }, power: { down:false, t0:0, fired:false },
-                right:{ down:false, t0:0, fired:false } };
+const BTNS = { left: { down:false, t0:0, fired:false }, reset: { down:false, t0:0, fired:false },
+                right:{ down:false, t0:0, fired:false }, glass: { down:false, t0:0, fired:false, leftPart:false } };
 function gestureTick(){
   const now = Date.now();
   for (const k of Object.keys(BTNS)){
     const b = BTNS[k];
     if (!b.down || b.fired || now - b.t0 < HOLD_MS) continue;
     b.fired = true;
-    if (k === 'left') hotspotToggle();
-    else if (k === 'power') powerToggle();
-    else rightHold();
+    if (k === 'left') powerToggle();
+    else if (k === 'right'){ if (!st.off) rightHold(); }
+    else if (k === 'glass'){ if (!st.off && st.screen) glassHold(b.leftPart); }
+    /* RESET has no hold — a press already restarted the board */
   }
 }
+/* what a hold is heading for, or null when nothing is */
 function holdLabel(k){
-  if (k === 'left')  return st.view === 'hotspot' ? 'EXIT' : 'SETUP';
-  if (k === 'power') return st.off ? 'ON' : 'OFF';
-  return lockIsLocked() ? 'UNLOCK' : 'LOCK';
+  if (k === 'left')  return st.off ? 'ON' : 'OFF';
+  if (k === 'right') return st.off ? null : lockIsLocked() ? 'UNLOCK' : 'LOCK';
+  if (k === 'glass'){
+    if (st.off || !st.screen) return null;
+    if (st.view === 'hotspot') return 'EXIT';
+    if (st.view !== 'main') return null;
+    return BTNS.glass.leftPart ? 'SETUP' : 'REFRESH';
+  }
+  return null;
 }
 /* the ring: 48 ticks round the centre filling clockwise, the action inside */
 function holdRing(p, label){
@@ -1168,15 +1268,16 @@ function holdRing(p, label){
   g.text(label, cx, cy - 10, 2, C.tx, 'c', true);
   g.text('HOLD', cx, cy + 8, 1, C.dim, 'c');
 }
-/* drawn on top of whatever view is up — only one button can be down at a
+/* drawn on top of whatever view is up — only one input can be down at a
    time, so at most one ring ever shows */
 function drawHoldOverlay(){
   const now = Date.now();
   for (const k of Object.keys(BTNS)){
     const b = BTNS[k];
     if (!b.down || b.fired || now - b.t0 < HOLD_SHOW_MS) continue;
-    if (st.off && k !== 'power') continue;         // powered off — only the power button still answers
-    holdRing((now - b.t0) / HOLD_MS, holdLabel(k));
+    const label = holdLabel(k);
+    if (!label) continue;                            // nothing on its way to 2 s here
+    holdRing((now - b.t0) / HOLD_MS, label);
     return;
   }
 }
@@ -1192,13 +1293,44 @@ function log(msg){
   el.insertAdjacentHTML('afterbegin', `<div><span class="t">${t}</span>${msg}</div>`);
   while (el.children.length > 40) el.lastChild.remove();
 }
+/* A response can mix rows from more than one platform — every distinct
+   gateway named, in first-seen order. */
+function joinGateways(){
+  const seen = [];
+  SNAP.metrics.forEach(r => { if (!seen.includes(r.gateway)) seen.push(r.gateway); });
+  return seen.join(', ') || '-';
+}
+function jsonView(gw){
+  const o = { measured_at: gw.measured_at, alert: gw.alert, metrics: gw.metrics.map(m => ({
+    gateway: m.gateway, name: m.name,
+    bucket_unit: m.bucket_unit, bucket_size: m.bucket_size, bucket_count: m.bucket_count,
+    buckets_value_type: m.buckets_value_type, buckets: m.buckets, aggregates: m.aggregates })) };
+  return JSON.stringify(o, null, 2)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/"([^"]+)":/g, '"<span class="k">$1</span>":')
+    .replace(/: "([^"]*)"/g, ': "<span class="s">$1</span>"');
+}
 function sync(){
   document.querySelectorAll('.lv').forEach(el =>
     el.classList.toggle('on', !SNAP.fault && el.dataset.l === SNAP.alert.level));
   $('#doFault').classList.toggle('act', !!SNAP.fault);
   $('#doHold').classList.toggle('act', st.paused);
-  $('#doHold').textContent = st.paused ? '▶ resume cycle' : '⏸ pause cycle';
+  $('#doHold').innerHTML = (st.paused ? '▶ resume cycle' : '⏸ pause cycle') + '<kbd>h</kbd>';
+  $('#doPwr').innerHTML = (st.plugged ? '🔌 on charger' : '🔋 on battery') + '<kbd>space</kbd>';
+  $('#doPwr').classList.toggle('act', st.plugged);
+  $('#kScr').textContent  = (st.row + 1) + ' / ' + SNAP.metrics.length + ' · ' + curR().name;
+  $('#kDisp').textContent = st.off ? 'off (power)' : st.screen ? 'on' : 'off';
+  $('#kInt').textContent  = Math.round(pollInterval() / 1000) + ' s';
+  $('#kMeas').textContent = new Date(SNAP.measured_at * 1000).toTimeString().slice(0, 8);
+  $('#jName').textContent = joinGateways();
+  $('#json').innerHTML = jsonView(SNAP);
 }
+setInterval(() => {
+  const left = Math.max(0, st.nextPoll - Date.now());
+  $('#bar').style.width = (100 * (1 - left / pollInterval())) + '%';
+  $('#kNext').textContent = Math.ceil(left / 1000) + ' s';
+  sync();
+}, 250);
 
 function startIntro(){
   let seed = 0x1234567;
@@ -1254,7 +1386,7 @@ function frame(){
   }
   if (!st.screen){
     g.fillScreen('#000000');
-    g.text('DISPLAY OFF · HOLD RIGHT ARROW OR TAP IT TO WAKE', W/2, H/2, 1, '#101722', 'c');
+    g.text('DISPLAY OFF - TAP RIGHT TO WAKE', W/2, H/2, 1, '#101722', 'c');
     return requestAnimationFrame(frame);
   }
 
@@ -1322,14 +1454,13 @@ $('#diag').addEventListener('input', () => { storeSet('pulsar.screenDiag', $('#d
 $('#doIntro').addEventListener('click', startIntro);
 $('#doNext').addEventListener('click', nextManual);
 $('#doHold').addEventListener('click', toggleHold);
+$('#doPoll').addEventListener('click', () => poll(true, 'poll now'));
 $('#doFault').addEventListener('click', toggleFault);
 $('#doLock').addEventListener('click', lockEngage);
 $('#doUnlock').addEventListener('click', lockForceUnlock);
 $('#doPwr').addEventListener('click', () => {
   st.plugged = !st.plugged;
-  $('#doPwr').textContent = st.plugged ? '🔌 on charger' : '🔋 on battery';
-  $('#doPwr').classList.toggle('act', st.plugged);
-  log(st.plugged ? 'plugged in · charging' : 'unplugged · on battery');
+  log(st.plugged ? 'plugged in · charging' : 'unplugged · on battery'); sync();
 });
 document.querySelectorAll('.lv').forEach(el => el.addEventListener('click', () => setLevel(el.dataset.l)));
 
@@ -1363,20 +1494,45 @@ function wireGesture(key, { tap, dbl } = {}){
   el.addEventListener('pointerup', release);
   el.addEventListener('pointerleave', () => { el.classList.remove('pressed'); b.down = false; });
 }
-wireGesture('left',  { tap: settingsToggle });
-wireGesture('power', {});
+/* LEFT: a press resets the board, so its "tap" is a reset — only a hold
+   that reaches 2 s is power, and gestureTick() handles that. RESET is a
+   reset. RIGHT has the standard tap / double-tap / hold set. */
+wireGesture('left',  { tap: () => boardReset('LEFT') });
+wireGesture('reset', { tap: () => boardReset('RESET') });
 wireGesture('right', { tap: screenToggle, dbl: muteToggle });
 
-/* the unlock keypad lives on the canvas itself, not a DOM button — map
-   the click back to device coordinates the same way "actual size" scales
-   the panel, so it still lands right at any zoom level. */
-$('#screen').addEventListener('click', e => {
-  if (st.view !== 'lock') return;
-  const rect = e.target.getBoundingClientRect();
-  const dx = (e.clientX - rect.left) / rect.width * W, dy = (e.clientY - rect.top) / rect.height * H;
-  const d = keypadDigitAt(dx, dy);
-  if (d !== null) lockDigit(d);
-});
+/* --- the glass ---------------------------------------------------------------
+   Pointer coordinates map back to device pixels the same way "actual size"
+   scales the panel, so a touch lands right at any zoom level. Which part
+   was touched is decided on the way DOWN, like input.ino's tpLeftPart, so
+   a hold's ring can name what it is heading for. The keypad reads every
+   release as a tap straight away — there is nothing else to wait for on
+   that view; everywhere else a tap waits DBL_MS for a second one. */
+{
+  const el = $('#screen'), b = BTNS.glass, DBL_MS = 320, TAP_MS = 400;
+  let tapTimer = null, dx = 0, dy = 0;
+  const at = e => {
+    const rect = el.getBoundingClientRect();
+    dx = (e.clientX - rect.left) / rect.width * W; dy = (e.clientY - rect.top) / rect.height * H;
+  };
+  el.addEventListener('pointerdown', e => {
+    e.preventDefault(); at(e);
+    b.down = true; b.t0 = Date.now(); b.fired = false; b.leftPart = dx < COL_X[1];
+  });
+  const release = () => {
+    if (!b.down) return;
+    const wasFired = b.fired, held = Date.now() - b.t0;
+    b.down = false;
+    if (wasFired) return;                                 // the hold already fired and handled it
+    if (st.view === 'lock'){ if (tapTimer){ clearTimeout(tapTimer); tapTimer = null; } glassTap(dx, dy); return; }
+    if (held >= TAP_MS) return;                           // let go too late for a tap, too early for a hold
+    if (tapTimer){ clearTimeout(tapTimer); tapTimer = null; glassDoubleTap(b.leftPart); return; }
+    const x = dx, y = dy;
+    tapTimer = setTimeout(() => { tapTimer = null; glassTap(x, y); }, DBL_MS);
+  };
+  el.addEventListener('pointerup', release);
+  el.addEventListener('pointerleave', () => { b.down = false; });
+}
 
 document.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') return;
@@ -1388,7 +1544,9 @@ document.addEventListener('keydown', e => {
   if (e.key === 'f') toggleFault();
   if (e.key === 'l') lockEngage();
   if (e.key === 'u') lockForceUnlock();
-  if (e.key === 'p') $('#doPwr').click();
+  if (e.key === 'Escape') lockCloseKeypad();
+  if (e.key === 'p') $('#doPoll').click();
+  if (e.key === ' '){ e.preventDefault(); $('#doPwr').click(); }
   if (st.view === 'lock' && e.key >= '0' && e.key <= '9') lockDigit(Number(e.key));
 });
 

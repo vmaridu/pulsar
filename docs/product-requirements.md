@@ -310,6 +310,14 @@ values from a passing glance while still visibly indicating overall health.
     it) is applied automatically for the life of the device — never a
     number an owner has to remember to change twice a year. This only ever
     affects what is shown, never what is signed (§2.1).
+  - Where the display's brightness can be adjusted, separate levels for
+    on-battery and on-charger operation, so battery life and readability
+    can each be tuned on their own terms, switching the moment the device
+    notices the power source change.
+- The setup flow must offer a way to erase every configured value and
+  saved connection path and return the device to its unconfigured,
+  fresh-from-the-factory state — behind a confirmation deliberate enough
+  that a stray tap or click cannot trigger it.
 - **Every credential and the lock code are write-only from the setup flow's
   point of view.** The flow may state that a value has been set; it must
   never return the value itself. Submitting a blank field for one of these
@@ -324,7 +332,21 @@ values from a passing glance while still visibly indicating overall health.
 
 ---
 
-## 8. Observability requirements
+## 8. Power requirements
+
+- Powering off and back on both use the same long-press gesture (§4); a
+  press released before the hold completes must do nothing at all.
+- A battery-powered build must protect its cell. Below a low-charge
+  threshold, and not on external power, it announces the fact on screen
+  and by sound, waits a short grace period, then shuts itself down —
+  unless external power arrives during that period, which cancels it.
+- Turning the display off (§4) never stops polling, alerting or sound.
+- Where the display's brightness can be adjusted, it follows the power
+  source as configured in §7.
+
+---
+
+## 9. Observability requirements
 
 - A device with no other debugging interface must expose a live, human-
   readable diagnostic log covering, at minimum: every input gesture and the
@@ -342,7 +364,7 @@ values from a passing glance while still visibly indicating overall health.
 
 ---
 
-## 9. Defensive rendering requirements
+## 10. Defensive rendering requirements
 
 A response can legally omit any optional field, undersize any list, or
 otherwise arrive in a minimal-but-valid shape. Every renderer — the device
@@ -361,7 +383,7 @@ firmware and any simulator or preview tool built to exercise it — must:
 
 ---
 
-## 10. Extensibility requirements
+## 11. Extensibility requirements
 
 - The set of requirements in this document must hold for any future
   display form factor. A new build is a new set of answers to these same

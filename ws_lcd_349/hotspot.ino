@@ -2,7 +2,7 @@
    The setup hotspot — the board's own Wi-Fi, the page it serves, and the
    screen that tells you how to get in.
 
-   HOLD DOWN 2 s. The board raises an access point named after itself, serves
+   HOLD THE LEFT PART OF THE GLASS 2 s. The board raises an access point named after itself, serves
    one page at 192.168.4.1, and everything on that page is everything the
    firmware does not bake in: the full URL to poll, the API key, the API
    secret, and the networks to reach them over, in priority order.
@@ -288,8 +288,8 @@ void hotspotStart(){
 }
 
 void hotspotStop(){
-  /* Leaving can reach this more than once — showMain() calls it, and so does
-     the hold that exits — so it has to be safe to call when nothing is up. apPass is
+  /* Leaving by a glass tap calls this twice — once from onTap, once from inside
+     showMain() — so it has to be safe to call when nothing is up. apPass is
      the session marker: hotspotStart() sets it first and this clears it last. */
   if (!apPass[0] && !apServer && !apDns) return;
   if (apServer){ apServer->stop(); delete apServer; apServer = nullptr; }
@@ -310,50 +310,52 @@ void hotspotTick(){
 
 /* ------------------------------------------------------------------ screen
    Everything needed to get in, in the order it is needed: the network, its
-   password, then the address. Nothing here is a placeholder — if the AP did
-   not come up, this screen says that instead of lying about a password.   */
+   password, then the address — one per part across the width. Nothing here
+   is a placeholder — if the AP did not come up, this screen says that
+   instead of lying about a password.                                     */
 void drawHotspot(){
   cv->fillScreen(C_BG);
-  txt("SETUP", X_L, 8, 2, C_CY, 'l', true);
-  cv->fillRect(X_L, 28, X_R - X_L, 1, C_LINE);
+  txt("SETUP HOTSPOT", W / 2, 6, 2, C_CY, 'c', true);
+  hFade(W / 2 - 80, 24, 160, C_BG, C_LINE);
 
   if (!apServer || !apPass[0]){
-    txt("HOTSPOT FAILED", 120, 100, 2, C_OR, 'c', true);
-    txt("the radio would not raise it", 120, 126, 1, C_DIM2, 'c');
-    txt("TAP DOWN - BACK", 120, 196, 1, C_DIM, 'c');
+    txt("HOTSPOT FAILED", W / 2, 60, 3, C_OR, 'c', true);
+    txt("the radio would not raise it", W / 2, 96, 1, C_DIM2, 'c');
+    txt("TAP THE GLASS - BACK", W / 2, H - 12, 1, C_DIM, 'c');
     return;
   }
 
-  txt("JOIN THIS WI-FI", X_L, 34, 1, C_DIM2);
-  txt(deviceName, X_L, 45, 2, C_TX, 'l', true);
-  txt("PASSWORD", X_L, 68, 1, C_DIM2);
-  txt(apPass, X_L, 79, 2, C_CY, 'l', true);
-  txt("THEN OPEN", X_L, 102, 1, C_DIM2);
-  txt(AP_IP_STR, X_L, 113, 2, C_TX);
-  cv->fillRect(X_L, 136, X_R - X_L, 1, C_LINE);
+  /* three parts: join this / with this password / then open this */
+  const int cx1 = COL_X[0] + (COL_X[1] - COL_X[0]) / 2;
+  const int cx2 = COL_X[1] + (COL_X[2] - COL_X[1]) / 2;
+  const int cx3 = COL_X[2] + (COL_X[3] - COL_X[2]) / 2;
+  vFade(COL_X[1], 30, 92, C_BG, C_LINE);
+  vFade(COL_X[2], 30, 92, C_BG, C_LINE);
+  txt("1  JOIN THIS WI-FI", cx1, 44, 1, C_DIM2, 'c');
+  txt(deviceName, cx1, 66, 2, C_TX, 'c', true);
+  txt("2  PASSWORD", cx2, 44, 1, C_DIM2, 'c');
+  txt(apPass, cx2, 62, 3, C_CY, 'c', true);
+  txt("3  THEN OPEN", cx3, 44, 1, C_DIM2, 'c');
+  txt(AP_IP_STR, cx3, 66, 2, C_TX, 'c', true);
 
   /* live state, so you can see the phone arrive and the save land */
+  hFade(20, 122, W - 40, C_BG, C_LINE);
   const int n = apClients();
-  char v[40];
-  if (!n) txt("WAITING FOR A PHONE", X_L, 144, 1, C_DIM, 'l');
+  char v[48];
+  if (!n) txt("WAITING FOR A PHONE", 20, 130, 1, C_DIM);
   else {
     snprintf(v, sizeof v, "%d CONNECTED", n);
-    txt(v, X_L, 144, 1, C_GR, 'l', true);
+    txt(v, 20, 130, 1, C_GR, 'l', true);
   }
-  if (apLastHit) txt("PAGE OPENED", X_R, 144, 1, C_DIM2, 'r');
-
+  if (apLastHit) txt("PAGE OPENED", W / 2, 130, 1, C_DIM2, 'c');
   if (apSaves){
-    snprintf(v, sizeof v, "SAVED %u TIME%s", (unsigned)apSaves, apSaves == 1 ? "" : "S");
-    txt(v, X_L, 158, 1, C_GR, 'l', true);
-    txt("RESTART FROM THE PAGE TO USE IT", X_L, 170, 1, C_DIM2);
+    snprintf(v, sizeof v, "SAVED %u TIME%s - RESTART FROM THE PAGE", (unsigned)apSaves, apSaves == 1 ? "" : "S");
+    txt(v, W - 20, 130, 1, C_GR, 'r', true);
   } else {
     snprintf(v, sizeof v, "%u network%s saved, url %s", (unsigned)cfg.nnets,
              cfg.nnets == 1 ? "" : "s", cfg.url[0] ? "set" : "NOT SET");
-    txt(v, X_L, 158, 1, C_DIM2);
+    txt(v, W - 20, 130, 1, C_DIM2, 'r');
   }
 
-  cv->fillRect(X_L, 184, X_R - X_L, 1, C_LINE);
-  txt("TAP DOWN - BACK", 120, 192, 1, C_DIM, 'c');
-  txt("HOLD DOWN 2 S - BACK", 120, 204, 1, C_DIM2, 'c');
-  txt("THE AP CLOSES WHEN YOU LEAVE", 120, 220, 1, C_DIM2, 'c');
+  txt("TAP - BACK   HOLD 2 S - BACK   THE AP CLOSES WHEN YOU LEAVE", W / 2, H - 12, 1, C_DIM2, 'c');
 }

@@ -126,8 +126,9 @@ cursor:pointer}
   <label>Brightness while charging — <span id="brightChargingVal">90</span>%
     <input id="brightCharging" type="range" min="30" max="100" step="5" value="90"></label>
   <p class="hint">Two figures, not one — dim to save the cell, bright for free once you're
-     on the charger. Both run 30-100%; the board switches the moment it notices the charger,
-     no restart needed.</p>
+     on the charger. Both run 30-100%. This board has no way to tell whether the charger
+     is in, so it uses the <em>while charging</em> figure at all times; the on-battery
+     figure is kept for a board revision that can tell.</p>
 </section>
 
 <section>
@@ -141,8 +142,8 @@ cursor:pointer}
 
 <section>
   <h2>Lock</h2>
-  <label>6-digit code (1-9, no zero)
-    <input id="lockCode" type="password" inputmode="numeric" pattern="[1-9]*" maxlength="6"
+  <label>6-digit code
+    <input id="lockCode" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6"
       autocomplete="off" spellcheck="false"></label>
   <label>Auto-relock after
     <select id="lockTimeout">
@@ -155,12 +156,11 @@ cursor:pointer}
       <option value="1440">24 hours</option>
       <option value="0">Never (only a manual lock or a restart)</option>
     </select></label>
-  <p class="hint">Hold the UP key 2 s to lock the screen down to just the alert band, or — while
-     it's already locked — to raise this same keypad and unlock it again. Digits 1-9 only —
-     the on-device keypad is a 3x3 grid with no 0 key, so a code with a zero in it could
-     never be typed back in. Defaults to <code>123456</code> until you set your own. Five
-     wrong tries inside 30 minutes locks the keypad out for a while, so it can't just be
-     guessed at.</p>
+  <p class="hint">Hold the right key 2 s to lock the stats away behind a padlock; hold it again
+     to raise the keypad, and the code is what unlocks them. Six digits, 0-9. Defaults to
+     <code>123456</code> until you set your own. Five wrong tries inside 30 minutes locks the
+     keypad out for a while, so it can't just be guessed at. The board boots locked once it
+     has shown real data, and re-locks by itself after the time picked here.</p>
 </section>
 
 <section>
@@ -345,7 +345,7 @@ function load(keep){
     $('brightBatteryVal').textContent = $('brightBattery').value;
     $('brightCharging').value = String(c.brightnessCharging != null ? c.brightnessCharging : 90);
     $('brightChargingVal').textContent = $('brightCharging').value;
-    /* TZ_TABLE (ws_lcd_154.ino, via configJson()) is the one copy of this
+    /* TZ_TABLE (ws_lcd_349.ino, via configJson()) is the one copy of this
        list — built here each load rather than hardcoded a second time.   */
     var tzSel = $('tzIndex');
     tzSel.textContent = '';

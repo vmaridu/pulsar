@@ -43,10 +43,11 @@
        lock.ino           the privacy lock — code, keypad, auto-relock
        net.ino            poll scheduling and the HTTPS GET
        es8311.*           vendor codec driver, do not edit
+       fonts.h            ProFont in four sizes, generated — do not edit
 
    Input — the standard map, the whole contract. Anything not here is FUTURE USE:
-       GLASS  tap: next metric screen · double-tap: future · hold 2 s: refresh
-       DOWN   tap: settings on/off    · double-tap: future · hold 2 s: setup hotspot
+       GLASS  tap: next metric screen · double-tap: settings on/off · hold 2 s: refresh
+       DOWN   tap: future             · double-tap: settings on/off · hold 2 s: setup hotspot
        POWER  tap: future             · double-tap: future · hold 2 s: off / on
        UP     tap: display on/off     · double-tap: mute   · hold 2 s: lock / unlock
 
@@ -110,6 +111,7 @@
 #error "No EAP client header - update the ESP32 core (3.x) for WPA2-Enterprise"
 #endif
 #include "es8311.h"                 /* codec driver, beside this sketch — Espressif, Apache-2.0 */
+#include "fonts.h"                  /* ProFont at four sizes — the screen's one font, Adafruit GFX format */
 #if __has_include("TouchDrvCST.hpp")
 #include "TouchDrvCST.hpp"          /* SensorLib 2026+ */
 #elif __has_include("TouchDrv.hpp")
@@ -151,7 +153,7 @@
 #define LEDC_BL_RES             8
 #define BRIGHTNESS_MIN          30
 #define BRIGHTNESS_MAX          100
-#define BRIGHTNESS_DEFAULT_BATTERY   40
+#define BRIGHTNESS_DEFAULT_BATTERY   50
 #define BRIGHTNESS_DEFAULT_CHARGING  90
 
 #define PIN_I2C_SDA   42
@@ -626,28 +628,61 @@ void ageText(uint32_t ms, char* out, size_t cap){
   else                snprintf(out, cap, "%luh ago", (unsigned long)(s / 3600));
 }
 
-/* text: x,y is the TOP-LEFT of the 6x8 cell, matching the mockup's coords.
-   halo: a 1 px outline in that colour (the ground under it), printed at the
-   neighbours first, so text stays readable where it crosses the graph.
-   0 = no halo.                                                            */
+/* ------------------------------------------------------------------- text
+   One font, ProFont (fonts.h) — the same face as the wide build — in three
+   sizes that stand in for the old 6x8-cell sizes:
+
+       size 1     profont12   6 px wide, cap 8    STATUS, tile names, units, hints, the alert message
+       size 2     profont22   12 px wide, cap 14  the level word, names, shares, FOOTER — the old width exactly
+       size 3, 4  profont29   16 px wide, cap 19  every big value; 2 and 3 characters draw the same
+
+   x,y is the TOP-LEFT of the capitals, as it always was; the library
+   draws these fonts from the baseline, so `cap` is added underneath. The
+   boot intro's stencil PULSAR alone keeps the built-in cell font, through
+   txtCell(). halo: a 1 px outline in that colour (the ground under it),
+   printed at the neighbours first, so text stays readable where it
+   crosses the graph. 0 = no halo.                                       */
+struct Font { const GFXfont* data; uint8_t adv, cap; };
+static const Font F_SMALL = { &ProFont12,  6,  8 };
+static const Font F_MED   = { &ProFont22, 12, 14 };
+static const Font F_BIG   = { &ProFont29, 16, 19 };
+static const struct Font& fontFor(uint8_t size){ return size >= 3 ? F_BIG : size == 2 ? F_MED : F_SMALL; }
+/* how wide a string draws at a size — for layout decisions before drawing */
+static int txtW(const char* s, uint8_t size){ return (int)strlen(s) * fontFor(size).adv; }
+
 static int txt(const char* s, int x, int y, uint8_t size, uint16_t c,
                char align = 'l', bool bold = false, uint16_t halo = 0){
-  int w = (int)strlen(s) * 6 * size;
+  const struct Font& f = fontFor(size);
+  const int w = (int)strlen(s) * f.adv;
   if (align == 'c') x -= w / 2;
   if (align == 'r') x -= w;
-  cv->setTextSize(size);
+  const int base = y + f.cap;
+  cv->setFont(f.data);
+  cv->setTextSize(1);
   if (halo){
     cv->setTextColor(halo);
     const int right = bold ? 2 : 1;
     for (int dy = -1; dy <= 1; dy++)
       for (int dx = -1; dx <= right; dx++){
         if (dy == 0 && dx >= 0 && dx < right) continue;  /* the glyph itself covers these */
-        cv->setCursor(x + dx, y + dy); cv->print(s);
+        cv->setCursor(x + dx, base + dy); cv->print(s);
       }
   }
   cv->setTextColor(c);
-  cv->setCursor(x, y);
+  cv->setCursor(x, base);
   cv->print(s);
+  if (bold){ cv->setCursor(x + 1, base); cv->print(s); }
+  return w;
+}
+/* the built-in 6x8 cell font, scaled — the intro's stencil word only */
+static int txtCell(const char* s, int x, int y, uint8_t size, uint16_t c, char align = 'l', bool bold = false){
+  const int w = (int)strlen(s) * 6 * size;
+  if (align == 'c') x -= w / 2;
+  if (align == 'r') x -= w;
+  cv->setFont();
+  cv->setTextSize(size);
+  cv->setTextColor(c);
+  cv->setCursor(x, y); cv->print(s);
   if (bold){ cv->setCursor(x + 1, y); cv->print(s); }
   return w;
 }
@@ -927,6 +962,8 @@ void setup(){
      stop for either: a board with no config, or one whose networks are all
      out of range, is a working board with an honest banner on it. The first
      poll happens the moment wifi.ino gets online.                        */
+  // configFactoryReset();         /* uncomment for ONE flash to wipe every stored setting and
+  //                                   saved network, then comment it out again — config.ino */
   configLoad();                    /* config.ino — the endpoint and the saved networks */
   applyBacklight();                /* the configured duty, now that it's loaded — power.ino */
   lockBegin();                     /* lock.ino — the persisted lockout count, if any */
@@ -949,6 +986,18 @@ void setup(){
        (unsigned long)(pollIntervalMs() / 1000));
 }
 
+/* The pause between frames, spent watching the inputs. A quick double-tap
+   lifts and lands again inside one frame; read once a frame, the two taps
+   merged into one long touch and the double-tap was hit or miss.        */
+static void idleWait(uint32_t ms){
+  const uint32_t t0 = millis();
+  do {
+    delay(7);
+    handleTouch();          /* input.ino */
+    handleKeys();
+  } while (millis() - t0 < ms);
+}
+
 void loop(){
   handleTouch();            /* input.ino */
   handleKeys();             /* input.ino */
@@ -961,5 +1010,5 @@ void loop(){
   soundTick();              /* auto-clears a mute once its configured timeout elapses — sound.ino */
   lockTick();               /* auto-relocks an unlocked screen once its timeout elapses — lock.ino */
   render();                 /* ~25 fps; the alert flash and the count-up need it */
-  delay(28);
+  idleWait(28);
 }

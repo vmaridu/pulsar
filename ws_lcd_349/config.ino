@@ -12,7 +12,7 @@
                s   API secret — set it and requests are signed instead
                ca  one pasted PEM root, optional, empty = TLS unverified
                mt  minutes until a mute auto-clears; 0 = never — sound.ino
-               tz  index into TZ_TABLE (ws_lcd_154.ino) — the STATUS band's
+               tz  index into TZ_TABLE (ws_lcd_349.ino) — the STATUS band's
                    display-only clock zone, daylight saving and all.
                    Signed requests never read this; they sign raw UTC — net.ino
                lk  the privacy lock's 6-digit code — lock.ino. Defaults to
@@ -262,7 +262,7 @@ void configJson(JsonDocument& doc){
   doc["brightnessBattery"]  = cfg.brightnessBattery;
   doc["brightnessCharging"] = cfg.brightnessCharging;
 
-  /* TZ_TABLE (ws_lcd_154.ino) is the one copy of this list — sent here so
+  /* TZ_TABLE (ws_lcd_349.ino) is the one copy of this list — sent here so
      the setup page never hardcodes its own second copy to drift out of
      sync with it.                                                        */
   JsonArray tz = doc["tzones"].to<JsonArray>();
@@ -356,14 +356,14 @@ bool configApplyJson(JsonObjectConst in, char* err, size_t errcap){
   /* ---- the privacy lock's own code. Blank means "keep the one you have" —
      the same convention as the API secret and every Wi-Fi password: this
      page never shows what is already stored, only that something is.
-     1-9 only, never 0: the on-device keypad is a 3x3 grid of 1-9 with no
-     0 key at all (lock.ino), so a code this device could never type back
-     in must never be accepted here either.                              */
+     Any digit 0-9: this build's keypad (the mockup's ten cells) can type
+     every one of them back in. Stored now; lock.ino reads it once the
+     keypad arrives.                                                     */
   {
     const char* lk = in["lockCode"] | "";
     if (lk[0]){
-      if (strlen(lk) != 6 || strspn(lk, "123456789") != 6){
-        strlcpy(err, "the lock code must be exactly 6 digits, 1-9 (no zero)", errcap);
+      if (strlen(lk) != 6 || strspn(lk, "0123456789") != 6){
+        strlcpy(err, "the lock code must be exactly 6 digits", errcap);
         return false;
       }
       strlcpy(next.lockCode, lk, sizeof next.lockCode);

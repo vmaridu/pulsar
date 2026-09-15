@@ -29,10 +29,12 @@ Authorization: Bearer <token>
 
 | Input             | Tap                 | Double-tap        | Hold 2 s           |
 | ----------------- | ------------------- | ----------------- | ------------------ |
-| **Glass** (touch) | Next metric screen  | _future use_      | **Force refresh**  |
-| **DOWN** (PLUS)   | **Settings** on/off | _future use_      | **Setup hotspot**  |
+| **Glass** (touch) | Next metric screen  | **Settings** on/off | **Force refresh**  |
+| **DOWN** (PLUS)   | _future use_        | **Settings** on/off | **Setup hotspot**  |
 | **POWER** (PWR)   | _future use_        | _future use_      | **Power off / on** |
 | **UP** (BOOT)     | **Display on/off**  | **Mute / unmute** | **Lock / unlock**  |
+
+The three-key map is the square board's. The wide board has two programmable keys and the glass; how the same functions land on those is settled as each one arrives → [ws_lcd_349/device.md](ws_lcd_349/device.md).
 
 ## 📚 Docs
 
@@ -50,15 +52,14 @@ Authorization: Bearer <token>
 ## 🚀 Getting started
 
 1. 📡 Implement `GET {url}` against **[docs/api.md](docs/api.md)** — or want to test the contract first? Point at **[simulator/](simulator/)** and get real data with no backend
-2. 🖥️ Choose a device and flash it — **[ws_lcd_154/](ws_lcd_154/)** firmware runs today ([flashable `.bin`](#), [flashing guide](ws_lcd_154/README.md)); **[ws_lcd_349/](ws_lcd_349/)** is layout and contract only so far
+2. 🖥️ Choose a device and flash it — **[ws_lcd_154/](ws_lcd_154/)** ([flashing guide](ws_lcd_154/README.md)) or **[ws_lcd_349/](ws_lcd_349/)** ([flashing guide](ws_lcd_349/README.md)); the wide board's privacy lock is still a placeholder
 3. 📶 Hold **DOWN** for 2 s to raise the device's setup hotspot, join it, and fill in the full URL, API key/secret and your Wi-Fi networks at `192.168.4.1` → **[docs/functional-requirements.md §5](docs/functional-requirements.md#5--configuration)**
 4. 🖼️ Or skip hardware entirely — open a display's `mockup.html` to see it rendered
 
 ## 🗺️ Next
 
 - 🔐 Confirm HMAC signing on the device actually verifies
-- 🖥️ Firmware for the landscape board (`ws_lcd_349/`) — layout and contract only so far
+- 🖥️ Finish the landscape board (`ws_lcd_349/`) — the privacy lock's code entry and keypad
 - 📦 Ship flashable `.bin` images for both boards
-- ✂️ Sweep the readmes and docs
 - 🔀 Merge the working branch to `main`
 - ✍️ A public write-up — pick a home, then post it (LinkedIn and elsewhere)

@@ -16,6 +16,8 @@ configure it → [docs/functional-requirements.md §5](../docs/functional-requir
   | `wifi.ino`                           | Joining saved networks — priority, enterprise, captive portals    |
   | `hotspot.ino`                        | The setup hotspot, the page it serves, and its screen             |
   | `settings.ino`                       | The settings screen                                               |
+  | `lock.ino`                           | The privacy lock — code, keypad, auto-relock                      |
+  | `fonts.h`                            | ProFont at four sizes, Adafruit GFX format — the screen's one font |
   | `sound.ino`                          | The boot-intro torpedo fire, the critical alert sound, and mute    |
   | `net.ino`                            | Poll scheduling and the HTTPS `GET`                               |
   | `es8311.cpp` / `.h` / `es8311_reg.h` | Speaker codec driver (Espressif, Apache-2.0), from Waveshare's demo |
