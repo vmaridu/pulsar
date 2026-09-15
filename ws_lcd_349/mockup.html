@@ -1283,13 +1283,17 @@ function boardReset(key){
 
 /* --- the glass: tap and hold, by part -------------------------------------
    A tap on the LEFT part (x < COL_X[1]) opens settings directly — not
-   next-screen, and not the hotspot, which stays on that part's hold. A
-   tap on the other two parts steps to the next metric screen. Off the
-   main screen a tap goes back, from either part, except settings' own
-   CONTROLS region — see settingsTap(). A 2 s hold on the left part
-   raises the setup hotspot, and on the other two parts it forces a
-   refresh. On the keypad every tap is a digit, or a tap on the readout
-   to back out — no hold does anything there.                           */
+   next-screen, and not the hotspot, which stays on that part's hold, and
+   settings stays reachable even while locked (diagnostics are never
+   gated by the lock). The other two parts are where the padlock itself
+   is drawn while locked, so a tap there opens the keypad directly
+   instead of stepping to a screen nobody can see; unlocked, it steps to
+   the next metric screen as always. Off the main screen a tap goes back,
+   from either part, except settings' own CONTROLS region — see
+   settingsTap(). A 2 s hold on the left part raises the setup hotspot,
+   and on the other two parts it forces a refresh. On the keypad every
+   tap is a digit, or a tap on the readout to back out — no hold does
+   anything there.                                                      */
 function glassTap(dx, dy){
   if (st.off) return;
   if (!st.screen){ log('glass tap → ignored, display is off (tap RIGHT to wake it)'); return; }
@@ -1305,6 +1309,7 @@ function glassTap(dx, dy){
     settingsOpenT0 = Date.now(); settingsOpenX = dx; settingsOpenY = dy;
     return;
   }
+  if (lockIsLocked()){ log('glass tap on the locked icon → opening the unlock keypad'); lockOpenKeypad(); return; }
   nextManual();
 }
 function glassHold(leftPart){

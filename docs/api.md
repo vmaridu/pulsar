@@ -263,7 +263,7 @@ Nothing on the wire is computed from something else already on the wire — `lev
 | `buckets_value_type` | `total_count`    | The only series type defined so far          |
 | body                 | **4 KB**         | Parseable on constrained hardware            |
 
-- ✂️ Clients **truncate, never wrap and never scroll**. Anything longer is cut without warning
+- ✂️ Clients **truncate, never wrap**. Anything longer is cut without warning, except the rare label a build chose to scroll instead — that build's own `device.md` says which
 
 ---
 

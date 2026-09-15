@@ -60,7 +60,7 @@ No gesture on this board waits to see if a second tap follows. A double-tap was 
 | Input                        | Tap                    | Hold 2 s                                   |
 | ---------------------------- | ---------------------- | ------------------------------------------ |
 | **Glass** · left part        | **Settings** on / off  | **Setup hotspot** on / off                 |
-| **Glass** · right two parts  | Next metric screen     | **Force refresh**                          |
+| **Glass** · right two parts  | Next metric screen, or — locked — **open the unlock keypad** | **Force refresh** |
 | **Glass** · off the main screen | Back                 | In the hotspot: leave it                   |
 | **Glass** · the keypad       | A digit, or the readout to back out | _nothing_ — a keypad only takes taps |
 | **RIGHT** key                | **Display on / off**   | **Lock**, or — already locked — **open the unlock keypad** |
@@ -69,6 +69,7 @@ No gesture on this board waits to see if a second tap follows. A double-tap was 
 - ⏱️ **Every hold is 2 s**, and shows a ring filling toward it with the action inside — `SETUP`, `EXIT`, `REFRESH`, `LOCK`, `UNLOCK`, `OFF`, `ON`
 - 👆 **One narrow exception to "no gesture waits":** a second tap on the left part landing within 400 ms of the one that just opened settings, at the same spot, is a double-tap — recognized and reserved as future use, so it can't be misread as a fresh tap on whatever settings happens to be showing there (the sound icon, today) the instant it opens
 - 👆 **Parts, not zones, and only on the dashboard.** The left part is `x < 213` on the 640-wide picture, exactly where part 1 draws; the right two parts are the rest. A tap that slides is not a tap; on the right two parts a tap gives the chosen screen a fresh 5 s, on the left part a tap opens settings instead; with the display off a tap does nothing — RIGHT wakes it. Off the dashboard the parts mean nothing: a tap is back, a hold in the hotspot is exit
+- 🔓 **A tap on the right two parts while locked opens the unlock keypad** instead of stepping the cycle — parts 2 and 3 are the padlock then anyway, so there is no screen to step to. The left part still always opens settings, locked or not — the lock never gates diagnostics
 - 🌑 **RIGHT tap sleeps the panel only.** The cycle keeps turning and a crit still sounds in the dark
 - 🔕 **Sound mute/unmute lives on the settings screen now**, not a RIGHT double-tap → [below](#-settings-screen). The crossed speaker sits in STATUS while muted, same as always
 - 🔒 **RIGHT held 2 s** hides parts 2 and 3 behind a padlock — no code to lock; held again, it raises the keypad over the whole screen. The lock arms once real data has shown and the glass answered at boot; before that the hold is future use and draws no ring. It boots locked, and re-locks on its own after the setup page's timeout → [functional-requirements.md §6](../docs/functional-requirements.md#6--privacy-lock)
@@ -179,6 +180,7 @@ The same three sounds as the square build — the intro's torpedo fire, the full
 - [ ] Once data has shown, RIGHT held 2 s shows the `LOCK` ring and parts 2 and 3 become the padlock with `HOLD RIGHT 2 S, ENTER CODE`; part 1 keeps drawing, and the left part still answers a hold
 - [ ] RIGHT held 2 s again raises the keypad: `1 2 3 4 5` across the top, `6 7 8 9 0` across the bottom, six hollow dots on the left. Each digit shows in its dot for a moment, then masks; `lock: entry now 1/6 digits` prints, never the digit. `123456` unlocks (unless the setup page set another); a wrong code clears the dots and prints `lock: attempt rejected`; a tap on the readout closes the keypad; a hold on the keypad draws no ring
 - [ ] A restart boots locked — the padlock is back before any number shows
+- [ ] Locked, a tap on the right two parts (the padlock itself) opens the unlock keypad directly — same destination as RIGHT's own second hold, no screen-cycling detour; the left part still opens settings, same as unlocked
 - [ ] LEFT held 2 s shows the `OFF` ring, then `OFF`, then the board goes dark; from off, LEFT held 2 s brings it back through the `ON` ring — shorter does nothing
 - [ ] On USB, off goes dark and LEFT held 2 s brings it back
 - [ ] The intro's sound is audible and stops the instant the `PULSAR` screen starts

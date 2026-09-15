@@ -195,11 +195,22 @@ static void hotspotToggle(){
 }
 
 /* a glass tap on the main screen — the only view this dispatches for;
-   every other view is handled directly in handleTouch()'s up-transition */
+   every other view is handled directly in handleTouch()'s up-transition.
+   Settings stays on the left part's tap even while locked — diagnostics
+   are never gated by the lock. The right two parts are where the padlock
+   itself is drawn while locked (lock.ino's drawLockedBody() replaces
+   parts 2 and 3), so a tap there opens the keypad directly instead of
+   "next screen" — a screen change nobody can see the point of anyway
+   while the stats are hidden.                                          */
 static void onGlassTap(bool leftPart){
   if (leftPart){
     view = VIEW_SETTINGS;
     LOG("touch", "tap on the left part -> settings");
+    return;
+  }
+  if (lockIsLocked()){                               /* lock.ino */
+    LOG("touch", "tap on the locked icon -> opening the unlock keypad");
+    lockOpenKeypad();                                /* lock.ino */
     return;
   }
   nextScreen();                                     /* dashboard.ino */

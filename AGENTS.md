@@ -185,7 +185,7 @@ Authored in hex, quantised to RGB565.
 - 🚫 Nothing derived on the wire — no error rate, no throughput, no `window_minutes`
 - 🚫 Never `fillScreen()` inside `loop()`
 - 🚫 Never synthesise audio continuously on-chip — render once, stream
-- ✅ Clients truncate; they never wrap and never scroll
+- ✅ Clients truncate; they never wrap. (A label that scrolls instead of truncating is a rare, deliberate exception — that build's own `device.md` owns the fact of which one and why)
 - 🔑 **A stored secret never leaves the device.** The setup page is told *that* a password
   exists, never what it is — it comes back as `""` with a `…Set` flag beside it, and an
   empty field posted back means "keep the one you have". Anyone within radio range of the

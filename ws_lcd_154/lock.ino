@@ -199,8 +199,9 @@ void lockTick(){
 }
 
 /* ------------------------------------------------------------------ keypad
-   A 3-row, 3-column grid — digits 1-9 only, each cell a full 80 x 58, big
-   enough to hit reliably with a fingertip on a 1.54" panel. The code is
+   A 3-row, 3-column grid — digits 1-9 only, each cell a full 80 px wide
+   and (see LOCK_ROW_Y below) close to 58 px tall, big enough to hit
+   reliably with a fingertip on a 1.54" panel. The code is
    validated to 1-9 only (config.ino) specifically so this grid never needs
    a 0, a clear or a backspace key competing for the same space — a wrong
    digit just rides out to a rejected attempt; DOWN (not a grid cell) backs
@@ -209,29 +210,45 @@ void lockTick(){
 
    The touch axes needed an outright swap plus one inversion to line up
    with the canvas (input.ino's handleTouch() — confirmed on real hardware,
-   not a guess: columns and the row0/row1 boundary all land correctly now).
-   STILL OPEN: the row1/row2 boundary specifically reads a bit early, so
-   the lower part of 4/5/6 can still register as 7/8/9 — likely the touch
-   panel's real coordinate range not being exactly 0-239, an error small
-   near the top of the grid and large enough to matter two rows down.
-   Every tap still logs its raw point and the resolved cell, which is what
-   a fix here needs: the exact (x,y) of a press that lands wrong.         */
+   not a guess: columns and the row0/row1 boundary land correctly).
+
+   ROW1/ROW2 FIX, ESTIMATED — NOT YET HARDWARE-CONFIRMED. The row1/row2
+   boundary read early on real hardware: the lower part of 4/5/6 could
+   register as 7/8/9, while every other cell (both columns, the row0/row1
+   line, 7/8/9 pressed on their own centres) read correctly — consistent
+   with the touch panel's real coordinate range not being exactly 0-239,
+   an error too small to matter near the top of the grid and large enough
+   two rows down. Rather than one LOCK_CELL_H for all three rows, LOCK_ROW_Y
+   below gives row 1 LOCK_ROW12_NUDGE px more room at row 2's expense —
+   a reasoned estimate from the symptom, not a measurement. Both drawLock()
+   and the hit test below read the same table, so what's drawn always
+   matches what a tap resolves to. If 4/5/6 still misses low, or 7/8/9
+   now misses high, "touch: down at X,Y (raw RX,RY)" (input.ino, printed
+   on every touch-down) plus "lock: tap at X,Y -> cell (R,C)" below are
+   the exact numbers a real correction needs — nudge LOCK_ROW12_NUDGE
+   from those, not from another guess.                                   */
 static const char* const LOCK_KEYS[3][3] = {
   { "1", "2", "3" },
   { "4", "5", "6" },
   { "7", "8", "9" },
 };
-#define LOCK_GRID_Y   64
-#define LOCK_CELL_W   80
-#define LOCK_CELL_H   58
+#define LOCK_GRID_Y        64
+#define LOCK_CELL_W        80
+#define LOCK_CELL_H        58
+#define LOCK_ROW12_NUDGE   14   /* how far the row1/row2 line moves down — see above */
+static const int LOCK_ROW_Y[4] = {
+  LOCK_GRID_Y,
+  LOCK_GRID_Y + LOCK_CELL_H,
+  LOCK_GRID_Y + 2 * LOCK_CELL_H + LOCK_ROW12_NUDGE,
+  LOCK_GRID_Y + 3 * LOCK_CELL_H,     /* row 2's own bottom edge — unchanged, not reported wrong */
+};
 
 void lockHandleTap(int16_t x, int16_t y){
   if (lockRateLimited()){ LOG("touch", "lock: tap ignored - rate limited"); return; }
-  if (y < LOCK_GRID_Y){ LOGF("touch", "lock: tap at %d,%d - above the grid, ignored", x, y); return; }
-  /* Clamped on both ends, not just the top — a coordinate transform that is
-     still slightly off at an edge must never index LOCK_KEYS out of bounds. */
-  int row = (y - LOCK_GRID_Y) / LOCK_CELL_H; if (row < 0) row = 0; if (row > 2) row = 2;
-  int col = x / LOCK_CELL_W;                 if (col < 0) col = 0; if (col > 2) col = 2;
+  if (y < LOCK_ROW_Y[0]){ LOGF("touch", "lock: tap at %d,%d - above the grid, ignored", x, y); return; }
+  int row = 2;
+  for (int r = 0; r < 2; r++) if (y < LOCK_ROW_Y[r + 1]){ row = r; break; }
+  int col = x / LOCK_CELL_W; if (col < 0) col = 0; if (col > 2) col = 2;
   LOGF("touch", "lock: tap at %d,%d -> cell (%d,%d)", x, y, row, col);
   lockDigit(LOCK_KEYS[row][col][0]);
 }
@@ -264,12 +281,14 @@ void drawLock(){
     return;
   }
 
-  for (int r = 0; r < 3; r++)
+  for (int r = 0; r < 3; r++){
+    const int y0 = LOCK_ROW_Y[r], rh = LOCK_ROW_Y[r + 1] - y0;
     for (int c = 0; c < 3; c++){
-      const int x0 = c * LOCK_CELL_W, y0 = LOCK_GRID_Y + r * LOCK_CELL_H;
-      cv->drawRect(x0 + 2, y0 + 2, LOCK_CELL_W - 4, LOCK_CELL_H - 4, C_LINE);
-      txt(LOCK_KEYS[r][c], x0 + LOCK_CELL_W / 2, y0 + LOCK_CELL_H / 2 - 7, 2, C_TX, 'c', true);
+      const int x0 = c * LOCK_CELL_W;
+      cv->drawRect(x0 + 2, y0 + 2, LOCK_CELL_W - 4, rh - 4, C_LINE);
+      txt(LOCK_KEYS[r][c], x0 + LOCK_CELL_W / 2, y0 + rh / 2 - 7, 2, C_TX, 'c', true);
     }
+  }
 }
 
 /* ------------------------------------------------------------ locked BODY

@@ -34,10 +34,14 @@ void nextScreen(){
   sweepT0 = millis();
 }
 
-/* a speaker with a cross — 12 x 7 */
-static void drawMuteIcon(int x, int y, uint16_t c){
+/* a small speaker — 12 x 7. Always shown, so its shape (not just its
+   presence) says what state sound is in; drawMuteCross() overlays the
+   cross on top of it only while muted. */
+static void drawSpeakerIcon(int x, int y, uint16_t c){
   cv->fillRect(x, y + 2, 2, 3, c);
   cv->fillTriangle(x + 2, y + 3, x + 5, y, x + 5, y + 6, c);
+}
+static void drawMuteCross(int x, int y, uint16_t c){
   cv->drawLine(x + 7, y + 1, x + 11, y + 5, c);
   cv->drawLine(x + 7, y + 5, x + 11, y + 1, c);
 }
@@ -87,19 +91,22 @@ static void drawStatus(const struct Theme& th){
   cv->fillRect(0, y, 240, h, th.bg);
 
   /* battery shell, filled by charge; cyan while charging, plus an explicit
-     bolt glyph so charging never depends on noticing a colour change      */
+     bolt glyph so charging never depends on noticing a colour change. No
+     number beside it any more — the shell's fill is the only readout, so
+     it's quantised to 10 % steps (100, 90, 80 … 10, 0) instead of a smooth
+     fill: a shell this small (11 px of fillable width) can't show a exact
+     percentage anyway, so it reads as the rounded tier it actually is. */
   const int pc = batteryPercent();
+  const int lvl = ((pc + 5) / 10) * 10;
   const bool onCharge = charging();
   const int bx = 9, by = y + 7;
   const uint16_t shell = th.ink ? th.rule : C_LINE2;
   cv->fillRect(bx, by, 13, 7, shell);
   cv->fillRect(bx + 1, by + 1, 11, 5, th.bg);
-  cv->fillRect(bx + 1, by + 1, (11 * pc) / 100, 5,
+  cv->fillRect(bx + 1, by + 1, (11 * lvl) / 100, 5,
                th.ink ? th.tx : (onCharge ? C_CY : C_DIM));
   cv->fillRect(bx + 13, by + 2, 1, 3, shell);
   if (onCharge) drawChargeIcon(bx + 16, by - 1, th.ink ? th.tx : C_CY);
-  char pcs[8]; snprintf(pcs, sizeof pcs, "%d%%", pc);
-  txt(pcs, bx + 24, y + 6, 1, th.ink ? th.tx : C_DIM2);   /* fixed slot — no jitter whether charging or not */
 
   /* the reading's clock — MM/DD hh:mm AM of measured_at, shown in the zone
      picked on the setup page (cfg.tzIndex — ws_lcd_154.ino's TZ_TABLE),
@@ -115,15 +122,46 @@ static void drawStatus(const struct Theme& th){
                          h12, tmv.tm_min, tmv.tm_hour < 12 ? "AM" : "PM");
   txt(clk, 120, y + 6, 1, th.dim, 'c');
 
-  /* Wi-Fi — a dot and three arcs, lit by signal, same shape as ws_lcd_349's */
-  drawWifiIcon(229, y + 15, th);
+  /* Wi-Fi — a dot and three arcs, lit by signal, same shape as ws_lcd_349's.
+     cy sits at y+12 so the fan's visual centre (the arcs sit above the dot)
+     lines up with the speaker icon and the battery/clock row beside it. */
+  drawWifiIcon(229, y + 12, th);
 
-  /* muted: a small speaker with a cross, left of the Wi-Fi fan */
-  if (soundMuted) drawMuteIcon(200, y + 6, th.ink ? th.tx : C_DIM);
+  /* sound: a speaker always shown, left of the Wi-Fi fan, dim at rest; a
+     brighter cross overlays it while muted, same dim-vs-lit convention the
+     Wi-Fi fan uses for its own bars. */
+  drawSpeakerIcon(200, y + 6, th.ink ? th.tx : C_DIM2);
+  if (soundMuted) drawMuteCross(200, y + 6, th.ink ? th.tx : C_DIM);
 
   /* the poll hairline brightens for a moment after a forced refresh */
   cv->fillRect(0, y + h - 1, 240, 1,
                th.ink ? th.rule : (refreshT0 && millis() - refreshT0 < 420 ? C_CY : C_LINE));
+}
+
+/* A whole-character marquee — the one exception to "clients truncate, never
+   scroll" (AGENTS.md §9), scoped to this one label on this one build: the
+   ALERT band's detail is the only text on either device that can carry a
+   genuinely long backend-supplied sentence (api.md §5, up to 20 chars) into
+   a slot this narrow. Steps one character every SCROLL_STEP_MS rather than
+   scrolling pixel-smooth — this font has no partial-glyph clip, so every
+   draw is a run of whole characters, never a sliced one. Message + a small
+   gap loops continuously; a message that already fits is just drawn once,
+   still. */
+#define SCROLL_STEP_MS 260
+static void drawScrolling(const char* msg, int x, int w, int y, uint8_t size, uint16_t c){
+  const int maxChars = w / fontFor(size).adv;
+  if (maxChars <= 0) return;
+  if ((int)strlen(msg) <= maxChars){ txt(msg, x, y, size, c); return; }
+
+  char loopStr[28]; snprintf(loopStr, sizeof loopStr, "%s    ", msg);  /* gap before it repeats */
+  const int loopLen = (int)strlen(loopStr);
+  const int pos = (int)((millis() / SCROLL_STEP_MS) % loopLen);
+
+  char win[24];
+  const int n = maxChars < (int)sizeof(win) - 1 ? maxChars : (int)sizeof(win) - 1;
+  for (int i = 0; i < n; i++) win[i] = loopStr[(pos + i) % loopLen];
+  win[n] = 0;
+  txt(win, x, y, size, c);
 }
 
 /* =================================================================== ALERT
@@ -143,12 +181,24 @@ static void drawAlert(const struct Level& L, const struct Theme& th){
   const int y = BAND_ALERT_Y, h = BAND_ALERT_H;
   cv->fillRect(0, y, 240, h, th.bg);
 
-  /* heading and subscript: the level word loud and coloured, the message
-     small and plain under it */
+  /* word and detail sit side by side now, not stacked — a bare word alone
+     left most of the band's width empty. The word is left-aligned, bold,
+     and a size up from before to fill the vertical room stacking used to
+     need; the detail starts right after it, baseline-matched, and takes
+     whatever width is left — never wrapped; a detail too long for that
+     width scrolls slowly instead of truncating, drawScrolling() above.
+     A long fault word (SERVER ERROR, NO ACCESS) can leave the detail
+     little or no room; that's fine, the word alone still says enough. */
+  const char* word = alertWord(L);
   const uint16_t wordC = th.ink ? th.tx : L.c;
-  txt(alertWord(L), X_L, y + 5, 2, wordC, 'l', true);
-  char msg[24]; strlcpy(msg, alertDetail(), sizeof msg);   /* api.md §5: <= 20 */
-  txt(msg, X_L, y + 24, 1, th.ink ? th.tx : th.dim);
+  txt(word, X_L, y + 7, 3, wordC, 'l', true);
+
+  const int msgX = X_L + txtW(word, 3) + 10;
+  const int avail = X_R - msgX;
+  if (avail >= 12){                              /* room for at least one glyph */
+    char msg[24]; strlcpy(msg, alertDetail(), sizeof msg);   /* api.md §5: <= 20 */
+    drawScrolling(msg, msgX, avail, y + 12, 2, th.ink ? th.tx : th.dim);
+  }
 }
 
 /* ==================================================================== BODY
@@ -231,7 +281,7 @@ static uint16_t levelColor(const char* level, const struct Theme& th){
 static void drawEmptyBody(const struct Theme& th){
   const int y = BAND_BODY_Y;
   cv->fillRect(0, y, 240, BAND_BODY_H, th.bg);
-  if (th.ink) hFade(X_L, y, X_R - X_L, th.bg, th.rule);
+  hFade(X_L, y, X_R - X_L, th.bg, th.rule);   /* soft rule, ALERT from BODY */
   txt("NO DATA YET", 120, y + 38, 2, th.dim, 'c', true);
   if (!configHasEndpoint()){
     txt("this board has no endpoint", 120, y + 68, 1, th.dim, 'c');
@@ -251,8 +301,7 @@ static void drawBody(const struct Theme& th){
   if (!snap.nrows){ drawEmptyBody(th); return; }
   const Row& r = snap.rows[curRow];
   cv->fillRect(0, y, 240, BAND_BODY_H, th.bg);
-  /* a rule parts the ALERT band from the BODY while the screen is lit */
-  if (th.ink) hFade(X_L, y, X_R - X_L, th.bg, th.rule);
+  hFade(X_L, y, X_R - X_L, th.bg, th.rule);   /* soft rule, ALERT from BODY */
   drawGraph(r, y + Y_GRAPH_TOP, y + Y_BASE, th);
 
   /* numbers count up from the previous screen's values */

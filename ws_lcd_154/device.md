@@ -123,8 +123,8 @@ Orders · Created → Dispatched → Cancelled
 
 | Band   | y   | h   | Content                                                                          |
 | ------ | --- | --- | -------------------------------------------------------------------------------- |
-| STATUS | 0   | 20  | Battery + charge (with an explicit bolt icon), the reading's clock, Wi-Fi, mute icon, poll hairline |
-| ALERT  | 20  | 36  | Solid level colour · level word at size 2 · `alert.message` under it at size 1    |
+| STATUS | 0   | 20  | Battery + charge (with an explicit bolt icon), the reading's clock, Wi-Fi, speaker icon (crossed while muted), poll hairline |
+| ALERT  | 20  | 36  | Solid level colour · level word at size 3, left · `alert.message` beside it at size 2, scrolling if it's too long for the width left |
 | BODY   | 56  | 160 | The heading tile, four more tiles — the `buckets` graph as their ground          |
 | FOOTER | 216 | 24  | Position rule · gateway's first five letters + metric `name`, one line at size 2 |
 
@@ -182,8 +182,8 @@ Same y, same height, every frame. What changes is loudness, not position.
 - 🕰️ **One fetch fault borrows this table's `warn` row instead of `fetch fault`'s:** `NO CLOCK` (a signed board waiting on its own SNTP) is a local hold-up, not "can't reach the backend," so it reads as orange, same as a real `warn` — still a held-data fault underneath
 - 🎯 **The alert belongs to the response, not to the metric on screen.** It follows you through every screen; tap through and look at whichever one you want
 - 🖋️ **During the flash every foreground turns to near-black ink** — numbers, labels, hairlines, the graph, the battery. No one colour reads on black, red, orange and grey alike (white on orange is under 3:1), so the ink follows the ground. The rest of the 5 s it is the normal screen, thresholds and all
-- ➖ Under an alert a rule parts the ALERT band from the BODY
-- 🔤 **Heading and subscript.** The level word at size 2, the message small under it at size 1
+- ➖ **A soft rule always parts the ALERT band from the BODY** — not just during a flash, at rest too, `hFade()` in `dashboard.ino`
+- 🔤 **Side by side, not stacked.** The level word at size 3, bold, left-aligned; `alert.message` at size 2 right beside it, baseline-matched, taking whatever width is left. A message too long for that width scrolls slowly (one character every 260 ms) instead of cutting off — [§3's text budget](#-text-budget) has the detail
 - ✅ `alert` is required in every response, so this band always has something to draw — there is no empty state to design
 - 🔤 Levels drawn abbreviated — `INFO` / `WARN` / `CRIT` — the same short form `alert.level` itself carries on the wire, so the screen never spells out anything the backend didn't send
 - 🚫 No glyph. The word and the colour say it
@@ -200,13 +200,13 @@ Same y, same height, every frame. What changes is loudness, not position.
 
 ### 🔠 Text budget
 
-One font, **ProFont** — the same monospaced terminal face the wide build draws — in three sizes, shipped in `fonts.h` in Adafruit GFX format and picked by `txt(…, size)`. Every glyph is the same width, so the counts below are exact. Bold is the same glyph printed twice, one pixel apart. Never wraps, never scrolls.
+One font, **ProFont** — the same monospaced terminal face the wide build draws — in three sizes, shipped in `fonts.h` in Adafruit GFX format and picked by `txt(…, size)`. Every glyph is the same width, so the counts below are exact. Bold is the same glyph printed twice, one pixel apart. Never wraps. One exception scrolls instead of truncating: the ALERT band's detail, when it's too long for the width left beside the level word — a whole-character marquee, one character every 260 ms, `drawScrolling()` in `dashboard.ino`. Nothing else on this build scrolls.
 
 | Size | Face      | Advance × cap | Chars across 240 px | Used for                                 |
 | ---- | --------- | ------------- | ------------------- | ---------------------------------------- |
-| 1    | ProFont12 | 6 × 8         | **40**              | STATUS band, alert message, tile names, units, hints |
-| 2    | ProFont22 | 12 × 14       | **20**              | level word, labels, shares, FOOTER       |
-| 3, 4 | ProFont29 | 16 × 19       | **15**              | every tile value — two and three characters draw the same |
+| 1    | ProFont12 | 6 × 8         | **40**              | STATUS band, tile names, units, hints    |
+| 2    | ProFont22 | 12 × 14       | **20**              | alert message, labels, shares, FOOTER    |
+| 3, 4 | ProFont29 | 16 × 19       | **15**              | level word, every tile value — two and three characters draw the same |
 | 5    | built-in  | 30 × 40       | —                   | `PULSAR` in the boot intro, the one place the classic 6 × 8 cell font still draws |
 
 This is where the [api.md §5](../docs/api.md#5--limits) limits come from: 14 / 16 / **20**.
@@ -275,7 +275,7 @@ Hold **DOWN** 2 s. The board raises a WPA2 access point named after itself, answ
 - 🔈 An earlier version of the alert dipped 260 → 180 Hz. A laptop plays that; this speaker cannot move below a few hundred hertz, so on the board the dip never happened — only the top of the sound came through
 - ⚙️ **Both rendered once at boot, in float maths only** — the S3's FPU is single precision, and double maths runs in software, slow enough to starve a core. Then a **250 Hz high-pass**: the speaker cannot move lower, and trying only rattles and distorts
 - 🔊 Codec volume **74 / 100** (−1.5 dB; the scale is logarithmic, 75 is 0 dB) — just under the ~75 ceiling where a small cell starts to sag. The amp stays on between flashes while an alert lasts, and switches off 6 s after the last sound
-- 🔕 **Double-tap UP** to silence every sound; double-tap again to bring it back. The screen says `SOUND OFF` / `SOUND ON` for a moment, and a small crossed speaker sits in the STATUS band while muted
+- 🔕 **Double-tap UP** to silence every sound; double-tap again to bring it back. The screen says `SOUND OFF` / `SOUND ON` for a moment; the STATUS band's speaker icon is always there, dim, and gains a cross over it while muted
 - 🔄 **Mute clears itself three ways**: the double-tap; a restart (RAM only, so every power-on or reset comes back with sound — except straight after a **brown-out reset**, which starts muted so a weak supply cannot loop the sound); or a configured timeout elapsing on its own — 5 m / 10 m / 30 m / 1 h / 6 h / 12 h / 24 h / never, set on the setup page, default 30 m → [functional-requirements.md §5](../docs/functional-requirements.md#5--configuration)
 - 🔇 No codec answering on I²C → no sound, everything else works
 - 🧩 `sound.ino` in the sketch folder, no extra library. `ESP_I2S` ships with the ESP32 core; the ES8311 driver (`es8311.cpp/.h`, Espressif, Apache-2.0) sits beside it. Exact GPIOs → [`ws_lcd_154.ino`](ws_lcd_154.ino)
@@ -404,7 +404,7 @@ The sketch is modular — one concern per file, all flat in `ws_lcd_154/` (Ardui
 - [ ] On USB, off goes dark and PWR held 2 s brings it back
 - [ ] **UP tap blanks the panel**; tap again and it comes back
 - [ ] With the panel blank, a crit **still sounds**, right at every 5 s mark
-- [ ] **UP double-tap** shows `SOUND OFF` and the crossed speaker; double-tap again brings sound back
+- [ ] **UP double-tap** shows `SOUND OFF` and crosses the STATUS band's speaker icon (visible even unmuted); double-tap again brings sound back and clears the cross
 - [ ] Muted, then power off and on → sound is back
 - [ ] `crit`, `warn` and no connection flash **the whole screen** for 500 ms right at the start of every 5 s screen — every number readable during the flash
 - [ ] `crit` plays the full alert with every flash; `warn` and no connection play the shorter, quieter notice instead — never both, and `info` stays silent
@@ -420,8 +420,10 @@ The sketch is modular — one concern per file, all flat in `ws_lcd_154/` (Ardui
 - [ ] Restarting the board while unlocked comes back locked
 - [ ] Changing the code and the auto-relock timeout on the setup page survives a restart
 - [ ] ALERT band's word is bold and full-strength colour at every level; the band's own background matches the rest of the screen at rest and only goes solid during the whole-screen flash
+- [ ] A short `alert.message` sits still beside the level word; a long one (near 20 chars) scrolls slowly, one character at a time, and never overlaps the word or runs past the screen edge
+- [ ] A soft rule is visible between the ALERT band and the BODY at all times, not just during a flash
 - [ ] `crit` plays its 500 ms sound with every flash, in step with it; `warn` and no connection stay silent
-- [ ] The battery icon shows an explicit bolt while charging, not just a colour change
+- [ ] The battery icon shows an explicit bolt while charging, not just a colour change; no percentage number is drawn beside it, and the fill only moves between 10 % steps
 - [ ] Sending a metric with no `gateway`, no `aggregates`, or a null field logs the problem on Serial and still renders — never a crash
 - [ ] A one-metric payload shows one full-width position segment and polls every 30 s
 - [ ] A sixth `metrics` entry is ignored rather than crashing, and Serial says so
