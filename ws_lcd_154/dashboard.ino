@@ -19,7 +19,7 @@
 
 /* ----------------------------------------------------------------- cycle
    snapshot the screen being left, so the next one's numbers count up from it */
-static void beginCount(){
+void beginCount(){
   const Row& r = snap.rows[curRow];
   for (int i = 0; i < MAX_TILES; i++)
     countFromP[i] = i < r.ntiles ? r.tiles[i].value : 0;
@@ -28,7 +28,7 @@ static void beginCount(){
 
 /* the next metric screen, wrapping. Driven by the 5 s cycle in net.ino and
    by a tap on the glass.                                                  */
-static void nextScreen(){
+void nextScreen(){
   beginCount();
   curRow = snap.nrows ? (curRow + 1) % snap.nrows : 0;
   sweepT0 = millis();
@@ -71,10 +71,15 @@ static void drawStatus(const struct Theme& th){
   char pcs[8]; snprintf(pcs, sizeof pcs, "%d%%", pc);
   txt(pcs, bx + 24, y + 6, 1, th.ink ? th.tx : C_DIM2);   /* fixed slot — no jitter whether charging or not */
 
-  /* the reading's clock — MM/DD hh:mm AM of measured_at, because this build
-     has no RTC and no NTP. It is the time of the data, not the time now.  */
-  time_t t = (time_t)(snap.measured_at + TZ_OFFSET_HOURS * 3600L);
-  struct tm tmv; gmtime_r(&t, &tmv);
+  /* the reading's clock — MM/DD hh:mm AM of measured_at, shown in the zone
+     picked on the setup page (cfg.tzIndex — ws_lcd_154.ino's TZ_TABLE),
+     daylight saving applied automatically by localtime_r() itself, never
+     computed here. This build has no RTC, so it can't show "now" on its
+     own — this is always the time of the data, not the time now. Nothing
+     to do with the clock signed requests use: that's raw UTC seconds from
+     time(nullptr), which localtime_r() never touches — net.ino.          */
+  time_t t = (time_t)snap.measured_at;
+  struct tm tmv; localtime_r(&t, &tmv);
   const int h12 = tmv.tm_hour % 12 ? tmv.tm_hour % 12 : 12;
   char clk[24]; snprintf(clk, sizeof clk, "%02d/%02d %02d:%02d %s", tmv.tm_mon + 1, tmv.tm_mday,
                          h12, tmv.tm_min, tmv.tm_hour < 12 ? "AM" : "PM");
@@ -95,17 +100,28 @@ static void drawStatus(const struct Theme& th){
 }
 
 /* =================================================================== ALERT
-   The whole band is the level colour at full strength — no tint, no black
-   mixed in — and it holds steady at every level. The flash is the whole
-   screen's job, not this band's; here the colour simply never changes.   */
-static void drawAlert(const struct Level& L){
-  const int y = BAND_ALERT_Y, h = BAND_ALERT_H;
-  cv->fillRect(0, y, 240, h, L.c);
+   Plain background at rest, the same ground every other band sits on.
+   Colour lives entirely in the level word: bold, and at full strength —
+   that's the whole identification, no background tint needed beside it.
+   The flash is still the whole screen's job, not this band's own resting
+   look: here the colour changes only because `th` does, exactly like
+   every other band.
 
-  /* heading and subscript: the level word loud, the message small under it */
-  txt(L.word, X_L, y + 6, 2, C_INK, 'l', true);
-  char msg[22]; strlcpy(msg, snap.message, sizeof msg);   /* api.md §5: <= 20 */
-  txt(msg, X_L, y + 25, 1, C_INK);
+   When the fetch layer has a fault standing, that is what this band says —
+   OFFLINE, NO ACCESS, SETUP — over numbers that are being held from the last
+   good poll. The payload's own `alert` is not shown then: "INFO" written
+   above held numbers reads as good news, which is the one thing a fault must
+   never look like. api.md §6.                                            */
+static void drawAlert(const struct Level& L, const struct Theme& th){
+  const int y = BAND_ALERT_Y, h = BAND_ALERT_H;
+  cv->fillRect(0, y, 240, h, th.bg);
+
+  /* heading and subscript: the level word loud and coloured, the message
+     small and plain under it */
+  const uint16_t wordC = th.ink ? th.tx : L.c;
+  txt(alertWord(L), X_L, y + 5, 2, wordC, 'l', true);
+  char msg[24]; strlcpy(msg, alertDetail(), sizeof msg);   /* api.md §5: <= 20 */
+  txt(msg, X_L, y + 24, 1, th.ink ? th.tx : th.dim);
 }
 
 /* ==================================================================== BODY
@@ -178,12 +194,36 @@ static uint16_t levelColor(const char* level, const struct Theme& th){
    top to bottom — a row with fewer than 5 tiles just leaves the remaining
    slots blank, never reflows them. Every tile follows the same layout as
    the hero (drawTile(), above) — only the heading draws bigger.          */
+/* Nothing has ever parsed — a board that has not been told where to look, or
+   one that cannot get there yet. The band stays blank of numbers on purpose:
+   there is no placeholder data to show and inventing some would make this the
+   most dangerous screen in the product. What it shows instead is the way
+   out, since the ALERT band above has already named the fault.           */
+static void drawEmptyBody(const struct Theme& th){
+  const int y = BAND_BODY_Y;
+  cv->fillRect(0, y, 240, BAND_BODY_H, th.bg);
+  if (th.ink) hFade(X_L, y, X_R - X_L, th.bg, th.rule);
+  txt("NO DATA YET", 120, y + 38, 2, th.dim, 'c', true);
+  if (!configHasEndpoint()){
+    txt("this board has no endpoint", 120, y + 68, 1, th.dim, 'c');
+    txt("HOLD DOWN 2 S", 120, y + 88, 2, th.ink ? th.tx : C_CY, 'c', true);
+    txt("join the wi-fi it raises, set the url", 120, y + 110, 1, th.dim, 'c');
+  } else {
+    char host[40]; urlHostOf(cfg.url, host, sizeof host);
+    txt("waiting on", 120, y + 68, 1, th.dim, 'c');
+    txt(host, 120, y + 82, 1, th.ink ? th.tx : C_TX, 'c', true);
+    txt(faultDetail[0] ? faultDetail : "nothing has answered yet", 120, y + 104, 1, th.dim, 'c');
+    txt("HOLD DOWN 2 S TO CHANGE IT", 120, y + 124, 1, th.dim, 'c');
+  }
+}
+
 static void drawBody(const struct Theme& th){
   const int y = BAND_BODY_Y;
+  if (!snap.nrows){ drawEmptyBody(th); return; }
   const Row& r = snap.rows[curRow];
   cv->fillRect(0, y, 240, BAND_BODY_H, th.bg);
   /* a rule parts the ALERT band from the BODY while the screen is lit */
-  if (th.ink) cv->fillRect(X_L, y, X_R - X_L, 1, th.rule);
+  if (th.ink) hFade(X_L, y, X_R - X_L, th.bg, th.rule);
   drawGraph(r, y + Y_GRAPH_TOP, y + Y_BASE, th);
 
   /* numbers count up from the previous screen's values */
@@ -204,7 +244,7 @@ static void drawBody(const struct Theme& th){
   }
 
   /* a hairline between the two tile columns */
-  cv->fillRect(COL2 - 9, y + Y_TILE1 + 2, 1, Y_TILE2 + 18 - Y_TILE1, th.rule);
+  vFade(COL2 - 9, y + Y_TILE1 + 2, Y_TILE2 + 18 - Y_TILE1, th.bg, th.rule);
 
   static const int qx[2]     = { X_L,       COL2 };
   static const int qright[2] = { COL2 - 14, X_R  };
@@ -267,7 +307,7 @@ static void drawFoot(const struct Theme& th){
 
 /* ------------------------------------------------------------------ toast */
 /* a short message in a box over the middle of the screen, gone after 1.2 s */
-static void drawToast(){
+void drawToast(){
   if (!toastT0 || millis() - toastT0 > 1200) return;
   const int w = (int)strlen(toastText) * 12 + 28, x = 120 - w / 2, y = 100;
   cv->fillRect(x, y, w, 40, C_BG);
@@ -279,11 +319,13 @@ static void drawToast(){
    for all of them: during an alert flash every band is lit together, which
    is what makes the whole screen the alert. The boot intro paints this once
    too, to cross-fade into it.                                             */
-static void drawDashboard(){
+void drawDashboard(){
   const Level& L = levelNow();
   const Theme& th = themeFor(L);
   drawStatus(th);
-  drawAlert(L);
-  drawBody(th);
-  drawFoot(th);
+  drawAlert(L, th);
+  /* the privacy lock (lock.ino) only ever hides BODY and FOOTER — STATUS and
+     ALERT above are drawn exactly the same whether locked or not           */
+  if (lockIsLocked()) drawLockedBody(th);
+  else { drawBody(th); drawFoot(th); }
 }

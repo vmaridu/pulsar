@@ -1,21 +1,22 @@
 # 📡 Pulsar gateway API
 
-One `GET`, one JSON object, no device knowledge required.
-
-🖥️ Builds that consume it → **[ws_lcd_154](../ws_lcd_154/device.md)** · **[ws_lcd_349](../ws_lcd_349/device.md)**
+One `GET`, one JSON object. This is the wire contract only — what a client
+does with the response is out of scope here → **[functional
+requirements](functional-requirements.md)**.
 
 ## 1. 🔌 Endpoint
 
 ```
-GET {base_url}/v1/gateway_health
+GET {url}
 Authorization: Bearer <token>
 Accept: application/json
 ```
 
-- 🔗 **One URL per device**, plain — no id, no query params
-- 🧩 **Serve every screen from this one endpoint.** If your backend fronts several platforms, merge them here and tag each row with `gateway` → [§4](#4--metrics)
+- 🔗 **One URL per client, exactly as configured.** Nothing is appended — whatever path you serve this from is what gets polled, verbatim
+- 🧩 **Serve every metric from this one endpoint.** If your backend fronts several platforms, merge them here and tag each row with `gateway` → [§4](#4--metrics)
 - 🔒 HTTPS only — plain HTTP hands the token to the network
-- 🔑 `Authorization` required unless HMAC is configured → [appendix](#-appendix--hmac)
+- 🔑 `Authorization` required unless HMAC is configured → [§8](#8--hmac)
+- 🏷️ Every request also carries `X-Device-Id`, `X-Device-Mac` and `X-Device-Board` — not part of the contract, and a server owes them nothing back. They exist purely so the other end can tell clients apart by more than source IP, if it wants to
 
 | Response | Must be                                      |
 | -------- | -------------------------------------------- |
@@ -49,9 +50,9 @@ Accept: application/json
       ],
       "aggregates": [
         { "name": "2XX", "value": 18659 },
-        { "name": "4XX", "value": 109,   "level": "warning" },
-        { "name": "5XX", "value": 15,    "level": "critical" },
-        { "name": "AVG", "value": 42,  "unit": "ms" },
+        { "name": "4XX", "value": 109, "level": "warning" },
+        { "name": "5XX", "value": 15, "level": "critical" },
+        { "name": "AVG", "value": 42, "unit": "ms" },
         { "name": "P95", "value": 180, "unit": "ms" }
       ]
     },
@@ -69,9 +70,9 @@ Accept: application/json
       ],
       "aggregates": [
         { "name": "2XX", "value": 14467 },
-        { "name": "4XX", "value": 51,  "level": "warning" },
+        { "name": "4XX", "value": 51, "level": "warning" },
         { "name": "5XX", "value": 7 },
-        { "name": "AVG", "value": 71,  "unit": "ms" },
+        { "name": "AVG", "value": 71, "unit": "ms" },
         { "name": "P95", "value": 310, "unit": "ms" }
       ]
     }
@@ -80,16 +81,16 @@ Accept: application/json
 ```
 
 Two rows, two `gateway` names — a backend that fronts both **Orders** and
-**Payments** merged them into the one response this device shows.
+**Payments** merged them into this one response.
 
-| Field             | Type   | Req | What it is                                             |
-| ----------------- | ------ | --- | ------------------------------------------------------- |
-| `measured_at`     | number | ✅  | Unix seconds you **measured** — not when you answered   |
-| `alert`           | object | ✅  | Your verdict right now → [§3](#3--alert)                |
-| `metrics`         | array  | ✅  | **1–5 rows** ("screens"), each names its own `gateway` → [§4](#4--metrics) |
-| `refresh_seconds` | number | ➖  | Suggested poll rate, advice only → [§7](#7--polling)    |
+| Field             | Type   | Req | What it is                                                                 |
+| ----------------- | ------ | --- | -------------------------------------------------------------------------- |
+| `measured_at`     | number | ✅  | Unix seconds you **measured** — not when you answered                      |
+| `alert`           | object | ✅  | Your verdict right now → [§3](#3--alert)                                   |
+| `metrics`         | array  | ✅  | **1–5 rows**, each names its own `gateway` → [§4](#4--metrics)             |
+| `refresh_seconds` | number | ➖  | Suggested poll rate, advice only → [§7](#7--polling)                       |
 
-- 🚫 **No root `gateway`.** The word only ever appears per row → [§4](#4--metrics) — a device doesn't have "a" gateway any more than it has "a" metric, it shows whatever the backend sends
+- 🚫 **No root `gateway`.** The word only ever appears per row → [§4](#4--metrics) — a response doesn't have "a" gateway any more than it has "a" metric, only whatever the backend sends per row
 - 🚫 No top-level window — **each row carries its own clock**
 - 🚫 No separate `overview` — a row happens to be the summary by **position** (`metrics[0]`), never by name
 - 🚫 Never send `null` — omit the field instead. Unknown fields are ignored
@@ -104,9 +105,7 @@ Two rows, two `gateway` names — a backend that fronts both **Orders** and
     {
       "gateway": "Payments",
       "name": "Paid",
-      "aggregates": [
-        { "name": "2XX", "value": 95865 }
-      ]
+      "aggregates": [{ "name": "2XX", "value": 95865 }]
     }
   ]
 }
@@ -126,43 +125,36 @@ Exactly one, never an array. **Always sent** — including when everything is fi
 | `level`   | string | ✅  | `info` · `warning` · `critical`       |
 | `message` | string | ✅  | **≤ 20** chars, one line, every level |
 
-| `level`      | Means                                 | Client                   |
-| ------------ | ------------------------------------- | ------------------------ |
-| 🟢 `info`     | Nothing to act on — the resting state | Green, steady, silent    |
-| 🟠 `warning`  | Degraded                              | Orange, flashes, silent  |
-| 🔴 `critical` | Broken                                | Red, flashes, **sounds** |
+| `level`       | Means                                 |
+| ------------- | -------------------------------------- |
+| 🟢 `info`     | Nothing to act on — the resting state |
+| 🟠 `warning`  | Degraded                              |
+| 🔴 `critical` | Broken                                |
 
-- 🖥️ **The verdict belongs to the response, not to a row.** Clients flash the **whole screen** on `warning` and `critical`, whichever metric happens to be showing
+- 🖥️ **The verdict belongs to the response as a whole, not to any one row** — it applies regardless of which metric a client happens to be showing → **[functional requirements](functional-requirements.md)** for how a client presents each level
 
 ---
 
 ## 4. 📊 `metrics`
 
-Every entry is the same object. `metrics[0]` is the summary; the rest are parts of it. Each is one **screen** on the device — up to 5 screens, the whole product.
+Every entry is the same object. `metrics[0]` is the summary; the rest are parts of it. Up to 5 rows, the whole response.
 
-| Field                | Type     | Req | What it is                                                                            |
-| -------------------- | -------- | --- | ------------------------------------------------------------------------------------- |
-| `gateway`            | string   | ✅  | Which platform this row came from, **≤ 14** chars — required, no top-level fallback   |
-| `name`               | string   | ✅  | **≤ 16** chars — IS the FOOTER text, no separate label. Plain ASCII, stable across polls |
-| `bucket_unit`        | string   | ➖  | `s`·`m`·`h` — default `m`                                                             |
-| `bucket_size`        | number   | ➖  | Units per bucket — default **1**, whole only                                          |
-| `bucket_count`       | number   | ➖  | Buckets in the row — default **30**, max **30**                                       |
-| `buckets_value_type` | string   | ➖  | What one bucket counts — only `total_count`. **Required whenever `buckets` is sent**  |
-| `buckets`            | number[] | ➖  | The span spread back over time                                                        |
-| `aggregates`         | array    | ✅  | **1–5 stat tiles** for this screen's BODY band → [below](#-aggregates--tiles)          |
-
-### 🏷️ `gateway` on a row
-
-There is no root `gateway` — the device doesn't have one, only rows do. `gateway` on a row says which platform a number actually came from; the client prints it in the FOOTER beside the row's `name`.
-
-- 🪧 **Required on every row.** There is nothing to fall back to
-- 🟰 Rows may name **different** gateways — Orders and Payments in one response is the ordinary case, not an edge case. The merge happens in your backend; the device just shows what it's given
+| Field                | Type     | Req | What it is                                                                               |
+| -------------------- | -------- | --- | ---------------------------------------------------------------------------------------- |
+| `gateway`            | string   | ✅  | Which platform this row came from, **≤ 14** chars — required, no top-level fallback      |
+| `name`               | string   | ✅  | **≤ 16** chars — the row's own display text, no separate label. Plain ASCII, stable across polls |
+| `bucket_unit`        | string   | ➖  | `s`·`m`·`h` — default `m`                                                                |
+| `bucket_size`        | number   | ➖  | Units per bucket — default **1**, whole only                                             |
+| `bucket_count`       | number   | ➖  | Buckets in the row — default **30**, max **30**                                          |
+| `buckets_value_type` | string   | ➖  | What one bucket counts — only `total_count`. **Required whenever `buckets` is sent**     |
+| `buckets`            | number[] | ➖  | The span spread back over time                                                           |
+| `aggregates`         | array    | ✅  | **1–5 stat tiles** for this row → [below](#-aggregates--tiles)                           |
 
 ### 📐 The rest
 
-- 📐 **Cap is 5 rows** — the metric **screens**, not to be confused with the up-to-5 **tiles** inside each row's `aggregates` ([below](#-aggregates--tiles)). Anything past the fifth row is dropped — an attention limit, not a rendering one
+- 📐 **Cap is 5 rows**, not to be confused with the up-to-5 **tiles** inside each row's `aggregates` ([below](#-aggregates--tiles)) — two different caps, never conflate them. Anything past the fifth row is dropped
 - 📋 Order: summary first, then **most important first**
-- 🔤 `name` **is** the FOOTER text — no separate label. Clients hold position by it, so keep it stable across polls even though it's user-facing
+- 🔤 `name` **is** the display text — no separate label. Clients hold position by it, so keep it stable across polls even though it's user-facing
 - ⚖️ Rows after the first should roughly reconcile with it
 - 👁️ **Everything you send is displayed.** There is no field a client accepts and quietly ignores — if you want to add one, there is nowhere to put it
 
@@ -172,32 +164,32 @@ There is no root `gateway` — the device doesn't have one, only rows do. `gatew
 span = bucket_size × bucket_count (in bucket_unit)
 ```
 
-| `unit` | `size` | `count` | Row covers | Caption drawn beside the heading |
-| ------ | ------ | ------- | ---------- | -------------------------------------- |
-| `m`    | 1      | 30      | 30 minutes | `LAST 30M`                             |
-| `m`    | 5      | 12      | 1 hour     | `LAST 60M`                             |
-| `s`    | 10     | 30      | 5 minutes  | `LAST 5M` — 300 s compacts to minutes  |
-| `h`    | 1      | 24      | 1 day      | `LAST 24H`                             |
+| `unit` | `size` | `count` | Row covers | Caption drawn beside the heading      |
+| ------ | ------ | ------- | ---------- | ------------------------------------- |
+| `m`    | 1      | 30      | 30 minutes | `LAST 30M`                            |
+| `m`    | 5      | 12      | 1 hour     | `LAST 1H` — 60 m compacts to hours    |
+| `s`    | 10     | 30      | 5 minutes  | `LAST 5M` — 300 s compacts to minutes |
+| `h`    | 1      | 24      | 1 day      | `LAST 24H`                            |
 
 - 🎚️ Three fields, not one `window_minutes` — one number says _how long_, never _how finely_
-- 🌍 **Governs the whole row**, not just the graph. A row with no `buckets` still needs it: the span is the divisor under the biggest number on screen
+- 🌍 **Governs the whole row**, not just the graph. A row with no `buckets` still needs it: the span is the divisor under the biggest number shown
 - 🔤 **`bucket_unit` is a single lowercase letter** — `s` · `m` · `h`. Anything else reads as `m`
-- 🖥️ **The client computes and draws the span itself** — `LAST 30M`, `LAST 5M`, `LAST 24H` — beside the heading tile, in the second line only the heading tile draws. Not sent on the wire; nothing to keep in sync
-- 🤝 Send the **same clock in every row** — screens are compared one after another, and two resolutions is a comparison that lies
+- 🖥️ **The caption (`LAST 30M`, `LAST 5M`, `LAST 24H`) is computed by the client, never sent on the wire** — nothing to keep in sync
+- 🤝 Send the **same clock in every row** — rows are compared one after another, and two resolutions is a comparison that lies
 - 🏁 The newest bucket **ends at `measured_at`**; buckets are contiguous and equal; the oldest starts one span earlier
 - ⛔ **Never send a bucket still filling.** A third-full bucket draws as a cliff and fakes an incident every poll — end at the last complete one
 - 🕐 Clock-aligned boundaries (`:00`, `:01`) are nice, not required
 
 ### 🧮 `aggregates` — tiles
 
-Each row's `aggregates` is an array of **1–5 tiles**, not a fixed object — one tile per interesting number, not one field per status code. **Position 0 is the heading** (the big number at the top of the screen); tiles 1–4 fill the four BODY slots, in order. A row with fewer than 5 tiles just leaves the remaining slots blank.
+Each row's `aggregates` is an array of **1–5 tiles**, not a fixed object — one tile per interesting number, not one field per status code. **Position 0 is the headline figure**; positions 1–4 are supporting figures, in order. A row with fewer than 5 tiles just leaves the remaining positions unused.
 
-| Field   | Type   | Req | What it is                                                                                       |
-| ------- | ------ | --- | ------------------------------------------------------------------------------------------------- |
-| `name`  | string | ✅  | **≤ 5 chars.** IS the text actually drawn — no separate label. Full formatting rules → [AGENTS.md](../AGENTS.md#10--aggregate-tile-formatting) |
-| `value` | number | ✅  | The tile's number                                                                                 |
-| `unit`  | string | ➖  | `ms` · `s` · `%` · omitted for a plain count                                                      |
-| `level` | string | ➖  | `info` · `warning` · `critical` — default `info` → [below](#-level--a-tiles-own-colour)           |
+| Field   | Type   | Req | What it is                                                                              |
+| ------- | ------ | --- | --------------------------------------------------------------------------------------- |
+| `name`  | string | ✅  | **≤ 5 chars.** IS the text actually shown — no separate label                           |
+| `value` | number | ✅  | The tile's number                                                                       |
+| `unit`  | string | ➖  | `ms` · `s` · `%` · omitted for a plain count                                            |
+| `level` | string | ➖  | `info` · `warning` · `critical` — default `info` → [below](#-level--a-tiles-own-severity) |
 
 ```json
 "aggregates": [
@@ -212,21 +204,15 @@ Each row's `aggregates` is an array of **1–5 tiles**, not a fixed object — o
 - 🎯 **One number, one unit, one job.** There is no second value bolted on beside it any more — a tile that needs a second number is a second tile
 - 🧩 **A client that gets fewer than 5 tiles just leaves the remaining slots blank** — never an error, never a crash. 1–5 is the whole valid range, not just 5
 - 0️⃣ No traffic = tiles with `0`, not a missing array. Zero is a fact
-- ⏲️ Latency values are whole milliseconds; the client rescales to `s` for display past 9999 — AGENTS.md's formatting guideline, not this doc's
+- ⏲️ Latency values are whole milliseconds; the client rescales to `s` for display past 9999 — a display concern, not this doc's
 
-### 🚦 `level` — a tile's own colour
+### 🚦 `level` — a tile's own severity
 
 Any tile may carry `level`, the same three words as [`alert.level`](#3--alert): `info` · `warning` · `critical`. Omit it and the tile is `info` — a normal-looking number, nothing to flag.
 
-| `level`      | Colour on the tile's value    |
-| ------------ | ------------------------------ |
-| 🟢 `info`     | Normal theme colour (default) |
-| 🟠 `warning`  | Orange                         |
-| 🔴 `critical` | Red                            |
-
-- 🎯 **Per-tile, not per-row.** `4XX` can be `warning` while `5XX` is `critical` on the same screen — each tile speaks for itself
-- 🚫 **The device never computes this.** No threshold baked into the client — a backend that wants `4XX` red past some rate sends `"level": "critical"` itself
-- 🔕 A tile's `level` never sounds or flashes anything — that's `alert`'s job ([§3](#3--alert)). This only changes one number's colour
+- 🎯 **Per-tile, not per-row, and independent of `alert.level`.** `4XX` can be `warning` while `5XX` is `critical` on the same row — each tile speaks for itself, and neither one changes the response's own `alert` verdict
+- 🚫 **The client never computes this.** No threshold baked in — a backend that wants `4XX` flagged past some rate sends `"level": "critical"` itself
+- 🔕 **Scoped to that one tile only.** `alert` (§3) is the only field that speaks for the response as a whole
 
 ### 📈 `buckets` + `buckets_value_type`
 
@@ -250,32 +236,32 @@ the "2XX" tile's value / (1 × 30) = 622 = 2XX per minute
 
 Nothing on the wire is computed from something else already on the wire — `level` is the backend's own judgement call, not a number crunched from other fields.
 
-| Shown           | Client computes                               |
-| --------------- | ---------------------------------------------- |
-| a tile's throughput | `value / (bucket_size × bucket_count)`     |
-| the span label  | `bucket_size × bucket_count` in `bucket_unit`  |
+| Shown               | Client computes                               |
+| ------------------- | --------------------------------------------- |
+| a tile's throughput | `value / (bucket_size × bucket_count)`        |
+| the span label      | `bucket_size × bucket_count` in `bucket_unit` |
 
 - 🚫 No `error_rate`, `request_count`, `throughput`, `rps`, `window_minutes`
-- 🔢 Numbers go **raw** — `18783`, not `"18.8k"`. Compaction and unit rescaling are the client's job → [AGENTS.md](../AGENTS.md#10--aggregate-tile-formatting)
-- ⚠️ A wrong clock silently scales the biggest number on screen. It is not a label
+- 🔢 Numbers go **raw** — `18783`, not `"18.8k"`. Compaction and unit rescaling are the client's job
+- ⚠️ A wrong clock silently scales the biggest number shown. It is not a label
 
 ---
 
 ## 5. 📏 Limits
 
-| Thing                | Limit            | Why                                  |
-| -------------------- | ---------------- | ------------------------------------ |
-| `gateway`            | **14** chars     | Rendered in the FOOTER               |
-| row `name`           | **16** chars     | One FOOTER line — IS the text drawn  |
-| `alert.message`      | **20** chars     | One line, never wrapped, every level |
-| `metrics`            | **5** entries    | 5 screens — summary + four parts     |
-| `aggregates`         | **1–5** entries  | Up to 5 tiles per screen — heading + up to four body slots |
-| tile `name`          | **5** chars      | One BODY tile line — IS the text drawn |
-| `bucket_count`       | **30**           | The graph is 228 px wide             |
-| `bucket_size`        | ≥ **1**          | Whole units only                     |
-| `buckets`            | = `bucket_count` | Short padded, long cut               |
-| `buckets_value_type` | `total_count`    | The only series type defined so far  |
-| body                 | **4 KB**         | Parsed on small hardware             |
+| Thing                | Limit            | Why                                          |
+| -------------------- | ---------------- | --------------------------------------------- |
+| `gateway`            | **14** chars     | A short, stable identifying label            |
+| row `name`           | **16** chars     | The row's own display text                   |
+| `alert.message`      | **20** chars     | One line, never wrapped, every level         |
+| `metrics`            | **5** entries    | Summary plus up to four more rows            |
+| `aggregates`         | **1–5** entries  | One headline figure plus up to four more     |
+| tile `name`          | **5** chars      | The tile's own display text                  |
+| `bucket_count`       | **30**           | Bounds how much history one row carries      |
+| `bucket_size`        | ≥ **1**          | Whole units only                             |
+| `buckets`            | = `bucket_count` | Short padded, long cut                       |
+| `buckets_value_type` | `total_count`    | The only series type defined so far          |
+| body                 | **4 KB**         | Parseable on constrained hardware            |
 
 - ✂️ Clients **truncate, never wrap and never scroll**. Anything longer is cut without warning
 
@@ -283,86 +269,74 @@ Nothing on the wire is computed from something else already on the wire — `lev
 
 ## 6. ⚠️ Errors
 
-Clients keep the **last good payload** on screen and mark it held. A failed poll must never look like a healthy zero.
+A client is expected to hold its last good payload through a failed poll
+rather than discard it — see **[functional requirements](functional-requirements.md)**
+for how that is presented. At the protocol level:
 
-| Status        | Shown as    | Client does                               |
-| ------------- | ----------- | ----------------------------------------- |
-| `200`         | `alert`     | Parse, cache, render                      |
-| `3xx`         | `REDIRECT`  | **Not followed** — fix the configured URL |
-| `401` / `403` | `NO ACCESS` | Keep the last payload                     |
-| `404`         | `NOT FOUND` | Keep the last payload                     |
-| `429`         | `THROTTLED` | Back off a cycle, honours `Retry-After`   |
-| `5xx`         | `BACKEND`   | Retry next cycle                          |
-| timeout / DNS | `OFFLINE`   | Keep the last payload                     |
+| Status        | Meaning here                    | Retry policy                    |
+| ------------- | -------------------------------- | -------------------------------- |
+| `200`         | A valid response body follows   | Normal schedule                 |
+| `3xx`         | The configured URL is wrong     | Not followed automatically      |
+| `401` / `403` | The credential was rejected     | Normal schedule                 |
+| `404`         | The URL does not resolve        | Normal schedule                 |
+| `429`         | Back off — honour `Retry-After` | Delayed by `Retry-After`        |
+| `5xx`         | Server-side failure             | Normal schedule                 |
+| timeout / no response | Unreachable              | Normal schedule                 |
 
-- 🟠 **Every fault gets alert treatment** — it flashes on the same 5 s pattern as `warning` and `critical`, but never sounds. A Wi-Fi roam must not sound like an outage
-- 🔇 **Never silent either.** Stale numbers shown calmly read as good news
-- 🩶 The fault banner is visually distinct from a real `warning` — "I cannot reach you" and "you say you are degraded" have different owners
-- 🪵 **Every outcome is logged on the device's serial port**, status and error text alike → [device.md §4](device.md#4--logging)
-- 🚫 Do not put error detail in a non-200 body. Clients read only the status
+- 🚫 **Do not put error detail in a non-200 body.** Only the status is read
 
 ---
 
 ## 7. ⏱️ Polling
 
-The device shows each metric for **5 s** and refetches when the cycle wraps, so the poll rate follows the number of rows you send:
+The expected poll rate follows the number of rows you send:
 
 ```
 poll interval = max(30, metric_count × 5) seconds
 ```
 
-| Rows | Cycle | Polls every |
-| ---- | ----- | ----------- |
-| 1    | 5 s   | **30 s**    |
-| 3    | 15 s  | **30 s**    |
-| 5    | 25 s  | **30 s**    |
-| 8    | 40 s  | **40 s**    |
+| Rows | Polls every |
+| ---- | ----------- |
+| 1    | **30 s**    |
+| 3    | **30 s**    |
+| 5    | **30 s**    |
+| 8    | **40 s**    |
 
 - 🛑 **Never faster than 30 s**, whatever the row count — the monitor must never become the incident
 - 📅 The clock is how much history an answer covers, **not** how often you are asked. A 30-minute span polled every 30 s is intended
-- 🤝 Tolerate an off-cadence request: a person can **hold the touch glass 2 s** to force a poll. Cache; do not treat it as an error
+- 🤝 **Tolerate an off-cadence request.** A client may reasonably poll early on demand — cache it, don't treat it as an error
 - ⏳ Never hold a request open for fresh data — answer in 5 s with what you have
-- 🕰️ `measured_at` is when the sample was taken. Serving a cached row? Send the cached row's time — clients dim numbers older than **twice the span**
+- 🕰️ `measured_at` is when the sample was taken. Serving a cached row? Send the cached row's time
 - 🎛️ `refresh_seconds` is clamped to **10–900 s** and treated as advice
-- 🌑 **The screen going dark changes nothing.** Polling and alerts carry on
 
 ---
 
-## 8. ☑️ Backend checklist
+## 8. 🔐 HMAC
 
-- [ ] `GET /v1/gateway_health` returns JSON under 4 KB in under 5 s
-- [ ] Missing or wrong `Authorization` → `401`
-- [ ] `measured_at`, `alert` and a non-empty `metrics` always present
-- [ ] No root `gateway` — every row carries its own, naming the platform it came from
-- [ ] `metrics` holds 1–5 rows of one shape, summary first, then most important first
-- [ ] Every row carries 1–5 `aggregates` tiles, position 0 the heading
-- [ ] Every tile carries `name` (≤ 5 chars, IS the text drawn) and `value`; units are `ms`/`s`/`%`/omitted; `level` (if sent) is `info`/`warning`/`critical`
-- [ ] Every row carries the same clock, and the newest bucket is complete
-- [ ] `buckets` oldest-first, exactly `bucket_count` values, `0` for any gap
-- [ ] Every row with `buckets` sends `"buckets_value_type": "total_count"`
-- [ ] `alert` in every response, and `level` returns to `info` when it clears
-- [ ] `name` values stable and stably ordered across polls, even though they're also what's drawn
-- [ ] Lengths within [§5](#5--limits): gateway 14 / name 16 / message 20 / tile name 5
-- [ ] Nothing computed on the wire at all — no `error_rate`, `request_count`, `all_count`, `window_minutes`, `platform`, `null`, or stringified numbers
-- [ ] Survives being asked every 30 s, for ever
-
----
-
-## 🔐 Appendix — HMAC
-
-Only when a static bearer token is unacceptable. Same endpoint, different headers.
-
-| Header        | Value                       |
-| ------------- | --------------------------- |
-| `X-Api-Key`   | public key for this gateway |
-| `X-Timestamp` | unix seconds                |
-| `X-Signature` | hex HMAC-SHA256             |
+Only when a static bearer token is unacceptable. Same endpoint, different headers — set an API secret on the client and the key stops being a bearer token.
 
 ```
-string_to_sign = "GET" + "\n" + path + "\n" + timestamp + "\n" + body
-signature = hex( HMAC-SHA256(secret, string_to_sign) )
+GET {url}
+X-Api-Key: <key>
+X-Timestamp: <unix seconds>
+X-Signature: <hex HMAC-SHA256>
+Accept: application/json
 ```
 
-- `GET` has an empty body
-- Reject timestamps older than **60 s**
-- The client needs a real clock — plan for one that just booted with no RTC
+| Header         | Value                                                          |
+| -------------- | -------------------------------------------------------------- |
+| `X-Api-Key`    | The public key for this client                                 |
+| `X-Timestamp`  | Unix seconds — must be within **60 s** of the server           |
+| `X-Signature`  | Hex HMAC-SHA256 of the string below, keyed with the API secret |
+
+```
+string_to_sign = "GET\n" + path + "\n" + timestamp + "\n"
+signature      = hex( HMAC-SHA256(api_secret, string_to_sign) )
+```
+
+Four lines, newline-separated: method, path, timestamp, empty body. `GET` has no body, so the last line is blank. The secret is the HMAC key, never part of the message.
+
+- 🔑 Empty secret → `Authorization: Bearer <key>` → [§1](#1--endpoint). Secret set → these three headers, no `Authorization`
+- ⏳ Reject timestamps older than **60 s** — or newer than the server will accept
+- 🕰️ **The client needs a trustworthy clock before signing anything.** One that has not yet established the real time must wait rather than sign a timestamp it knows is wrong
+- 🚫 Do not send `Authorization` in this mode

@@ -31,7 +31,13 @@ Nothing else. No `npm install` step — the server has no dependencies to fetch.
    ```
    cd path\to\pulsar\simulator
    ```
-3. Start it:
+3. Start it in the background:
+   ```
+   start.cmd
+   ```
+   Stop it with `stop.cmd`. Logs go to `log.txt`. You can also double-click either script in Explorer.
+
+   To keep it in the foreground instead:
    ```
    node server.js
    ```
@@ -55,6 +61,13 @@ Nothing else. No `npm install` step — the server has no dependencies to fetch.
 Same as macOS — a terminal, `cd` into `simulator/`, `node server.js`, then open
 `http://localhost:4180/`.
 
+On macOS / Linux you can also detach it:
+
+```
+./start.sh    # background; logs to log.txt
+./stop.sh     # stops that process
+```
+
 ### Changing the port
 
 The default port is **4180**. Override it with the `PORT` environment variable:
@@ -73,16 +86,24 @@ PORT=8080 node server.js
 ## Point a device at it
 
 The device needs to reach this machine's LAN IP, not `localhost` — find it with
-`ipconfig` (Windows) or `ifconfig` / `ip addr` (macOS/Linux), then set the device's
-configured endpoint to:
+`ipconfig` (Windows) or `ifconfig` / `ip addr` (macOS/Linux). Then hold **LEFT** on the
+device for 2 s, join the hotspot it raises, and put this in as the **URL** — the device
+polls exactly what you paste, nothing appended:
 
 ```
 http://<this-machine's-IP>:4180/v1/gateway_health
 ```
 
-The ws_lcd_154 firmware is offline-only today (`net.ino` reads an embedded payload, not
-a real GET) — this is for when that changes, and for exercising the mockups or any
-other client against a real HTTP response in the meantime.
+Leave the API key and secret empty too — by default this server doesn't check them. Turn
+**Auth** on in the control page below if you want to test real HMAC signing instead → [Using
+the control page](#using-the-control-page).
+
+- 🔓 **Plain `http://` is fine here and nowhere else.** The device allows it, and says
+  `[PLAIN HTTP - the key is readable on the wire]` on every poll — which is exactly right
+  for a laptop on your own bench and exactly wrong for anything else
+- 🧯 **This is the cheapest way to see the error screens.** Arm a fault and watch
+  `NO ACCESS`, `SERVER ERROR` (a 429 or a 5xx) or `OFFLINE` land on real hardware, over a
+  real network, without breaking anything you care about → [api.md §6](../docs/api.md#6--errors)
 
 ---
 
@@ -90,7 +111,9 @@ other client against a real HTTP response in the meantime.
 
 | Section     | What it does                                                                           |
 | ----------- | --------------------------------------------------------------------------------------- |
-| **Alert**   | Sets `alert.level` and `alert.message` for the next poll. `warning`/`critical` are what make a device's whole screen flash; `critical` also sounds. The message box is pre-filled with a sensible default per level — edit it if you want something else, 20 characters max |
+| **Devices** | Every device that has polled this session, by `X-Device-Mac` — a green dot while it's polled in the last 2 minutes, poll count, last outcome. In memory only: last 10 devices, last 500 polls each, gone when the process stops |
+| **Auth**    | Off by default (no headers are checked at all). Switch it on and every poll must carry a valid [HMAC signature](../docs/api.md#8--hmac) — set both the API key and secret shown here on the device's setup page and it starts signing on its own. Acts instantly, same as Faults |
+| **Alert**   | Sets `alert.level` and `alert.message` for the next poll. `warning`/`critical` are what make a device's whole screen flash; `critical` sounds a full alert, `warning` a shorter, quieter notice. The message box is pre-filled with a sensible default per level — edit it if you want something else, 20 characters max |
 | **Metrics** | One card per screen. Each has a live sparkline of its current `buckets` and a pattern dropdown — pick one and hit **Apply** to reshape that row's graph. the aggregate tiles' shares recompute to match automatically |
 | **Faults**  | Makes the **next** poll misbehave instead of succeeding — a slow response, a non-200 status, broken JSON, or a payload missing something the contract requires. Stays armed until you clear it, so you can watch a device retry against the same problem more than once |
 | **Log**     | Every hit on `/v1/gateway_health`, and every change made on this page, newest first |

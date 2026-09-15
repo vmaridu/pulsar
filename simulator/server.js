@@ -18,6 +18,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { URL } = require('url');
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4180;
@@ -43,8 +44,8 @@ function levelFor(name, share) {
 }
 
 /* ------------------------------------------------------------- the model
-   Same shape, same numbers, as ws_lcd_154/net.ino's embedded payload — so
-   a device pointed at either one shows the same thing to start with.
+   Same shape, same numbers, as docs/api.md §2's example object — Orders
+   and Payments, the same buckets and aggregates.
    Position 0 of `aggregates` is the heading (2XX); the rest fill the four
    BODY slots.                                                            */
 function row(gateway, name, buckets, c4, c5, avg, p95) {
@@ -82,9 +83,12 @@ function retotal(r, p4pct, p5pct) {
 
 function defaultMetrics() {
   return [
+    /* c4/c5 deliberately over 5 digits — AGENTS.md §10's own compaction
+       example is 184000 -> "184K"; this exercises that path (and 2XX/5XX
+       alongside it) against real client code, not just the formula.       */
     row('Orders', 'Created',
-      [649,625,606,646,647,632,636,610,640,616,607,641,621,633,633,
-       613,614,611,607,627,648,609,630,627,632,610,631,618,630,634], 109, 15, 42, 180),
+      [38940,37500,36360,38760,38820,37920,38160,36600,38400,36960,36420,38460,37260,37980,37980,
+       36780,36840,36660,36420,37620,38880,36540,37800,37620,37920,36600,37860,37080,37800,38040], 184000, 205000, 42, 180),
     row('Orders', 'Dispatched',
       [304,302,302,291,302,296,313,291,309,302,302,300,285,298,289,
        287,285,306,302,303,314,302,291,313,288,293,303,299,290,292], 40, 5, 55, 230),
@@ -121,6 +125,98 @@ function logHit(line) {
   LOG.unshift(`[${t}] ${line}`);
   if (LOG.length > 60) LOG.length = 60;
   console.log(`[${t}] ${line}`);
+}
+
+/* ------------------------------------------------------------- devices
+   In memory only — no file, nothing survives a restart, on purpose. Keyed
+   by X-Device-Mac (falling back to X-Device-Id, then source IP, so curl
+   and the mockups still show up as *something* while testing). At most
+   MAX_DEVICES tracked at once, least-recently-seen evicted first; each
+   device keeps at most MAX_HISTORY of its own polls, oldest trimmed.     */
+const MAX_DEVICES = 10;
+const MAX_HISTORY = 500;
+const ACTIVE_MS = 2 * 60 * 1000;      // "connected" dot: seen in the last 2 minutes
+const DEVICES = new Map();
+
+function touchDevice(req) {
+  const mac   = req.headers['x-device-mac']   || null;
+  const id    = req.headers['x-device-id']    || null;
+  const board = req.headers['x-device-board'] || null;
+  const ip    = (req.socket.remoteAddress || '').replace(/^::ffff:/, '');
+  const key   = mac || id || ip || 'unknown';
+  const now   = Date.now();
+
+  let d = DEVICES.get(key);
+  if (!d) {
+    if (DEVICES.size >= MAX_DEVICES) {
+      let oldestKey = null, oldestSeen = Infinity;
+      for (const [k, v] of DEVICES) if (v.lastSeen < oldestSeen) { oldestSeen = v.lastSeen; oldestKey = k; }
+      if (oldestKey !== null) DEVICES.delete(oldestKey);
+    }
+    d = { key, mac, id, board, ip, firstSeen: now, lastSeen: now, pollCount: 0, history: [] };
+    DEVICES.set(key, d);
+  }
+  d.mac = mac || d.mac;
+  d.id = id || d.id;
+  d.board = board || d.board;
+  d.ip = ip || d.ip;
+  d.lastSeen = now;
+  return d;
+}
+function recordPoll(dev, status, label) {
+  if (!dev) return;
+  dev.pollCount++;
+  dev.history.unshift({ t: Date.now(), status, label });
+  if (dev.history.length > MAX_HISTORY) dev.history.length = MAX_HISTORY;
+}
+function devicesJSON() {
+  const now = Date.now();
+  return [...DEVICES.values()]
+    .sort((a, b) => b.lastSeen - a.lastSeen)
+    .map((d) => ({
+      mac: d.mac, id: d.id, board: d.board, ip: d.ip,
+      firstSeen: d.firstSeen, lastSeen: d.lastSeen, pollCount: d.pollCount,
+      active: now - d.lastSeen < ACTIVE_MS,
+      recent: d.history.slice(0, 20),
+    }));
+}
+
+/* ------------------------------------------------------------------ auth
+   Off by default — every other feature here ignores whatever auth headers
+   a device sends, on purpose (README: "this server does not check them").
+   Flip it on to actually exercise docs/api.md §8's HMAC path — the device
+   only sends X-Api-Key/X-Timestamp/X-Signature once an API secret is set,
+   so this is what proves the signing is byte-for-byte correct, not just
+   that it compiles. Hardcoded and unchanging, and readable enough to type
+   into the setup page by hand rather than copy-paste.                    */
+const AUTH_API_KEY    = 'pulsar_demo_key';
+const AUTH_API_SECRET = 'pulsar_demo_secret';
+const AUTH_SKEW_S     = 60;     // api.md §8: reject a timestamp older (or newer) than this
+let   authEnabled     = false;
+
+/* `reqPath` is req.url exactly as Node hands it over — scheme and host
+   already stripped, which is exactly what the string-to-sign wants.      */
+function checkAuth(req, reqPath){
+  if (req.headers['authorization'])
+    return { ok: false, reason: 'sent Authorization - set an API secret on the device, not just a key' };
+  const key = req.headers['x-api-key'];
+  const ts  = req.headers['x-timestamp'];
+  const sig = req.headers['x-signature'];
+  if (!key || !ts || !sig)
+    return { ok: false, reason: 'missing X-Api-Key / X-Timestamp / X-Signature' };
+  if (key !== AUTH_API_KEY) return { ok: false, reason: 'wrong X-Api-Key' };
+
+  const tsNum = Number(ts);
+  if (!Number.isFinite(tsNum)) return { ok: false, reason: 'X-Timestamp is not a number' };
+  if (Math.abs(Math.floor(Date.now() / 1000) - tsNum) > AUTH_SKEW_S)
+    return { ok: false, reason: `X-Timestamp more than ${AUTH_SKEW_S}s from the server's clock` };
+
+  const stringToSign = `GET\n${reqPath}\n${ts}\n`;
+  const expected = crypto.createHmac('sha256', AUTH_API_SECRET).update(stringToSign).digest('hex');
+  const got = Buffer.from(sig, 'hex'), want = Buffer.from(expected, 'hex');
+  if (got.length !== want.length || !crypto.timingSafeEqual(got, want))
+    return { ok: false, reason: 'signature does not match' };
+  return { ok: true };
 }
 
 /* ------------------------------------------------------- bucket patterns
@@ -215,10 +311,24 @@ function readBody(req) {
 }
 
 function handleGatewayHealth(req, res) {
+  const dev = touchDevice(req);
+
+  if (authEnabled){
+    const check = checkAuth(req, req.url);
+    if (!check.ok){
+      logHit(`GET /v1/gateway_health -> 401 (auth: ${check.reason})`);
+      recordPoll(dev, 401, 'auth: ' + check.reason);
+      res.writeHead(401, { 'Content-Type': 'text/plain' });
+      res.end('');
+      return;
+    }
+  }
+
   const fault = STATE.fault ? FAULTS[STATE.fault] : null;
 
   if (fault && fault.kind === 'delay') {
     logHit(`GET /v1/gateway_health -> delaying ${fault.ms}ms (${fault.label})`);
+    recordPoll(dev, 200, fault.label);
     setTimeout(() => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(buildPayload()));
@@ -227,54 +337,63 @@ function handleGatewayHealth(req, res) {
   }
   if (fault && fault.kind === 'status') {
     logHit(`GET /v1/gateway_health -> ${fault.code} (${fault.label})`);
+    recordPoll(dev, fault.code, fault.label);
     res.writeHead(fault.code, Object.assign({ 'Content-Type': 'text/plain' }, fault.headers || {}));
     res.end('');
     return;
   }
   if (fault && fault.kind === 'redirect') {
     logHit(`GET /v1/gateway_health -> 302 (${fault.label})`);
+    recordPoll(dev, 302, fault.label);
     res.writeHead(302, { Location: '/v1/gateway_health' });
     res.end('');
     return;
   }
   if (fault && fault.kind === 'malformed') {
     logHit(`GET /v1/gateway_health -> 200 malformed body (${fault.label})`);
+    recordPoll(dev, 200, fault.label);
     const body = JSON.stringify(buildPayload());
     send(res, 200, body.slice(0, Math.floor(body.length * 0.6)), {}); // truncated, invalid JSON
     return;
   }
   if (fault && fault.kind === 'missing-alert') {
     logHit(`GET /v1/gateway_health -> 200, no "alert" (${fault.label})`);
+    recordPoll(dev, 200, fault.label);
     const p = buildPayload(); delete p.alert;
     sendJSON(res, 200, p);
     return;
   }
   if (fault && fault.kind === 'missing-gateway') {
     logHit(`GET /v1/gateway_health -> 200, row 0 missing "gateway" (${fault.label})`);
+    recordPoll(dev, 200, fault.label);
     const p = buildPayload(); delete p.metrics[0].gateway;
     sendJSON(res, 200, p);
     return;
   }
   if (fault && fault.kind === 'null-aggregates') {
     logHit(`GET /v1/gateway_health -> 200, row 0 aggregates:null (${fault.label})`);
+    recordPoll(dev, 200, fault.label);
     const p = buildPayload(); p.metrics[0].aggregates = null;
     sendJSON(res, 200, p);
     return;
   }
   if (fault && fault.kind === 'sparse-aggregates') {
     logHit(`GET /v1/gateway_health -> 200, row 0 aggregates trimmed to 1 (${fault.label})`);
+    recordPoll(dev, 200, fault.label);
     const p = buildPayload(); p.metrics[0].aggregates = p.metrics[0].aggregates.slice(0, 1);
     sendJSON(res, 200, p);
     return;
   }
   if (fault && fault.kind === 'empty-metrics') {
     logHit(`GET /v1/gateway_health -> 200, metrics:[] (${fault.label})`);
+    recordPoll(dev, 200, fault.label);
     const p = buildPayload(); p.metrics = [];
     sendJSON(res, 200, p);
     return;
   }
   if (fault && fault.kind === 'oversized') {
     logHit(`GET /v1/gateway_health -> 200, padded past 4 KB (${fault.label})`);
+    recordPoll(dev, 200, fault.label);
     const p = buildPayload();
     p._padding = 'x'.repeat(5000);
     sendJSON(res, 200, p);
@@ -282,10 +401,14 @@ function handleGatewayHealth(req, res) {
   }
 
   logHit('GET /v1/gateway_health -> 200');
+  recordPoll(dev, 200, 'ok');
   sendJSON(res, 200, buildPayload());
 }
 
 async function handleApi(req, res, pathname) {
+  if (pathname === '/api/devices' && req.method === 'GET') {
+    return sendJSON(res, 200, { devices: devicesJSON(), activeMs: ACTIVE_MS, maxDevices: MAX_DEVICES });
+  }
   if (pathname === '/api/state' && req.method === 'GET') {
     return sendJSON(res, 200, {
       alert: STATE.alert,
@@ -294,7 +417,14 @@ async function handleApi(req, res, pathname) {
       patterns: Object.fromEntries(Object.entries(PATTERNS).map(([k, v]) => [k, v.label])),
       faults: Object.fromEntries(Object.entries(FAULTS).map(([k, v]) => [k, v.label])),
       log: LOG.slice(0, 20),
+      auth: { enabled: authEnabled, apiKey: AUTH_API_KEY, apiSecret: AUTH_API_SECRET },
     });
+  }
+  if (pathname === '/api/auth' && req.method === 'POST') {
+    const body = JSON.parse((await readBody(req)) || '{}');
+    authEnabled = !!body.enabled;
+    logHit(`UI -> auth ${authEnabled ? 'ON - HMAC required, key/secret in the Auth panel' : 'off'}`);
+    return sendJSON(res, 200, { ok: true, auth: { enabled: authEnabled, apiKey: AUTH_API_KEY, apiSecret: AUTH_API_SECRET } });
   }
   if (pathname === '/api/alert' && req.method === 'POST') {
     const body = JSON.parse((await readBody(req)) || '{}');

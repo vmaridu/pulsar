@@ -14,57 +14,134 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--tx);font-family:var(--mono);font-size:13px;
      -webkit-font-smoothing:antialiased}
-.wrap{max-width:900px;margin:0 auto;padding:0 20px 40px}
+#bgfx{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.6}
+.wrap{position:relative;z-index:1;max-width:900px;margin:0 auto;padding:0 20px 40px;animation:wrapIn .5s ease both}
+@keyframes wrapIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;
+    transition-duration:.001ms!important}
+}
 
-/* sticky top bar: title left, the two actions that matter, right, always reachable */
+/* every interactive control gets the same focus treatment, so keyboard use
+   reads as deliberately supported rather than an afterthought */
+button:focus-visible,.lvl:focus-visible,.fault:focus-visible,.chip:focus-visible,
+.mrow select:focus-visible,input.msg:focus-visible,.dgroup:focus-visible{
+  outline:2px solid var(--cy);outline-offset:2px}
+
+/* sticky top bar: title left, the two actions that matter, right, always reachable.
+   The gradient hairline underneath is the one purely decorative touch on the page —
+   a slow, quiet drift, never fast enough to compete for attention with real state. */
 .bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
-  background:rgba(5,7,12,.92);backdrop-filter:blur(6px);padding:16px 0;border-bottom:1px solid var(--line)}
+  background:rgba(5,7,12,.92);backdrop-filter:blur(6px);padding:16px 0;
+  border-bottom:1px solid var(--line);position:relative}
+.bar::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:1px;
+  background:linear-gradient(90deg,transparent,var(--cy),var(--gr),var(--cy),transparent);
+  background-size:200% 100%;animation:sheen 7s linear infinite;opacity:.55}
+@keyframes sheen{to{background-position:-200% 0}}
 .bar h1{font-size:14.5px;font-weight:600;margin:0;letter-spacing:.02em;white-space:nowrap}
-.bar h1 span{color:var(--cy)}
+.bar h1 span{color:var(--cy);display:inline-block;animation:tick 3.2s ease-in-out infinite}
+@keyframes tick{0%,100%{transform:scale(1);filter:drop-shadow(0 0 0 rgba(34,211,238,0))}
+  50%{transform:scale(1.12);filter:drop-shadow(0 0 6px rgba(34,211,238,.6))}}
 .bar .spacer{flex:1}
-.pending{font-size:10.5px;color:var(--or);white-space:nowrap}
+.pending{font-size:10.5px;color:var(--or);white-space:nowrap;animation:fadeIn .2s ease both}
 .pending.hidden{visibility:hidden}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
 button.go{border:1px solid var(--line2);background:#0d1420;color:var(--dim);border-radius:7px;
-  padding:8px 15px;font-family:var(--mono);font-size:12px;cursor:pointer;white-space:nowrap}
+  padding:8px 15px;font-family:var(--mono);font-size:12px;cursor:pointer;white-space:nowrap;
+  transition:color .15s ease,border-color .15s ease,transform .1s ease,box-shadow .2s ease}
 button.go:hover{color:var(--tx);border-color:#3d4c6e}
-button.go:active{transform:translateY(1px)}
+button.go:active{transform:translateY(1px) scale(.97)}
 /* the one primary action on this page — solid, high-contrast, unmistakable.
-   Everything else on the page is an outline/ghost button by comparison. */
+   Everything else on the page is an outline/ghost button by comparison. Once
+   there is something to send, it gets a slow breathing glow — quiet enough to
+   ignore, noticeable enough that "Apply" doesn't just sit there looking inert. */
 button.go.apply{border:1px solid var(--cy);background:var(--cy);color:#04141a;font-weight:700;
   box-shadow:0 0 0 3px rgba(34,211,238,.16)}
+button.go.apply:not(:disabled){animation:breathe 2.4s ease-in-out infinite}
+@keyframes breathe{0%,100%{box-shadow:0 0 0 3px rgba(34,211,238,.16)}
+  50%{box-shadow:0 0 0 6px rgba(34,211,238,.32)}}
 button.go.apply:hover{background:#52e3ff;border-color:#52e3ff}
 button.go.apply:disabled{opacity:.4;cursor:default;border-color:var(--line2);background:#0d1420;
-  color:var(--dim);font-weight:500;box-shadow:none}
+  color:var(--dim);font-weight:500;box-shadow:none;animation:none}
 
-.endpoint{display:flex;align-items:center;gap:8px;margin:16px 0 26px;font-size:11.5px;color:var(--dim);flex-wrap:wrap}
-.endpoint code{color:var(--cy);font-size:12px;background:var(--panel);border:1px solid var(--line);
-  border-radius:6px;padding:4px 9px}
-.endpoint button{border:none;background:none;color:var(--dim2);cursor:pointer;font-family:var(--mono);
+/* connection: URL, API key and API secret, one nicely-formatted block — the
+   one place all three live, instead of scattered across two sections. The
+   device-count badge sits in its corner: a live count of what's connected,
+   one click away from the Devices section below. */
+.conn{margin:16px 0 26px;background:linear-gradient(180deg,rgba(255,255,255,.02),transparent 60%);
+  border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.conn-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.conn-head .t{font-size:10.5px;font-weight:600;color:var(--dim2);letter-spacing:.14em;text-transform:uppercase}
+.conn-head .spacer{flex:1}
+.devCount{display:flex;align-items:center;gap:6px;border:1px solid var(--line2);background:var(--panel);
+  color:var(--dim);border-radius:20px;padding:4px 10px 4px 8px;font-family:var(--mono);font-size:10.5px;
+  cursor:pointer;transition:border-color .15s ease,color .15s ease,transform .1s ease}
+.devCount:hover{border-color:#3d4c6e;color:var(--tx);transform:translateY(-1px)}
+.devCount:active{transform:translateY(0) scale(.96)}
+.devCount .ddot{width:6px;height:6px;border-radius:50%;background:var(--dim2);flex:none}
+.devCount .ddot.on{background:var(--gr);box-shadow:0 0 0 0 rgba(92,242,46,.55);animation:pulse 1.8s ease-out infinite}
+.conn-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11.5px;color:var(--dim);
+  padding:5px 0}
+.conn-row .cl{width:78px;flex:none;color:var(--dim2);font-size:10px;letter-spacing:.06em;text-transform:uppercase}
+.conn-row.off{opacity:.45}
+.conn code{color:var(--cy);font-size:12px;background:var(--panel);border:1px solid var(--line);
+  border-radius:6px;padding:4px 9px;overflow-wrap:anywhere}
+.conn button{border:none;background:none;color:var(--dim2);cursor:pointer;font-family:var(--mono);
   font-size:11px;text-decoration:underline;text-underline-offset:2px;padding:0}
-.endpoint button:hover{color:var(--tx)}
+.conn button:hover{color:var(--tx)}
 
-section{margin-bottom:30px}
-section > h2{margin:0 0 3px;font-size:10.5px;font-weight:600;color:var(--dim2);letter-spacing:.14em;
+section{margin-bottom:24px;padding:14px 16px;background:linear-gradient(180deg,rgba(255,255,255,.014),transparent 40%);
+  border:1px solid transparent;border-radius:12px;transition:border-color .25s ease,background .25s ease}
+section:hover{border-color:var(--line)}
+section > h2{margin:0 0 10px;font-size:10.5px;font-weight:600;color:var(--dim2);letter-spacing:.14em;
   text-transform:uppercase}
-section > p.hint{color:var(--dim2);font-size:11px;line-height:1.5;margin:0 0 14px;max-width:60ch}
 
-/* alert: three pills + a single-line message field, inline */
+/* alert: three pills + a single-line message field, inline, plus a row of
+   canned outcome presets scoped to whichever level is currently picked */
 .lvls{display:flex;gap:6px;margin-bottom:8px}
 .lvl{flex:1;border:1px solid var(--line2);background:var(--panel);border-radius:7px;padding:8px 0;
-  text-align:center;font-size:11px;letter-spacing:.07em;cursor:pointer;color:var(--dim)}
-.lvl:hover{border-color:#3d4c6e;color:var(--tx)}
+  text-align:center;font-size:11px;letter-spacing:.07em;cursor:pointer;color:var(--dim);
+  transition:border-color .15s ease,color .15s ease,background .15s ease,transform .1s ease}
+.lvl:hover{border-color:#3d4c6e;color:var(--tx);transform:translateY(-1px)}
+.lvl:active{transform:translateY(0) scale(.98)}
 .lvl.sel[data-l=info]{border-color:#1f7a44;background:#08210f;color:var(--gr)}
 .lvl.sel[data-l=warning]{border-color:#8a4610;background:#20100a;color:var(--or)}
 .lvl.sel[data-l=critical]{border-color:#8a2530;background:#220a0d;color:var(--rd)}
+.lvl.sel[data-a=off]{border-color:var(--line2);background:#0d1420;color:var(--tx)}
+.lvl.sel[data-a=on]{border-color:#1f7a44;background:#08210f;color:var(--gr)}
 input.msg{width:100%;background:var(--panel);border:1px solid var(--line2);color:var(--tx);
-  border-radius:7px;padding:8px 10px;font-family:var(--mono);font-size:12px}
+  border-radius:7px;padding:8px 10px;font-family:var(--mono);font-size:12px;
+  transition:border-color .15s ease}
+input.msg:focus{outline:none;border-color:var(--cy)}
+.presets{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{border:1px solid var(--line2);background:var(--panel);border-radius:6px;padding:5px 10px;
+  font-size:10.5px;color:var(--dim);cursor:pointer;
+  transition:border-color .15s ease,color .15s ease,transform .1s ease}
+.chip:hover{border-color:#3d4c6e;color:var(--tx);transform:translateY(-1px)}
+.chip:active{transform:translateY(0) scale(.96)}
+.chip.sel{border-color:var(--cy);color:var(--cy)}
+
+/* faults: one row of small pills — clicking one only stages it; it takes
+   effect on Apply, the same as everything else on this page */
+.faults{display:flex;flex-wrap:wrap;gap:6px}
+.fault{border:1px solid var(--line2);background:var(--panel);border-radius:6px;padding:7px 11px;
+  cursor:pointer;font-size:10.5px;color:var(--dim);
+  transition:border-color .15s ease,color .15s ease,background .15s ease,transform .1s ease}
+.fault:hover{border-color:#3d4c6e;color:var(--tx);transform:translateY(-1px)}
+.fault:active{transform:translateY(0) scale(.96)}
+.fault.on{border-color:#8a2530;background:#220a0d;color:var(--rd)}
+.fault.none{color:var(--dim2)}
+.fault.none.on{border-color:var(--line2);background:var(--panel);color:var(--tx)}
+.fault.pend{border-color:var(--or);color:var(--or);background:#20140a}
+.fault.none.pend{border-color:var(--or);background:#0d1420;color:var(--or)}
 
 /* metrics: compact rows, not heavy cards */
 .metrics{border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .mrow{display:grid;grid-template-columns:112px 1fr 150px;gap:14px;align-items:center;
-  padding:11px 14px;border-bottom:1px solid var(--line)}
+  padding:11px 14px;border-bottom:1px solid var(--line);transition:background .15s ease}
 .mrow:last-child{border-bottom:none}
 .mrow:nth-child(odd){background:#070a11}
+.mrow:hover{background:#0d1420}
 .mrow .id .name{font-size:12px;display:block}
 .mrow .id .gw{color:var(--dim2);font-size:9.5px;letter-spacing:.07em;text-transform:uppercase}
 .mrow .viz{display:flex;align-items:center;gap:12px;min-width:0}
@@ -74,27 +151,58 @@ input.msg{width:100%;background:var(--panel);border:1px solid var(--line2);color
 .mrow .stats .warn{color:var(--or)}
 .mrow .stats .crit{color:var(--rd)}
 .mrow select{width:100%;background:var(--panel);border:1px solid var(--line2);color:var(--tx);
-  border-radius:6px;padding:6px 8px;font-family:var(--mono);font-size:11px}
+  border-radius:6px;padding:6px 8px;font-family:var(--mono);font-size:11px;
+  transition:border-color .15s ease,color .15s ease}
+.mrow select:focus{outline:none;border-color:var(--cy)}
 .mrow select.changed{border-color:var(--or);color:var(--or)}
-
-/* faults: one row of small pills, instant-acting, single-select */
-.faults{display:flex;flex-wrap:wrap;gap:6px}
-.fault{border:1px solid var(--line2);background:var(--panel);border-radius:6px;padding:7px 11px;
-  cursor:pointer;font-size:10.5px;color:var(--dim)}
-.fault:hover{border-color:#3d4c6e;color:var(--tx)}
-.fault.on{border-color:#8a2530;background:#220a0d;color:var(--rd)}
-.fault.none{color:var(--dim2)}
-.fault.none.on{border-color:var(--line2);background:var(--panel);color:var(--tx)}
 
 .log{font-size:10.5px;line-height:1.7;color:var(--dim2);max-height:150px;overflow:auto;
   background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
 .log div{white-space:pre-wrap;word-break:break-word}
+.log div.new{animation:logIn .35s ease both}
+@keyframes logIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
 
-footer{color:var(--dim2);font-size:10.5px;line-height:1.8;padding-top:6px;border-top:1px solid var(--line)}
-footer a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--line2)}
+/* devices: one compact row each — a dot, who, where, how much, how recent.
+   A row expands in place to show its own recent request/response history. */
+.devices{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.drow{display:grid;grid-template-columns:10px 1fr auto;gap:12px;align-items:center;
+  padding:10px 14px;border-bottom:1px solid var(--line);cursor:pointer;transition:background .15s ease}
+.devices > div:last-child .drow{border-bottom:none}
+.drow:hover{background:#0d1420}
+.dgroup:nth-child(odd) .drow{background:#070a11}
+.dgroup:nth-child(odd) .drow:hover{background:#0d1420}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--dim2);flex:none}
+.dot.on{background:var(--gr);box-shadow:0 0 0 0 rgba(92,242,46,.55);animation:pulse 1.8s ease-out infinite}
+@keyframes pulse{
+  0%{box-shadow:0 0 0 0 rgba(92,242,46,.5)}
+  70%{box-shadow:0 0 0 6px rgba(92,242,46,0)}
+  100%{box-shadow:0 0 0 0 rgba(92,242,46,0)}
+}
+.drow .who{font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.drow .who .sub{color:var(--dim2);font-size:9.5px;letter-spacing:.05em;margin-left:8px}
+.drow .who .chev{color:var(--dim2);margin-right:6px;display:inline-block;transition:transform .12s}
+.dgroup.open .drow .chev{transform:rotate(90deg)}
+.drow .meta{color:var(--dim);font-size:10px;text-align:right;white-space:nowrap}
+.devices-empty{padding:16px 14px;color:var(--dim2);font-size:11px;text-align:center}
+/* the accordion: max-height 0 -> a generous fixed cap (well over the 20-row
+   history limit), clipped by overflow. The grid-rows/fr-unit version of
+   this looked elegant but did not actually collapse to zero in practice —
+   this plainer technique is the one that reliably does.                  */
+.dhist{max-height:0;overflow:hidden;transition:max-height .22s ease}
+.dhist.open{max-height:500px}
+.dhist-body{padding:2px 14px 10px 34px;border-bottom:1px solid var(--line);background:#070a11}
+.dgroup:nth-child(even) .dhist-body{background:var(--panel)}
+.dhist-row{display:grid;grid-template-columns:70px 48px 1fr;gap:10px;padding:3px 0;
+  font-size:10.5px;color:var(--dim)}
+.dhist-row time{color:var(--dim2)}
+.dhist-row .st{font-weight:600}
+.dhist-row .st.ok{color:var(--gr)}
+.dhist-row .st.bad{color:var(--or)}
+.dhist-empty{color:var(--dim2);font-size:10.5px;padding:4px 0}
 </style>
 </head>
 <body>
+<canvas id="bgfx" aria-hidden="true"></canvas>
 <div class="wrap">
 
 <div class="bar">
@@ -105,49 +213,71 @@ footer a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--lin
   <button class="go apply" id="applyAll" disabled>Apply changes</button>
 </div>
 
-<div class="endpoint">
-  device polls <code id="epUrl">http://localhost:4180/v1/gateway_health</code>
-  <button id="copyEp">copy</button>
+<div class="conn">
+  <div class="conn-head">
+    <span class="t">Connection</span>
+    <div class="spacer"></div>
+    <button class="devCount" id="devCountBtn" title="Jump to connected devices">
+      <span class="ddot" id="devCountDot"></span>
+      <span id="devCountN">0</span> <span id="devCountLabel">devices</span>
+    </button>
+  </div>
+  <div class="conn-row">
+    <span class="cl">URL</span>
+    <code id="epUrl">http://localhost:4180/v1/gateway_health</code>
+    <button data-copy="epUrl">copy</button>
+  </div>
+  <div class="conn-row" id="authKeyRow">
+    <span class="cl">API key</span>
+    <code id="authKey">pulsar_demo_key</code>
+    <button data-copy="authKey">copy</button>
+  </div>
+  <div class="conn-row" id="authSecretRow">
+    <span class="cl">API secret</span>
+    <code id="authSecret">pulsar_demo_secret</code>
+    <button data-copy="authSecret">copy</button>
+  </div>
 </div>
 
 <section>
+  <h2>Auth</h2>
+  <div class="lvls" id="authLvls">
+    <div class="lvl" data-a="off">AUTH OFF</div>
+    <div class="lvl" data-a="on">AUTH ON</div>
+  </div>
+</section>
+
+<section>
   <h2>Alert</h2>
-  <p class="hint">Sets <code>alert.level</code> / <code>alert.message</code>. <b>warning</b> and
-    <b>critical</b> flash the whole screen; <b>critical</b> also sounds.</p>
   <div class="lvls" id="lvls">
     <div class="lvl" data-l="info">INFO</div>
     <div class="lvl" data-l="warning">WARNING</div>
     <div class="lvl" data-l="critical">CRITICAL</div>
   </div>
   <input class="msg" id="msg" maxlength="20" placeholder="≤ 20 chars, one line">
-</section>
-
-<section>
-  <h2>Metrics</h2>
-  <p class="hint"><b>Orders</b> (Created, Dispatched, Cancelled) and <b>Payments</b> (Paid, Declined) merged
-    into one response — the five screens a device cycles through. Pick a pattern and its graph redraws in
-    <b style="color:var(--or)">amber</b> right away — a preview, not yet sent — until you hit <b>Apply changes</b>.</p>
-  <div class="metrics" id="metrics"></div>
+  <div class="presets" id="presets"></div>
 </section>
 
 <section>
   <h2>Faults</h2>
-  <p class="hint">Arms immediately — no Apply needed. Stays armed on every poll until you pick <b>none</b>.</p>
   <div class="faults" id="faults"></div>
 </section>
 
 <section>
+  <h2>Metrics</h2>
+  <div class="metrics" id="metrics"></div>
+</section>
+
+<section id="devicesSection">
+  <h2>Devices</h2>
+  <div class="devices" id="devices"></div>
+</section>
+
+<section>
   <h2>Log</h2>
-  <p class="hint">Every hit on <code>/v1/gateway_health</code>, and every change made here.</p>
   <div class="log" id="log"></div>
 </section>
 
-<footer>
-  Contract → <a href="../../docs/api.md" target="_blank" rel="noopener">docs/api.md</a> ·
-  OpenAPI spec → <a href="/openapi.yaml" target="_blank" rel="noopener">openapi.yaml</a>
-  (paste into <a href="https://editor.swagger.io" target="_blank" rel="noopener">Swagger Editor</a>) ·
-  this page talks to <code>/api/*</code>; the device only ever sees <code>/v1/gateway_health</code>.
-</footer>
 </div>
 
 <script>
@@ -159,14 +289,41 @@ const DEFAULT_MSG = {
   warning: '5xx 0.68% max 0.50%',
   critical: '5xx 2.14% max 0.50%',
 };
+/* Canned outcomes a person can pick with one click instead of typing —
+   every string here is checked to be <= 20 chars, same cap as the input. */
+const PRESET_MSG = {
+  info: [
+    'error budget healthy',
+    'all systems normal',
+    'nominal, no action',
+    'steady state',
+    'healthy, no errors',
+  ],
+  warning: [
+    '5xx 0.68% max 0.50%',
+    'latency creeping up',
+    'elevated 4xx rate',
+    'retry storm rising',
+    'degraded, watching',
+  ],
+  critical: [
+    '5xx 2.14% max 0.50%',
+    'gateway unreachable',
+    'error spike ongoing',
+    'cascading failures',
+    'page on-call now',
+  ],
+};
 
 let state = null;                 // last known server state — never mutated by hand
 /* Everything the user has chosen but not yet sent. Editable controls read
    and write ONLY this object; a background log refresh never touches it,
    so picking a pattern can never get silently reset out from under you.
    previews[key] holds a locally-computed {buckets, aggregates}
-   for a chosen-but-not-applied pattern, so its graph shows immediately. */
-function emptyPending() { return { level: null, message: null, patterns: {}, previews: {} }; }
+   for a chosen-but-not-applied pattern, so its graph shows immediately.
+   fault stays `undefined` while nothing is staged — state.fault itself can
+   legally be null ("none"), so undefined is the only safe "no change" mark. */
+function emptyPending() { return { level: null, message: null, patterns: {}, previews: {}, fault: undefined }; }
 let pending = emptyPending();
 
 async function api(method, path, body) {
@@ -179,7 +336,8 @@ async function api(method, path, body) {
 }
 
 function hasPending() {
-  return pending.level !== null || pending.message !== null || Object.keys(pending.patterns).length > 0;
+  return pending.level !== null || pending.message !== null
+    || Object.keys(pending.patterns).length > 0 || pending.fault !== undefined;
 }
 function syncApplyButton() {
   const p = hasPending();
@@ -293,6 +451,7 @@ function renderControls() {
   const level = pending.level ?? state.alert.level;
   $$('#lvls .lvl').forEach((el) => el.classList.toggle('sel', el.dataset.l === level));
   $('#msg').value = pending.message ?? state.alert.message;
+  renderPresets();
 
   const box = $('#metrics');
   box.innerHTML = state.metrics.map((m) => {
@@ -320,19 +479,58 @@ function renderControls() {
   });
 
   renderFaults();
+  renderAuth();
 }
+
+/* Preset outcome chips for whichever level is currently picked (pending,
+   or live if nothing is staged) — clicking one just stages a message,
+   same as typing into the field, so it still waits for Apply.           */
+function renderPresets() {
+  const level = pending.level ?? state.alert.level;
+  const current = pending.message ?? state.alert.message;
+  const opts = PRESET_MSG[level] || [];
+  $('#presets').innerHTML = opts.map((m) =>
+    `<div class="chip${m === current ? ' sel' : ''}" data-m="${esc(m)}">${esc(m)}</div>`
+  ).join('');
+  $$('.chip', $('#presets')).forEach((el) => el.onclick = () => {
+    $('#msg').value = el.dataset.m;
+    pending.message = el.dataset.m;
+    renderPresets();
+    syncApplyButton();
+  });
+}
+
+function renderAuth() {
+  const enabled = !!(state.auth && state.auth.enabled);
+  $$('#authLvls .lvl').forEach((el) => el.classList.toggle('sel', (el.dataset.a === 'on') === enabled));
+  if (state.auth){ $('#authKey').textContent = state.auth.apiKey; $('#authSecret').textContent = state.auth.apiSecret; }
+  $('#authSecretRow').classList.toggle('off', !enabled);
+}
+$$('#authLvls .lvl').forEach((el) => el.onclick = async () => {
+  await api('POST', '/api/auth', { enabled: el.dataset.a === 'on' });
+  state = await api('GET', '/api/state');
+  renderAuth();       // instant — auth on/off is a mode switch, not a batched edit
+  renderLog();
+});
+$$('.conn button[data-copy]').forEach((btn) => btn.onclick = () => {
+  const text = $('#' + btn.dataset.copy).textContent;
+  navigator.clipboard?.writeText(text).catch(() => {});
+  const was = btn.textContent; btn.textContent = 'copied';
+  setTimeout(() => { btn.textContent = was; }, 1200);
+});
 
 function renderFaults() {
   const box = $('#faults');
   const entries = [['', 'none']].concat(Object.entries(state.faults));
+  const staged = pending.fault !== undefined;
+  const current = staged ? pending.fault : (state.fault || '');
   box.innerHTML = entries.map(([key, label]) =>
-    `<div class="fault${key === '' ? ' none' : ''}${(state.fault || '') === key ? ' on' : ''}" data-f="${key}">${label}</div>`
+    `<div class="fault${key === '' ? ' none' : ''}${current === key ? ' on' : ''}${staged && pending.fault === key ? ' pend' : ''}" data-f="${key}">${label}</div>`
   ).join('');
-  $$('.fault', box).forEach((el) => el.onclick = async () => {
-    await api('POST', '/api/fault', { type: el.dataset.f || null });
-    state = await api('GET', '/api/state');
-    renderFaults();       // faults act instantly — no reason to wait for Apply
-    renderLog();
+  $$('.fault', box).forEach((el) => el.onclick = () => {
+    pending.fault = el.dataset.f || '';
+    renderFaults();       // staged only — takes effect on Apply, like everything else here
+    syncApplyButton();
   });
 }
 
@@ -349,11 +547,91 @@ function renderLiveReadouts() {
   });
   renderLog();
 }
+let lastLogTop = null;
 function renderLog() {
-  $('#log').innerHTML = state.log.map((l) => `<div>${l.replace(/</g, '&lt;')}</div>`).join('');
+  const lines = state.log;
+  $('#log').innerHTML = lines.map((l, i) => {
+    const isNew = i === 0 && l !== lastLogTop && lastLogTop !== null;
+    return `<div${isNew ? ' class="new"' : ''}>${l.replace(/</g, '&lt;')}</div>`;
+  }).join('');
+  lastLogTop = lines[0] ?? null;
 }
 
+function fmtAgo(ms) {
+  const s = Math.max(0, Math.floor((Date.now() - ms) / 1000));
+  if (s < 3) return 'now';
+  if (s < 60) return s + 's ago';
+  const m = Math.floor(s / 60);
+  if (m < 60) return m + 'm ago';
+  return Math.floor(m / 60) + 'h ago';
+}
+function esc(s) { return String(s == null ? '' : s).replace(/</g, '&lt;'); }
+function fmtWhen(t) { return new Date(t).toTimeString().slice(0, 8); }
+/* the same key touchDevice() computes server-side, so a row's expand state
+   survives the 4 s refresh instead of resetting every time it re-renders */
+function deviceKey(d) { return d.mac || d.id || d.ip || 'unknown'; }
+
+let lastDevices = [];
+const expandedDevices = new Set();
+
+function renderDevices(devices) {
+  lastDevices = devices;
+  renderDeviceCount();
+  const box = $('#devices');
+  if (!devices.length) {
+    box.innerHTML = '<div class="devices-empty">No device has polled this session yet.</div>';
+    return;
+  }
+  box.innerHTML = devices.map((d) => {
+    const key = deviceKey(d);
+    const open = expandedDevices.has(key);
+    const who = esc(d.id || d.mac || '(unidentified)');
+    const sub = [d.mac && d.mac !== d.id ? d.mac : null, d.board].filter(Boolean).map(esc).join(' · ') || esc(d.ip);
+    const last = d.recent[0];
+    const outcome = last ? (last.label === 'ok' ? '' : ` · <span class="warn">${esc(last.label)}</span>`) : '';
+    const hist = !d.recent.length ? '<div class="dhist-empty">No polls recorded yet.</div>'
+      : d.recent.map((h) => {
+          const cls = h.label === 'ok' ? 'ok' : 'bad';
+          return `<div class="dhist-row"><time>${fmtWhen(h.t)}</time><span class="st ${cls}">${h.status}</span><span>${esc(h.label)}</span></div>`;
+        }).join('');
+    return `<div class="dgroup${open ? ' open' : ''}" data-key="${esc(key)}">
+      <div class="drow">
+        <span class="dot${d.active ? ' on' : ''}"></span>
+        <span class="who"><span class="chev">&#9656;</span>${who}<span class="sub">${sub}</span></span>
+        <span class="meta">${d.pollCount} poll${d.pollCount === 1 ? '' : 's'}${outcome} · ${fmtAgo(d.lastSeen)}</span>
+      </div>
+      <div class="dhist${open ? ' open' : ''}"><div class="dhist-body">${hist}</div></div>
+    </div>`;
+  }).join('');
+}
+$('#devices').addEventListener('click', (e) => {
+  const group = e.target.closest('.dgroup');
+  if (!group) return;
+  const key = group.dataset.key;
+  if (expandedDevices.has(key)) expandedDevices.delete(key); else expandedDevices.add(key);
+  /* Toggled on the DOM node already there, not a re-render from scratch —
+     the accordion only animates when the browser sees the *same* element
+     change class, never on one that was just destroyed and recreated.   */
+  const open = expandedDevices.has(key);
+  group.classList.toggle('open', open);
+  const hist = group.querySelector('.dhist');
+  if (hist) hist.classList.toggle('open', open);
+});
+
+/* Live count badge, top-right of the connection block — one click jumps
+   down to the Devices section itself, never re-fetches anything on its own. */
+function renderDeviceCount() {
+  const n = lastDevices.length;
+  $('#devCountN').textContent = n;
+  $('#devCountLabel').textContent = n === 1 ? 'device' : 'devices';
+  $('#devCountDot').classList.toggle('on', lastDevices.some((d) => d.active));
+}
+$('#devCountBtn').onclick = () => {
+  $('#devicesSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
 async function loadState() { state = await api('GET', '/api/state'); }
+async function loadDevices() { renderDevices((await api('GET', '/api/devices')).devices); }
 
 $$('#lvls .lvl').forEach((el) => el.onclick = () => {
   pending.level = el.dataset.l;
@@ -363,7 +641,7 @@ $$('#lvls .lvl').forEach((el) => el.onclick = () => {
   renderControls();
   syncApplyButton();
 });
-$('#msg').addEventListener('input', () => { pending.message = $('#msg').value; syncApplyButton(); });
+$('#msg').addEventListener('input', () => { pending.message = $('#msg').value; renderPresets(); syncApplyButton(); });
 
 $('#applyAll').onclick = async () => {
   if (pending.level !== null || pending.message !== null) {
@@ -375,6 +653,9 @@ $('#applyAll').onclick = async () => {
   for (const [key, pattern] of Object.entries(pending.patterns)) {
     const [gateway, ...rest] = key.split('/');
     await api('POST', '/api/pattern', { gateway, name: rest.join('/'), pattern });
+  }
+  if (pending.fault !== undefined) {
+    await api('POST', '/api/fault', { type: pending.fault || null });
   }
   pending = emptyPending();
   await loadState();
@@ -390,22 +671,85 @@ $('#resetAll').onclick = async () => {
   syncApplyButton();
 };
 
-$('#copyEp').onclick = () => {
-  navigator.clipboard?.writeText($('#epUrl').textContent).catch(() => {});
-  $('#copyEp').textContent = 'copied';
-  setTimeout(() => { $('#copyEp').textContent = 'copy'; }, 1200);
-};
-
 $('#epUrl').textContent = location.origin + '/v1/gateway_health';
 
 (async () => {
   await loadState();
   renderControls();
   syncApplyButton();
+  await loadDevices();
 })();
 
-/* background: live sparkline/stat/log refresh only — never the form controls */
-setInterval(async () => { await loadState(); renderLiveReadouts(); }, 4000);
+/* background: live sparkline/stat/log/devices refresh only — never the form controls */
+setInterval(async () => { await loadState(); renderLiveReadouts(); await loadDevices(); }, 4000);
+
+/* ---------------------------------------------------------------- bgfx
+   A quiet drifting-particle backdrop, sitting behind everything at z-index
+   0. Purely decorative — it never reads or reflects real state, so it can
+   never be mistaken for a status indicator. Respects reduced-motion by
+   drawing exactly one static frame instead of looping, and pauses the
+   loop whenever the tab is hidden so it never spends CPU off-screen.    */
+(function bgfx() {
+  const canvas = document.getElementById('bgfx');
+  const ctx = canvas.getContext('2d');
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let w, h, dpr, pts;
+
+  function seed() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    w = canvas.width = innerWidth * dpr;
+    h = canvas.height = innerHeight * dpr;
+    canvas.style.width = innerWidth + 'px';
+    canvas.style.height = innerHeight + 'px';
+    const count = Math.min(70, Math.max(24, Math.floor((innerWidth * innerHeight) / 22000)));
+    pts = Array.from({ length: count }, () => ({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      vx: (Math.random() - 0.5) * 0.16 * dpr,
+      vy: (Math.random() - 0.5) * 0.16 * dpr,
+      r: (Math.random() * 1.1 + 0.6) * dpr,
+    }));
+  }
+
+  function frame() {
+    const linkDist = 110 * dpr;
+    ctx.clearRect(0, 0, w, h);
+    for (const p of pts) {
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0 || p.x > w) p.vx *= -1;
+      if (p.y < 0 || p.y > h) p.vy *= -1;
+    }
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i + 1; j < pts.length; j++) {
+        const dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y;
+        const d = Math.hypot(dx, dy);
+        if (d < linkDist) {
+          ctx.strokeStyle = `rgba(34,211,238,${(1 - d / linkDist) * 0.12})`;
+          ctx.lineWidth = dpr;
+          ctx.beginPath(); ctx.moveTo(pts[i].x, pts[i].y); ctx.lineTo(pts[j].x, pts[j].y); ctx.stroke();
+        }
+      }
+    }
+    ctx.fillStyle = 'rgba(120,175,235,.4)';
+    for (const p of pts) { ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill(); }
+  }
+
+  let raf = null;
+  function loop() { frame(); raf = requestAnimationFrame(loop); }
+  function start() { if (!reduceMotion && raf === null && !document.hidden) loop(); }
+  function stop() { if (raf !== null) { cancelAnimationFrame(raf); raf = null; } }
+
+  seed();
+  if (reduceMotion) { frame(); }            // one static frame, never a loop
+  else { start(); }
+
+  document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); else start(); });
+  let resizeTimer;
+  addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => { seed(); if (reduceMotion) frame(); }, 150);
+  });
+})();
 </script>
 </body>
 </html>

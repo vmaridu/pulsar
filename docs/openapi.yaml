@@ -1,0 +1,222 @@
+openapi: 3.0.3
+info:
+  title: Pulsar gateway API
+  version: "3.0.0"
+  description: >
+    One GET, one JSON object, no device knowledge required. Full contract in
+    docs/api.md — this file is a copy-pastable machine-readable mirror of it,
+    kept in step by hand. Serve any backend that answers this shape and a
+    Pulsar device (or either build's mockup, or this simulator) can point at
+    it.
+servers:
+  - url: https://example.invalid
+    description: your backend (replace with its real origin)
+  - url: http://localhost:4180
+    description: this simulator, once `node server.js` is running
+
+paths:
+  /v1/gateway_health:
+    get:
+      summary: The one endpoint a device polls
+      description: |
+        No id, no query params — one URL per device. If your backend fronts
+        several platforms, merge them here and tag each row with `gateway`.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current alert verdict plus 1–5 metric screens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayHealth'
+              example:
+                measured_at: 1770000100
+                alert:
+                  level: info
+                  message: error budget healthy
+                metrics:
+                  - gateway: Orders
+                    name: Created
+                    bucket_unit: m
+                    bucket_size: 1
+                    bucket_count: 30
+                    buckets_value_type: total_count
+                    buckets: [649,625,606,646,647,632,636,610,640,616,607,641,621,633,633,613,614,611,607,627,648,609,630,627,632,610,631,618,630,634]
+                    aggregates:
+                      - name: 2XX
+                        value: 18659
+                      - name: 4XX
+                        value: 109
+                        level: warning
+                      - name: 5XX
+                        value: 15
+                        level: critical
+                      - name: AVG
+                        value: 42
+                        unit: ms
+                      - name: P95
+                        value: 180
+                        unit: ms
+                  - gateway: Payments
+                    name: Paid
+                    bucket_unit: m
+                    bucket_size: 1
+                    bucket_count: 30
+                    buckets_value_type: total_count
+                    buckets: [488,490,468,496,484,469,502,489,480,470,484,500,490,481,480,495,481,480,476,500,483,470,488,468,494,483,486,487,480,483]
+                    aggregates:
+                      - name: 2XX
+                        value: 14467
+                      - name: 4XX
+                        value: 51
+                        level: warning
+                      - name: 5XX
+                        value: 7
+                      - name: AVG
+                        value: 71
+                        unit: ms
+                      - name: P95
+                        value: 310
+                        unit: ms
+        '3xx':
+          description: Redirect — not followed by a client; fix the configured URL
+        '401':
+          description: Missing or wrong Authorization — client keeps the last payload
+        '403':
+          description: Same as 401 — client keeps the last payload
+        '404':
+          description: Client keeps the last payload
+        '429':
+          description: Throttled — client backs off a cycle, honours Retry-After
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds to wait before the next poll
+        '5xx':
+          description: Backend fault — client retries next cycle, keeps the last payload
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Required unless HMAC is configured (see docs/api.md §8)
+
+  schemas:
+    GatewayHealth:
+      type: object
+      required: [measured_at, alert, metrics]
+      additionalProperties: false
+      properties:
+        measured_at:
+          type: integer
+          description: Unix seconds you measured — not when you answered
+          example: 1770000100
+        alert:
+          $ref: '#/components/schemas/Alert'
+        metrics:
+          type: array
+          minItems: 1
+          maxItems: 5
+          description: 1–5 rows ("screens"), each names its own gateway. metrics[0] is the summary.
+          items:
+            $ref: '#/components/schemas/Metric'
+        refresh_seconds:
+          type: number
+          description: Suggested poll rate, advice only, clamped 10-900
+          minimum: 10
+          maximum: 900
+
+    Alert:
+      type: object
+      required: [level, message]
+      additionalProperties: false
+      properties:
+        level:
+          type: string
+          enum: [info, warning, critical]
+        message:
+          type: string
+          maxLength: 20
+          description: One line, every level
+
+    Metric:
+      type: object
+      required: [gateway, name, aggregates]
+      additionalProperties: false
+      properties:
+        gateway:
+          type: string
+          maxLength: 14
+          description: Which platform this row came from. Required, no top-level fallback.
+          example: Orders
+        name:
+          type: string
+          maxLength: 16
+          description: IS the text drawn in the FOOTER — no separate label. Stable across polls; clients hold position by it.
+          example: Created
+        bucket_unit:
+          type: string
+          enum: [s, m, h]
+          default: m
+          description: Second, minute or hour — single letter
+        bucket_size:
+          type: integer
+          minimum: 1
+          default: 1
+        bucket_count:
+          type: integer
+          minimum: 1
+          maximum: 30
+          default: 30
+        buckets_value_type:
+          type: string
+          enum: [total_count]
+          description: Required whenever `buckets` is sent
+        buckets:
+          type: array
+          description: Oldest first, newest last. Exactly bucket_count long. A gap is 0, never null.
+          items:
+            type: integer
+            minimum: 0
+          maxItems: 30
+        aggregates:
+          type: array
+          minItems: 1
+          maxItems: 5
+          description: >
+            1–5 stat tiles for this screen's BODY band. Position 0 is the
+            heading; 1–4 fill the four body slots in order. A client that
+            gets fewer than 5 just leaves the remaining slots blank — never
+            an error. See AGENTS.md's aggregate-tile formatting guideline.
+          items:
+            $ref: '#/components/schemas/AggregateTile'
+
+    AggregateTile:
+      type: object
+      required: [name, value]
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 5
+          description: IS the text drawn — no separate label. Longer values are truncated by the client, never wrapped.
+          example: 2XX
+        value:
+          type: number
+          description: The tile's number. One value, one job — no second number bolted onto it.
+        unit:
+          type: string
+          enum: [ms, s, '%']
+          description: Omit for a plain count.
+        level:
+          type: string
+          enum: [info, warning, critical]
+          default: info
+          description: >
+            Colours this tile's value — info the normal theme colour (default),
+            warning orange, critical red. Same three words as alert.level, but
+            scoped to one tile; never sounds or flashes anything. The backend's
+            own judgement call, never computed by the client.

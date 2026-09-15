@@ -146,11 +146,11 @@ footer a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--lin
       </div>
     </div>
     <div class="keys">
-      <button class="key" id="kLeft"  data-k="left"  title="tap: settings on / off · hold 2 s: hotspot">PLUS<kbd>1</kbd></button>
+      <button class="key" id="kLeft"  data-k="left"  title="tap: settings on / off · hold 2 s: setup hotspot">DOWN<kbd>1</kbd></button>
       <button class="key" id="kPower" data-k="power" title="tap: future use · hold 2 s: off / on">PWR<kbd>2</kbd></button>
-      <button class="key" id="kRight" data-k="right" title="tap: display on / off · double-tap: mute · hold 2 s: future use">BOOT<kbd>3</kbd></button>
+      <button class="key" id="kRight" data-k="right" title="tap: display on / off · double-tap: mute · hold 2 s: lock the screen, or open the unlock keypad">UP<kbd>3</kbd></button>
     </div>
-    <div class="keyHint">tap <b>PLUS</b>: settings · hold 2 s: hotspot · tap <b>PWR</b>: future use · hold 2 s: off / on · tap <b>BOOT</b>: display on / off · double-tap: mute · hold 2 s: future use</div>
+    <div class="keyHint">tap <b>DOWN</b>: settings · hold 2 s: setup hotspot · tap <b>PWR</b>: future use · hold 2 s: off / on · tap <b>UP</b>: display on / off · double-tap: mute · hold 2 s: lock / unlock</div>
     <div class="toggles">
       <button class="tg" id="tgReal" title="z">actual size</button>
       <button class="tg" id="tgPx">pixel grid</button>
@@ -175,6 +175,8 @@ footer a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--lin
         <button class="b" id="doNext">▸ next metric<kbd>→</kbd></button>
         <button class="b" id="doHold">⏸ pause cycle<kbd>h</kbd></button>
         <button class="b" id="doIntro">▶ boot intro<kbd>b</kbd></button>
+        <button class="b" id="doLock">🔒 lock<kbd>l</kbd></button>
+        <button class="b" id="doUnlock">🔓 unlock<kbd>u</kbd></button>
       </div>
     </div>
 
@@ -278,10 +280,11 @@ const LV = {
   fault:    { w:'OFFLINE',  c:C.gy, d:C.gyD },
 };
 /* One alert pattern for warning, critical and no connection alike: the WHOLE
-   SCREEN flashes the level colour for 500 ms, once every 3 s — every band, not
-   a stripe. Only critical adds a sound, exactly as long as the flash.      */
-const FLASHES = { info:false, warning:true, critical:true, fault:true };
-const SOUNDS  = { info:false, warning:false, critical:true, fault:false };
+   SCREEN flashes the level colour for 500 ms, once every 5 s — every band, not
+   a stripe. `critical` gets the full alert; `warning` and `fault` get a
+   shorter, quieter notice instead — never both, and `info` gets neither.  */
+const FLASHES = { info:false, warning:true,  critical:true,  fault:true  };
+const SOUNDS  = { info:null,  warning:'notice', critical:'alert', fault:'notice' };
 const ALERT_FLASH_MS = 500;   // synced to st.screenT0, not a free-running clock — see frame()
 
 /* ==========================================================================
@@ -296,6 +299,19 @@ class GFX {
   fillRect(x, y, w, h, c){ this.x.fillStyle = c; this.x.fillRect(x*S, y*S, w*S, h*S); }
   hLine(x, y, w, c){ this.fillRect(x, y, w, 1, c); }
   vLine(x, y, h, c){ this.fillRect(x, 1*y, 1, h, c); }
+  /* a soft divider instead of a flat rule — fades in, peaks at the middle,
+     fades back out, so it reads as a hint of separation rather than a
+     hard drawn line. Same effect as ws_lcd_349/mockup.html's own. */
+  hFade(x, y, w, c){
+    const g = this.x, grad = g.createLinearGradient(x*S, 0, (x+w)*S, 0);
+    grad.addColorStop(0, 'transparent'); grad.addColorStop(0.5, c); grad.addColorStop(1, 'transparent');
+    g.fillStyle = grad; g.fillRect(x*S, y*S, w*S, S);
+  }
+  vFade(x, y, h, c){
+    const g = this.x, grad = g.createLinearGradient(0, y*S, 0, (y+h)*S);
+    grad.addColorStop(0, 'transparent'); grad.addColorStop(0.5, c); grad.addColorStop(1, 'transparent');
+    g.fillStyle = grad; g.fillRect(x*S, y*S, S, h*S);
+  }
   px(x, y, c){ this.fillRect(x, y, 1, 1, c); }
   circle(cx, cy, r, c){
     const g = this.x; g.fillStyle = c; g.beginPath();
@@ -396,18 +412,29 @@ function spanCaption(r){
   return 'LAST ' + span + u;
 }
 /* status clock: MM/DD hh:mm AM of measured_at — the time of the reading,
-   not the time now                                                         */
+   not the time now, and never the viewer's own browser time zone (that was
+   an accident of getHours()/getMonth() reading local time, not a feature).
+   TZ_NAME mirrors ws_lcd_154.ino's TZ_TABLE default — US Eastern, daylight
+   saving included automatically by Intl's own tzdata, no manual rule table
+   needed the way the firmware's POSIX TZ string is. This mockup has no
+   live setup page to pick a different one from; change the constant.     */
+const TZ_NAME = 'America/New_York';
 const p2 = n => String(n).padStart(2, '0');
+const clockFmt = new Intl.DateTimeFormat('en-US', { timeZone: TZ_NAME,
+  month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true });
 function clockText(){
-  const d = new Date(SNAP.measured_at * 1000), h = d.getHours();
-  return `${p2(d.getMonth() + 1)}/${p2(d.getDate())} ${p2(h % 12 || 12)}:${p2(d.getMinutes())} ${h < 12 ? 'AM' : 'PM'}`;
+  const parts = clockFmt.formatToParts(new Date(SNAP.measured_at * 1000));
+  const get = t => parts.find(p => p.type === t).value;
+  return `${get('month')}/${get('day')} ${get('hour')}:${get('minute')} ${get('dayPeriod').toUpperCase()}`;
 }
 
 function pct(n, t){ return t ? Math.round((n * 100 / t) * 100) / 100 : 0; }
 
 /* ==========================================================================
-   Sample payloads — shaped exactly like docs/api.md, same numbers the
-   offline sketch carries, so the mockup and the board can be held side by side
+   Sample payloads — shaped exactly like docs/api.md, and the same numbers the
+   simulator serves, so the mockup and a board pointed at it can be held side
+   by side. The firmware carries no payload of its own: it polls the URL you
+   set over the setup hotspot, and shows nothing at all until it has one
    ========================================================================== */
 /* One tile — see the aggregate-tile guideline in AGENTS.md. `name` IS the
    text drawn (<= 5 chars) — no separate label. `level` (optional, default
@@ -490,7 +517,7 @@ const SNAP = {
    ========================================================================== */
 const st = {
   row: 0,
-  screen: true,         // the panel — BOOT tap toggles it. Polling never stops
+  screen: true,         // the panel — UP tap toggles it. Polling never stops
   plugged: true, view: 'main', real: false, intro: null, off: false, offT0: 0,
   screenT0: Date.now(), paused: false,        // the 5 s cycle
   nextPoll: Date.now() + POLL_MIN_MS, lastPoll: Date.now(),
@@ -499,6 +526,7 @@ const st = {
   sweepT0: 0,
   flashOn: false, wasFlash: false,
   muted: false, toastT0: 0, toastText: '',
+  locked: false, unlockedAt: Date.now(), lockEntry: '', lockFails: [], lockLastDigitT0: 0,   // the privacy lock — lock.ino; unlocked by default in this mockup for convenience (real hardware always boots locked — AGENTS.md §3). unlockedAt starts now, not 0, or lockTick() below would read the epoch as "long since expired" and re-lock on the very first tick
 };
 const g = new GFX(document.getElementById('screen'));
 const cur  = () => SNAP;
@@ -554,21 +582,23 @@ function drawStatus(th){
   g.hLine(0, y + h - 1, W, th.ink ? th.rule : (busy ? C.cy : C.line));
 }
 
-/* ALERT — the whole band is the level colour at full strength, no tint, no
-   black mixed in, and it holds steady at every level. The flash is the whole
-   screen's job, not this band's: see themeFor().                          */
-function drawAlert(){
+/* ALERT — plain background at rest, the same ground every other band
+   sits on. Colour lives entirely in the level word: bold, and at full
+   strength — that's the whole identification, no background tint needed
+   beside it. The flash is still the whole screen's job, not this band's
+   own resting look: see themeFor().                                     */
+function drawAlert(th){
   const [y, h] = B.alert;
-  const lv = level(), L = LV[lv], fault = !!SNAP.fault;
+  const lv = level(), L = LV[lv], ink = th.ink;
 
-  g.fillRect(0, y, W, h, L.c);
-  const word = C.ink;
+  g.fillRect(0, y, W, h, th.bg);
+  const wordC = ink ? th.tx : L.c;
 
-  /* heading and subscript: the level word loud, the message small under it */
+  const fault = !!SNAP.fault;
   const msg = (fault ? 'no route to host' : SNAP.alert.message).slice(0, 20);
-  g.text(L.w, X_L, y + 6, 2, word, 'l', true);
-  if (fault) g.text('HELD', X_R, y + 6, 2, word, 'r', true);
-  g.text(msg, X_L, y + 25, 1, C.ink);
+  g.text(fault ? 'OFFLINE' : L.w, X_L, y + 5, 2, wordC, 'l', true);
+  if (fault) g.text('HELD', X_R, y + 5, 2, wordC, 'r', true);
+  g.text(msg, X_L, y + 24, 1, ink ? th.tx : th.dim);
 }
 
 /* The graph is a quiet ground under the numbers: a soft fill that fades to
@@ -679,7 +709,7 @@ function drawBody(off){
   const r = curR(), o = y + off, lv = level(), th = themeFor(lv);
   g.fillRect(0, y, W, B.body[1], th.bg);
   /* under an alert a rule parts the ALERT band from the body — during a flash they share one ground */
-  if (FLASHES[lv]) g.hLine(X_L, y, X_R - X_L, th.rule);
+  if (FLASHES[lv]) g.hFade(X_L, y, X_R - X_L, th.rule);
   drawGraph(r, y + Y.graphTop, y + Y.base, off, th);
 
   const tiles = shownAggregates(), H_ = th.bg;
@@ -693,7 +723,7 @@ function drawBody(off){
   }
 
   /* a hairline between the two tile columns */
-  g.vLine(COL2 - 9, o + Y.tile1 + 2, Y.tile2 + 18 - Y.tile1, th.rule);
+  g.vFade(COL2 - 9, o + Y.tile1 + 2, Y.tile2 + 18 - Y.tile1, th.rule);
 
   const qx = [[X_L, COL2 - 14], [COL2, X_R]];
   const qy = [Y.tile1, Y.tile1, Y.tile2, Y.tile2];
@@ -746,9 +776,25 @@ function drawFoot(th){
   if (nm) g.text(nm, X_L + wg + 12, y + 6, 2, th.tx, 'l', true);
 }
 
-/* What an online build's radio reports — the mockup shows it connected. The
-   offline sketch has no Wi-Fi, so its settings screen shows "-" for these. */
-const NET = { connected: true, rssi: -58, ip: '192.168.1.42', name: 'pulsar-3fa2c1', mac: '3C:84:27:3F:A2:C1' };
+/* What the radio reports once it has joined one of the saved networks, and
+   where the board is configured to point. Both are set over the setup
+   hotspot on real hardware; here they stand in for a board already set up. */
+const NET = { connected: true, rssi: -58, ip: '192.168.1.42', ssid: 'Office',
+              portalBlocked: false, name: 'pulsar-3fa2c1', mac: '3C:84:27:3F:A2:C1' };
+const CFG = { url: 'https://api.example.com', key: '7f3a9c21', secret: '', ca: '', nets: 2,
+              lockCode: '123456', lockTimeoutMin: 30 };
+const cfgSigned = () => CFG.secret !== '';
+const cfgTls    = () => CFG.ca !== '';
+/* Just the host out of the configured URL — the scheme and any path are noise
+   on a line this narrow, and the host is the part you check.               */
+const urlHost = u => u ? (u.split('://')[1] || u).split('/')[0] : 'NOT SET';
+/* This session's hotspot password, made fresh every time the AP is raised —
+   the same alphabet the firmware uses, with no character to squint at.    */
+let apPass = '', apSaves = 0, apClients = 0;
+function apMakePassword(){
+  const alpha = '23456789abcdefghjkmnpqrstuvwxyz';
+  apPass = Array.from({ length: 8 }, () => alpha[Math.floor(Math.random() * alpha.length)]).join('');
+}
 /* A response can mix rows from more than one platform — join the distinct
    `gateway` names actually present, in first-seen order.                  */
 function joinGateways(){
@@ -763,57 +809,86 @@ function infoRow(y, label, value, c = C.tx){
   g.text(value, X_R, y, 1, c, 'r');
 }
 
-/* The settings screen — everything the board knows about itself, read-only.
-   Tap PLUS to toggle it; hold PLUS 2 s for the hotspot, where these become
-   editable (spec to come). A tap on the glass goes back too.              */
+/* The settings screen — everything the board knows about itself, read-only,
+   in the order you would ask the questions: what am I holding, what did it
+   join, where is it pointing, and what came back. Tap DOWN to toggle it;
+   hold DOWN 2 s for the setup hotspot, where it all becomes editable. A tap
+   on the glass goes back too.                                             */
 function drawSettings(){
   g.fillScreen(C.bg);
   g.text('SETTINGS', X_L, 8, 2, C.cy, 'l', true);
   g.hLine(X_L, 28, X_R - X_L, C.line);
 
-  g.text('DEVICE', X_L, 34, 1, C.dim2);
-  infoRow(45, 'Battery', '82% ' + (st.plugged ? 'CHARGING' : 'ON BATTERY'));
-  infoRow(56, 'Name', NET.name);
-  infoRow(67, 'Sound', st.muted ? 'muted' : 'on', st.muted ? C.or : C.tx);
+  g.text('DEVICE', X_L, 33, 1, C.dim2);
+  infoRow(44, 'Battery', '82% ' + (st.plugged ? 'CHARGING' : 'ON BATTERY'));
+  infoRow(55, 'Name', NET.name);
+  infoRow(66, 'MAC', NET.mac);
 
-  g.text('WI-FI', X_L, 81, 1, C.dim2);
-  infoRow(92, 'Connected', NET.connected ? 'yes' : 'no');
-  infoRow(103, 'Signal', NET.connected ? NET.rssi + ' dBm' : '-');
-  infoRow(114, 'IP', NET.connected ? NET.ip : '-');
-  infoRow(125, 'MAC', NET.mac);
+  g.text('WI-FI', X_L, 79, 1, C.dim2);
+  if (NET.connected && NET.portalBlocked) infoRow(90, 'Network', NET.ssid + ' - SIGN-IN', C.or);
+  else if (NET.connected)                 infoRow(90, 'Network', NET.ssid);
+  else                                    infoRow(90, 'Network', CFG.nets ? 'scanning' : 'none saved',
+                                                   CFG.nets ? C.dim : C.or);
+  infoRow(101, 'Signal', NET.connected ? NET.rssi + ' dBm' : '-');
+  infoRow(112, 'IP', NET.connected ? NET.ip : '-');
+
+  /* where it points, and how it proves who it is. TLS with no pasted root is
+     encrypted but unauthenticated, so it is called out rather than implied. */
+  g.text('BACKEND', X_L, 125, 1, C.dim2);
+  infoRow(136, 'Host', urlHost(CFG.url), CFG.url ? C.tx : C.or);
+  const https = CFG.url.startsWith('https://');
+  const auth = (!CFG.key ? 'no key' : cfgSigned() ? 'signed' : 'bearer') + ' - ' +
+               (!https ? 'NO TLS' : cfgTls() ? 'tls ok' : 'TLS UNVERIFIED');
+  infoRow(147, 'Auth', auth, (https && cfgTls() && CFG.key) ? C.tx : C.or);
 
   /* the dot is the current alert.level — global, not any one platform */
-  g.text('GATEWAYS', X_L, 139, 1, C.dim2);
-  g.fillRect(X_L, 151, 5, 5, LV[level()].c);
-  g.text(joinGateways(), X_L + 10, 150, 1, C.tx, 'l', true);
-  g.text(SNAP.metrics.length + ' screens', 168, 150, 1, C.dim, 'r');
-  g.text(ageText(Date.now() - SNAP.polledAt), X_R, 150, 1, C.tx, 'r');
-  infoRow(162, 'Poll', 'every ' + Math.round(pollInterval() / 1000) + 's', C.dim);
+  g.text('GATEWAYS', X_L, 160, 1, C.dim2);
+  g.fillRect(X_L, 172, 5, 5, LV[level()].c);
+  g.text(joinGateways(), X_L + 10, 171, 1, C.tx, 'l', true);
+  g.text(SNAP.metrics.length + ' scr', 176, 171, 1, C.dim, 'r');
+  g.text(ageText(Date.now() - SNAP.polledAt), X_R, 171, 1, C.tx, 'r');
 
-  g.hLine(X_L, 178, X_R - X_L, C.line);
-  g.text('TAP LEFT - BACK', W/2, 186, 1, C.dim, 'c');
-  g.text('HOLD LEFT 2 S - HOTSPOT', W/2, 198, 1, C.dim2, 'c');
-  g.text('TAP RIGHT - DISPLAY OFF', W/2, 210, 1, C.dim2, 'c');
-  g.text('2 TAPS RIGHT - SOUND', W/2, 222, 1, C.dim2, 'c');
+  g.hLine(X_L, 184, X_R - X_L, C.line);
+  g.text('TAP DOWN - BACK', W/2, 188, 1, C.dim, 'c');
+  g.text('HOLD DOWN 2 S - SETUP HOTSPOT', W/2, 199, 1, C.cy, 'c');
+  g.text('TAP UP - DISPLAY OFF', W/2, 210, 1, C.dim2, 'c');
+  g.text('2 TAPS UP - SOUND', W/2, 221, 1, C.dim2, 'c');
 }
 
-/* Hotspot mode — a placeholder until its spec arrives. Hold PLUS 2 s to get
-   here; tap or hold it again to go back.                                  */
+/* The setup hotspot. Hold DOWN 2 s and the board raises its own WPA2 Wi-Fi,
+   answers every DNS name with its own address so the page opens by itself,
+   and serves the setup page at 192.168.4.1 — the full URL, the API key and
+   secret, and the networks to reach them over. Everything needed to get in,
+   in the order it is needed. Tap or hold DOWN again to go back, and the
+   access point goes down with the screen.                                 */
 function drawHotspot(){
   g.fillScreen(C.bg);
-  g.text('HOTSPOT', X_L, 8, 2, C.cy, 'l', true);
+  g.text('SETUP', X_L, 8, 2, C.cy, 'l', true);
   g.hLine(X_L, 28, X_R - X_L, C.line);
-  g.text('JOIN THIS WI-FI', X_L, 40, 1, C.dim);
-  g.text(NET.name, X_L, 52, 2, C.tx, 'l', true);
-  g.text('THEN OPEN', X_L, 76, 1, C.dim);
-  g.text('192.168.4.1', X_L, 88, 2, C.tx);
-  g.hLine(X_L, 114, X_R - X_L, C.line);
-  g.text('NOT STARTED', W/2, 128, 2, C.or, 'c', true);
-  g.text('the settings page', W/2, 152, 1, C.dim2, 'c');
-  g.text('is still to be specified', W/2, 164, 1, C.dim2, 'c');
+  g.text('JOIN THIS WI-FI', X_L, 34, 1, C.dim2);
+  g.text(NET.name, X_L, 45, 2, C.tx, 'l', true);
+  g.text('PASSWORD', X_L, 68, 1, C.dim2);
+  g.text(apPass, X_L, 79, 2, C.cy, 'l', true);
+  g.text('THEN OPEN', X_L, 102, 1, C.dim2);
+  g.text('192.168.4.1', X_L, 113, 2, C.tx);
+  g.hLine(X_L, 136, X_R - X_L, C.line);
+
+  if (!apClients) g.text('WAITING FOR A PHONE', X_L, 144, 1, C.dim);
+  else            g.text(apClients + ' CONNECTED', X_L, 144, 1, C.gr, 'l', true);
+  if (apClients)  g.text('PAGE OPENED', X_R, 144, 1, C.dim2, 'r');
+
+  if (apSaves){
+    g.text('SAVED ' + apSaves + ' TIME' + (apSaves === 1 ? '' : 'S'), X_L, 158, 1, C.gr, 'l', true);
+    g.text('RESTART FROM THE PAGE TO USE IT', X_L, 170, 1, C.dim2);
+  } else {
+    g.text(CFG.nets + ' network' + (CFG.nets === 1 ? '' : 's') + ' saved, url ' +
+           (CFG.url ? 'set' : 'NOT SET'), X_L, 158, 1, C.dim2);
+  }
+
   g.hLine(X_L, 184, X_R - X_L, C.line);
-  g.text('TAP LEFT - BACK', W/2, 196, 1, C.dim, 'c');
-  g.text('HOLD LEFT 2 S - BACK', W/2, 208, 1, C.dim2, 'c');
+  g.text('TAP DOWN - BACK', W/2, 192, 1, C.dim, 'c');
+  g.text('HOLD DOWN 2 S - BACK', W/2, 204, 1, C.dim2, 'c');
+  g.text('THE AP CLOSES WHEN YOU LEAVE', W/2, 220, 1, C.dim2, 'c');
 }
 
 /* ==========================================================================
@@ -821,7 +896,7 @@ function drawHotspot(){
    into the dashboard. Same timeline and drawing as ws_lcd_154/intro.ino.
      Screen 1  0.0 – 3.0 s  the pulsar alone, full screen — a bright core and
                             two straight beams reaching near every edge,
-                            humming low in step with them (see Sound below)
+                            firing a torpedo-launch burst every beam pass (see Sound below)
      Screen 2  3.0 – 5.0 s  plain black, bold PULSAR, stencil-cut, centred,
                             coloured with a light-blue → red gradient that
                             drifts across the letters. Silent
@@ -939,12 +1014,18 @@ function drawIntroOver(I, t, f){
 
 /* ==========================================================================
    Sound and mute — the same synth as ws_lcd_154/sound.ino. The boot intro
-   hums low while the pulsar turns, then stops with the animation.
-   Once running, a critical alert adds 500 ms riding each flash, ending as
-   the flash ends. Double-tap BOOT to mute either; a restart (power off,
-   then on) brings sound back.
+   fires a torpedo-launch burst every time a beam sweeps past top, then
+   stops with the animation. Audible but soft-edged on purpose — well under
+   the alert's own volume — a launch, not a siren, so it never reads as
+   trouble. Once running, one of two sounds rides each flash, ending as it
+   ends: `critical` gets the full 500 ms alert; `warning` and `fault` get a
+   shorter, quieter notice. Double-tap UP to mute any of them; a restart
+   (power off, then on) brings sound back — real hardware also clears a
+   mute on its own after a configured timeout, set on the setup page, not
+   simulated here.
    ========================================================================== */
-const AUDIO_RATE = 16000, SOUND_PEAK = 0.85, INTRO_PEAK = 0.72, INTRO_HUM_HZ = 85, HIGHPASS_HZ = 250;
+const AUDIO_RATE = 16000, SOUND_PEAK = 0.85, INTRO_PEAK = 0.32, INTRO_HIT_MS = 260,
+      NOTICE_MS = 220, NOTICE_PEAK = 0.35, NOTICE_HZ = 660, HIGHPASS_HZ = 250;
 /* a drum kick: a sine sweeping down from fEnd+fSweep to fEnd, decaying */
 function kick(tau, fEnd, fSweep, k, decay){
   if (tau < 0 || tau > decay * 7) return 0;
@@ -963,19 +1044,47 @@ function alertSample(t){
   const s = attack * release * (0.42 * body * shiver + 0.35 * knock + 0.08 * glint);
   return Math.tanh(1.6 * s) / Math.tanh(1.6);
 }
-/* the boot-intro hum, t in seconds from the intro's start — a low tone plus
-   its octave for body, swelling every time a beam sweeps past top, the same
-   phase drawIntroFrame()'s core pulses on, so loudness and glow rise and
-   fall together. Fades in over 150 ms, out over the last 300 ms.         */
+/* one soft tone, quick in and quicker out — a nudge, not an alarm. Rides
+   `warning` and any connection fault; `critical` keeps the alert instead. */
+function noticeSample(t){
+  const T = NOTICE_MS / 1000;
+  if (t < 0 || t >= T) return 0;
+  const ph = 2 * Math.PI * NOTICE_HZ * t;
+  const tone = Math.sin(ph) + 0.15 * Math.sin(2 * ph);
+  const attack  = t < 0.02 ? t / 0.02 : 1;
+  const release = t > T - 0.08 ? (T - t) / 0.08 : 1;
+  return attack * release * tone;
+}
+/* one torpedo-fire burst, tau seconds since THIS hit's own launch instant —
+   a soft downward drift plus a rounder low thump, a launch heard through a
+   wall, not a beep: a 25 ms smoothstep-eased attack (no corner), a much
+   smaller pitch sweep (a drift, not the glide that reads as a "beep"), and
+   an explicit fade over the final 40 ms so it reaches zero on its own
+   terms instead of being cut off mid-decay.                              */
+function torpedoHit(tau){
+  const T = INTRO_HIT_MS / 1000;
+  if (tau < 0 || tau > T) return 0;
+  const whoosh = kick(tau, 420, 260, 0.045, 0.13);   // a smaller drift still, ~680 -> 420 Hz
+  const thump  = kick(tau, 130, 60,  0.020, 0.10);   // barely there — texture, not a punch
+  const A = 0.03, p = tau < A ? tau / A : 1;
+  const attack = p * p * (3 - 2 * p);                // smoothstep — no elbow
+  const R = 0.04;
+  const release = tau > T - R ? (T - tau) / R : 1;
+  return attack * release * (0.38 * whoosh + 0.20 * thump);
+}
+/* the boot-intro sound, t in seconds from the intro's start — a torpedo-fire
+   burst timed to every beam pass. Two beams a turn, so two launches a turn:
+   `t % period` is time since the nearest one, and a beam passes top exactly
+   when that phase hits zero, the same instant drawIntroFrame()'s core
+   pulses on. Fades the whole run in over 150 ms, out over the last 300 ms. */
 function introSample(t){
   const T = I_ANIM_END;
   if (t < 0 || t >= T) return 0;
-  const up = Math.cos(2 * Math.PI * 2 * SPIN_HZ * t), pulse = up > 0 ? Math.pow(up, 3) : 0;
-  const env = 0.35 + 0.65 * pulse;
+  const period = 1 / (2 * SPIN_HZ);
+  const tau = t % period;
   const attack  = t < 0.15 ? t / 0.15 : 1;
   const release = t > T - 0.3 ? (T - t) / 0.3 : 1;
-  const tone = Math.sin(2 * Math.PI * INTRO_HUM_HZ * t) + 0.5 * Math.sin(2 * Math.PI * 2 * INTRO_HUM_HZ * t);
-  return attack * release * env * tone * 0.5;
+  return attack * release * torpedoHit(tau);
 }
 /* render once, then two one-pole high-passes at 250 Hz (the speaker cannot
    move lower, and trying only rattles) and scale to peak — as sound.ino's
@@ -991,7 +1100,7 @@ function renderSound(sample, lenMs, peak){
   for (let i = 0; i < n; i++) out[i] *= peak / pk;
   return out;
 }
-let actx = null, alertBuf = null, introBuf = null, audioNoted = false;
+let actx = null, alertBuf = null, introBuf = null, noticeBuf = null, audioNoted = false;
 function playPCM(getBuf, setBuf){
   if (st.muted) return;
   try {
@@ -1014,6 +1123,15 @@ function alertSound(){
     return alertBuf;
   });
 }
+/* rides a warning or fault flash — never the same flash as alertSound() */
+function noticeSound(){
+  playPCM(() => noticeBuf, () => {
+    const pcm = renderSound(noticeSample, NOTICE_MS, NOTICE_PEAK);
+    noticeBuf = actx.createBuffer(1, pcm.length, AUDIO_RATE);
+    noticeBuf.getChannelData(0).set(pcm);
+    return noticeBuf;
+  });
+}
 /* called once, right as startIntro() begins screen 1 */
 function introSound(){
   playPCM(() => introBuf, () => {
@@ -1026,7 +1144,7 @@ function introSound(){
 function toggleMute(){
   st.muted = !st.muted;
   st.toastText = st.muted ? 'SOUND OFF' : 'SOUND ON'; st.toastT0 = Date.now();
-  log('BOOT double-tap → sound <b>' + (st.muted ? 'off' : 'on') + '</b>' + (st.muted ? ' until restart' : ''));
+  log('UP double-tap → sound <b>' + (st.muted ? 'off' : 'on') + '</b>' + (st.muted ? ' until restart' : ''));
 }
 /* a short message in a box over the middle of the screen, gone after 1.2 s */
 function drawToast(){
@@ -1055,19 +1173,22 @@ function drawChargeIcon(x, y, c){
    Anything not listed is FUTURE USE, and future use says so out loud.
 
      GLASS  tap: next metric screen  double-tap: future use  hold 2 s: refresh
-     PLUS   tap: settings on / off   double-tap: future use  hold 2 s: hotspot
+     DOWN   tap: settings on / off   double-tap: future use  hold 2 s: setup hotspot
      PWR    tap: future use          double-tap: future use  hold 2 s: off / on
-     BOOT   tap: display on / off    double-tap: mute        hold 2 s: future use
+     UP     tap: display on / off    double-tap: mute        hold 2 s: lock the
+                                                              screen, or open the
+                                                              unlock keypad — lock.ino
 
-   Off the main screen, a tap on the glass goes back to it.
+   Off the main screen, a tap on the glass goes back to it — except the lock
+   keypad, which reads a tap as a digit instead; DOWN backs out of that one.
    A key with a double-tap action waits DOUBLE_TAP_MS before firing its single
    tap, so one gesture never fires both.
    ========================================================================== */
 const HOLD_MS = 2000, TAP_MS = 400, DOUBLE_TAP_MS = 450;
 const KEYS = {
-  left:  { name: 'PLUS', hasDouble: false },
+  left:  { name: 'DOWN', hasDouble: false },
   power: { name: 'PWR',  hasDouble: false },
-  right: { name: 'BOOT', hasDouble: true  },   // double-tap mutes
+  right: { name: 'UP',   hasDouble: true  },   // double-tap mutes
 };
 const TOUCH = { down: false, fired: false, moved: false, t0: 0, x0: 0, y0: 0, pendingT: 0 };
 
@@ -1090,7 +1211,7 @@ function keyTap(k){
   if (k === 'left'){
     st.view = st.view === 'main' ? 'settings' : 'main';
     if (st.view === 'main') st.screenT0 = Date.now();
-    log('PLUS tap → ' + (st.view === 'settings' ? '<b>settings</b>' : 'main screen')); return sync();
+    log('DOWN tap → ' + (st.view === 'settings' ? '<b>settings</b>' : 'main screen')); return sync();
   }
   if (k === 'power'){ log('PWR tap → <i>future use</i>'); return; }
   if (k === 'right') displayToggle();
@@ -1100,14 +1221,155 @@ function keyDoubleTap(k){
   if (k === 'right') return toggleMute();
   log(KEYS[k].name + ' double-tap → <i>future use</i>');
 }
-/* BOOT tap — the panel only. The cycle turns, the poll polls, a critical
+/* UP tap — the panel only. The cycle turns, the poll polls, a critical
    still sounds in the dark.                                                */
 function displayToggle(){
   st.screen = !st.screen;
-  log('BOOT tap → display <b>' + (st.screen ? 'on' : 'off') + '</b>'
+  log('UP tap → display <b>' + (st.screen ? 'on' : 'off') + '</b>'
       + (st.screen ? '' : ' · still polling, a critical still sounds'));
   sync();
 }
+/* ---- privacy lock — mirrors ws_lcd_154/lock.ino exactly: BODY and FOOTER
+   hidden behind a 6-digit code; STATUS, ALERT and every other key are
+   unaffected either way. Locking needs no code, only unlocking does. The
+   just-pressed digit shows briefly then masks to a dot, the same way a
+   phone's PIN entry does — never sent to the log, only ever the one most
+   recent digit on screen. A correct code always clears the fail count.
+   Real hardware also keeps that count (and when it last grew) in NVS, so
+   restarting the board can't be used to dodge the lockout — not simulated
+   here, since reloading this page is already a harder reset than that.  */
+const LOCK_FAIL_WINDOW_MS = 30 * 60000, LOCK_MAX_FAILS = 5, LOCK_REVEAL_MS = 550;
+const lockArmed     = () => SNAP.metrics.length > 0;
+const lockIsLocked  = () => lockArmed() && st.locked;
+function lockRecentFails(){
+  const now = Date.now();
+  st.lockFails = st.lockFails.filter(t => now - t < LOCK_FAIL_WINDOW_MS);
+  return st.lockFails.length;
+}
+const lockRateLimited = () => lockRecentFails() >= LOCK_MAX_FAILS;
+function lockWaitMinutes(){
+  if (!st.lockFails.length) return 0;
+  return Math.ceil((LOCK_FAIL_WINDOW_MS - (Date.now() - Math.min(...st.lockFails))) / 60000);
+}
+function lockClear(){ st.lockEntry = ''; }
+/* UP held 2 s while unlocked — no code needed to take a screen out of view. */
+function lockEngage(){
+  if (!lockArmed() || st.locked) return;
+  st.locked = true;
+  if (st.view === 'lock') st.view = 'main';
+  log('lock: <b>locked</b>'); sync();
+}
+/* UP held 2 s while already locked — raises the keypad. */
+function lockOpenKeypad(){
+  if (!lockArmed() || !st.locked) return;
+  lockClear(); st.view = 'lock';
+  log('lock: keypad opened'); sync();
+}
+function lockSubmit(){
+  if (lockRateLimited()){ lockClear(); return; }
+  if (st.lockEntry === CFG.lockCode){
+    st.locked = false; st.unlockedAt = Date.now(); st.view = 'main'; lockClear();
+    st.lockFails = [];
+    log('lock: <b>unlocked</b>');
+    st.toastText = 'UNLOCKED'; st.toastT0 = Date.now();
+  } else {
+    st.lockFails.push(Date.now()); lockClear();
+    log('lock: attempt rejected - wrong code');
+    st.toastText = 'WRONG CODE'; st.toastT0 = Date.now();
+  }
+  sync();
+}
+/* a mockup-only shortcut to preview the unlocked view without typing the
+   code — real hardware only ever unlocks through lockSubmit() above */
+function lockForceUnlock(){
+  if (!st.locked) return;
+  st.locked = false; st.unlockedAt = Date.now(); st.view = 'main'; lockClear();
+  st.lockFails = [];
+  log('lock: <b>unlocked</b> (mockup shortcut)');
+  sync();
+}
+function lockDigit(d){
+  if (lockRateLimited() || st.lockEntry.length >= 6) return;
+  st.lockEntry += d;
+  st.lockLastDigitT0 = Date.now();
+  log('lock: entry now ' + st.lockEntry.length + '/6 digits');
+  /* the 6th digit does not submit here — it waits for its own reveal to
+     have a moment on screen first, same as digits 1-5 get; lockTick()
+     below is what actually submits, once LOCK_REVEAL_MS has passed        */
+  sync();
+}
+/* checked every tick: cfg.lockTimeoutMin minutes after a successful unlock,
+   0 = never — same shape as sound.ino's soundTick(). Also where a
+   completed 6-digit entry actually submits — see lockDigit() above.       */
+function lockTick(){
+  if (st.view === 'lock' && st.lockEntry.length === 6
+      && Date.now() - st.lockLastDigitT0 >= LOCK_REVEAL_MS) lockSubmit();
+  if (!lockArmed() || st.locked || !CFG.lockTimeoutMin) return;
+  if (Date.now() - st.unlockedAt < CFG.lockTimeoutMin * 60000) return;
+  st.locked = true;
+  if (st.view === 'lock') st.view = 'main';
+  log('lock: auto-relocked after ' + CFG.lockTimeoutMin + ' minutes'); sync();
+}
+/* the keypad grid — digits 1-9 only, 3 rows x 3 cols, each cell a full
+   80 x 58 for an easy fingertip target, below a dot row that shows
+   progress without showing the digits (past their brief reveal). No 0,
+   clear or backspace: a mis-tap just rides out to a rejected attempt, and
+   re-opening the keypad (lockOpenKeypad()) always starts blank anyway.    */
+const LOCK_KEYS = [['1','2','3'], ['4','5','6'], ['7','8','9']];
+const LOCK_GRID_Y = 64, LOCK_CELL_W = 80, LOCK_CELL_H = 58;
+function lockHandleTap(x, y){
+  if (lockRateLimited() || y < LOCK_GRID_Y) return;
+  const row = Math.max(0, Math.min(2, Math.floor((y - LOCK_GRID_Y) / LOCK_CELL_H)));
+  const col = Math.max(0, Math.min(2, Math.floor(x / LOCK_CELL_W)));
+  lockDigit(LOCK_KEYS[row][col]);
+}
+function drawLock(){
+  g.fillRect(0, 0, W, H, C.bg);
+  g.text('ENTER CODE', 120, 8, 2, C.cy, 'c', true);
+
+  const dotY = 34, gap = 18, w = 5 * gap;
+  const revealing = st.lockLastDigitT0 && Date.now() - st.lockLastDigitT0 < LOCK_REVEAL_MS;
+  for (let i = 0; i < 6; i++){
+    const cx = 120 - w / 2 + i * gap;
+    if (i < st.lockEntry.length){
+      if (i === st.lockEntry.length - 1 && revealing) g.text(st.lockEntry[i], cx, dotY - 8, 2, C.tx, 'c', true);
+      else g.circle(cx, dotY, 5, C.tx);
+    } else g.ring(cx, dotY, 5, C.line2);
+  }
+  g.text('TAP DOWN - BACK', 120, 46, 1, C.dim2, 'c');
+
+  if (lockRateLimited()){
+    g.text('TOO MANY ATTEMPTS', 120, 110, 2, C.or, 'c', true);
+    g.text('try again in ' + lockWaitMinutes() + ' min', 120, 134, 1, C.dim, 'c');
+    return;
+  }
+
+  for (let r = 0; r < 3; r++)
+    for (let c = 0; c < 3; c++){
+      const x0 = c * LOCK_CELL_W + 2, y0 = LOCK_GRID_Y + r * LOCK_CELL_H + 2;
+      const cw = LOCK_CELL_W - 4, ch = LOCK_CELL_H - 4;
+      g.hLine(x0, y0, cw, C.line); g.hLine(x0, y0 + ch - 1, cw, C.line);
+      g.vLine(x0, y0, ch, C.line); g.vLine(x0 + cw - 1, y0, ch, C.line);
+      g.text(LOCK_KEYS[r][c], c * LOCK_CELL_W + LOCK_CELL_W / 2, LOCK_GRID_Y + r * LOCK_CELL_H + ch / 2 - 5, 2, C.tx, 'c', true);
+    }
+}
+/* replaces BODY and FOOTER together — STATUS and ALERT above are untouched */
+function drawLockedBody(th){
+  const [y] = B.body, hAll = B.body[1] + B.foot[1];
+  g.fillRect(0, y, W, hAll, th.bg);
+  if (th.ink) g.hLine(X_L, y, X_R - X_L, th.rule);
+
+  const cx = 120, top = y + 56;
+  const ic = th.ink ? th.tx : th.dim;
+  g.ring(cx, top, 15, ic);
+  g.fillRect(cx - 15, top - 1, 30, 16, th.bg);
+  g.fillRect(cx - 18, top, 36, 26, ic);
+  g.fillRect(cx - 3, top + 9, 6, 10, th.bg);
+
+  g.text('LOCKED', 120, y + 96, 2, th.ink ? th.tx : th.dim, 'c', true);
+  g.text('HOLD UP 2 S, ENTER CODE', 120, y + 120, 1, th.dim, 'c');
+}
+
 /* every frame: fire holds at 2 s while still held, and settle a lone glass tap */
 function keyHoldTick(){
   const now = Date.now();
@@ -1116,11 +1378,18 @@ function keyHoldTick(){
     K.fired = true; K.pendingT = 0;
     if (k === 'power') st.off ? powerOn() : powerOff();
     else if (st.off || st.intro) continue;
-    else if (k === 'right') log('BOOT held 2 s → <i>future use</i>');
+    else if (k === 'right'){
+      if (!lockArmed()) log('UP held 2 s → <i>future use</i>');
+      else if (lockIsLocked()) lockOpenKeypad();
+      else lockEngage();
+    }
     else {
-      st.view = st.view === 'hotspot' ? 'main' : 'hotspot';
+      if (st.view === 'hotspot'){ apPass = ''; apClients = 0; apSaves = 0; st.view = 'main'; }
+      else { apMakePassword(); apClients = 0; apSaves = 0; st.view = 'hotspot'; }
       if (st.view === 'main') st.screenT0 = Date.now();
-      log('PLUS held 2 s → ' + (st.view === 'hotspot' ? '<b>hotspot</b> (placeholder)' : 'main screen')); sync();
+      log('DOWN held 2 s → ' + (st.view === 'hotspot'
+          ? '<b>setup hotspot</b> — AP "' + NET.name + '" up, password <b>' + apPass + '</b>'
+          : 'main screen — access point closed')); sync();
     }
   }
   /* a key with a double-tap action: no second tap came, so it was a single */
@@ -1165,9 +1434,14 @@ function holdOverlay(){
   for (const [k, K] of Object.entries(KEYS)){
     if (!K.down || K.fired || now - K.t0 < TAP_MS) continue;
     if (st.off && k !== 'power') continue;
-    if (k === 'right') continue;                       // BOOT hold is future use — no ring
-    holdRing((now - K.t0) / HOLD_MS, k === 'power' ? (st.off ? 'ON' : 'OFF')
-                                   : st.view === 'hotspot' ? 'EXIT' : 'HOTSPOT');
+    let label;
+    if (k === 'right'){
+      if (!lockArmed()) continue;                      // not armed yet — genuinely future use
+      label = lockIsLocked() ? 'UNLOCK' : 'LOCK';
+    } else {
+      label = k === 'power' ? (st.off ? 'ON' : 'OFF') : (st.view === 'hotspot' ? 'EXIT' : 'SETUP');
+    }
+    holdRing((now - K.t0) / HOLD_MS, label);
     return;
   }
 }
@@ -1182,6 +1456,7 @@ function frame(){
      at the 5 s mark instead of drifting loose against its own timer.       */
   st.flashOn = FLASHES[lv] && Date.now() - st.screenT0 < ALERT_FLASH_MS;
   keyHoldTick();
+  lockTick();
   cycleTick();
 
   if (st.off){
@@ -1198,21 +1473,23 @@ function frame(){
       const f = clamp((t - (I_END - I_FADE)) / I_FADE, 0, 1);
       if (f <= 0) drawIntro(st.intro, t);
       else {
-        g.fillScreen(C.bg); drawBody(0); drawStatus(TH.dark); drawAlert(); drawFoot(TH.dark);
+        g.fillScreen(C.bg); drawBody(0); drawStatus(TH.dark); drawAlert(TH.dark); drawFoot(TH.dark);
         drawIntroOver(st.intro, t, f * f * (3 - 2 * f));
       }
       return requestAnimationFrame(frame);
     }
   }
   if (!st.screen){
-    /* BOOT tap blanked the panel. Nothing else stopped — the cycle turned and
+    /* UP tap blanked the panel. Nothing else stopped — the cycle turned and
        the poll polled the whole time, and a critical still sounded.        */
     g.fillScreen('#000000');
-    g.text('DISPLAY OFF - TAP BOOT', W/2, 116, 1, '#101722', 'c');
+    g.text('DISPLAY OFF - TAP UP', W/2, 116, 1, '#101722', 'c');
   } else if (st.view === 'settings'){
     drawSettings();
   } else if (st.view === 'hotspot'){
     drawHotspot();
+  } else if (st.view === 'lock'){
+    drawLock();
   } else {
     let off = 0;
     if (st.slide){
@@ -1223,14 +1500,20 @@ function frame(){
     /* one theme for every band — that is what makes the flash the WHOLE screen */
     const th = themeFor(lv);
     g.fillScreen(th.bg);
-    drawBody(off);            // first, so the fixed bands cover any slide overhang
+    /* the privacy lock (lock.ino) only ever hides BODY and FOOTER — STATUS
+       and ALERT are drawn exactly the same whether locked or not          */
+    if (lockIsLocked()) drawLockedBody(th);
+    else drawBody(off);      // first, so the fixed bands cover any slide overhang
     drawStatus(th);
-    drawAlert();
-    drawFoot(th);
+    drawAlert(th);
+    if (!lockIsLocked()) drawFoot(th);
   }
   /* The sound rides the flash, and runs whatever is on screen and whether or
      not the panel is awake — the speaker is for when you are not looking.  */
-  if (st.flashOn && !st.wasFlash && SOUNDS[lv]) alertSound();
+  if (st.flashOn && !st.wasFlash){
+    if (SOUNDS[lv] === 'alert') alertSound();
+    else if (SOUNDS[lv] === 'notice') noticeSound();
+  }
   st.wasFlash = st.flashOn;
   holdOverlay();
   drawToast();
@@ -1307,7 +1590,7 @@ function setLevel(l){
                                           : '5xx 2.14% max 0.50%';
   if (l !== 'info'){ panel.classList.remove('beep'); void panel.offsetWidth;
                      panel.classList.add('beep');
-                     log('speaker · ' + (l === 'critical' ? '4 tones' : '2 tones') + ' on transition'); }
+                     log('speaker · ' + (SOUNDS[l] || 'no') + ' sound on the next flash'); }
   log('alert.level → <b>' + l + '</b>'); sync();
 }
 
@@ -1353,7 +1636,10 @@ function toggleReal(){
 panel.addEventListener('pointerdown', e => {
   if (st.off || st.intro) return;
   panel.setPointerCapture(e.pointerId);
-  Object.assign(TOUCH, { down: true, fired: false, moved: false, t0: Date.now(), x0: e.clientX, y0: e.clientY });
+  const r = panel.getBoundingClientRect();
+  Object.assign(TOUCH, { down: true, fired: false, moved: false, t0: Date.now(),
+    x0: e.clientX, y0: e.clientY,
+    dx: (e.clientX - r.left) / r.width * W, dy: (e.clientY - r.top) / r.height * H });
 });
 panel.addEventListener('pointermove', e => {
   if (TOUCH.down && Math.hypot(e.clientX - TOUCH.x0, e.clientY - TOUCH.y0) > 12) TOUCH.moved = true;
@@ -1362,6 +1648,7 @@ panel.addEventListener('pointerup', () => {
   if (!TOUCH.down) return;
   TOUCH.down = false;
   if (TOUCH.fired || TOUCH.moved || Date.now() - TOUCH.t0 >= TAP_MS) return;
+  if (st.view === 'lock'){ lockHandleTap(TOUCH.dx, TOUCH.dy); return; }
   if (st.view !== 'main'){ st.view = 'main'; st.screenT0 = Date.now(); TOUCH.pendingT = 0;
     log('glass tap → main screen'); return sync(); }
   if (TOUCH.pendingT && Date.now() - TOUCH.pendingT < DOUBLE_TAP_MS){
@@ -1386,8 +1673,14 @@ document.querySelectorAll('.key[data-k]').forEach(el => {
 });
 $('#doPoll').onclick = () => poll(true);
 $('#doIntro').onclick = () => { st.view = 'main'; st.screenT0 = Date.now(); startIntro(); };
+$('#doLock').onclick = lockEngage;
+$('#doUnlock').onclick = lockForceUnlock;
 $('#doFault').onclick = () => {
   SNAP.fault = SNAP.fault ? null : 'OFFLINE';
+  if (SNAP.fault){
+    panel.classList.remove('beep'); void panel.offsetWidth; panel.classList.add('beep');
+    log('speaker · ' + SOUNDS.fault + ' sound on the next flash');
+  }
   log(SNAP.fault ? 'GET /v1/gateway_health <b>failed</b> · OFFLINE · numbers held' : 'recovered · 200');
   sync();
 };
@@ -1415,6 +1708,8 @@ addEventListener('keydown', e => {
   else if (k === 'f') $('#doFault').click();
   else if (k === 'z') toggleReal();
   else if (k === 'b') $('#doIntro').click();
+  else if (k === 'l') $('#doLock').click();
+  else if (k === 'u') $('#doUnlock').click();
   else if (k === ' ') { e.preventDefault(); $('#doPwr').click(); }
   else return;
   e.preventDefault();
@@ -1471,6 +1766,5 @@ st.screenT0 = Date.now();
 log('boot · gateway <b>' + joinGateways() + '</b> · ' + SNAP.metrics.length
     + ' metric screens · poll every ' + Math.round(pollInterval() / 1000) + ' s');
 sync();
-startIntro();
-frame();
+frame();   // straight to the dashboard — boot intro <kbd>b</kbd> replays it on demand
 </script>

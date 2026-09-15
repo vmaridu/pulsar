@@ -1,32 +1,41 @@
 /* ===========================================================================
-   Sound — the boot-intro hum and the critical alert, and mute.
+   Sound — the boot-intro torpedo fire, the critical alert, the subtler
+   notice, and mute.
 
-   The boot intro (intro.ino) hums low while the pulsar turns,
-   swelling in step with the beams, then stops with the animation — silent
-   for the "PULSAR" screen and the cross-fade after it. Once running, a
-   500 ms alert sound rides every `critical` alert flash — started in the
-   same frame the flash is drawn, ending as it ends. Warning and no
-   connection flash silently; only critical sounds.
+   The boot intro (intro.ino) fires a torpedo-launch burst every time a beam
+   sweeps past top — twice a turn, same phase drawIntroFrame() pulses the
+   core on — then stops with the animation: silent for the "PULSAR" screen
+   and the cross-fade after it. Audible but soft-edged on purpose — well
+   under the critical alert's own volume, and a different character
+   entirely — a launch, not a siren — so it never reads as trouble. Once
+   running, one of two sounds rides every alert flash — started in the same
+   frame the flash is drawn, ending as it ends: `critical` gets the full
+   500 ms alert below; `warning` and any connection fault (OFFLINE, NOT FOUND, NO ACCESS, every
+   banner api.md §6 names) get a short, quiet notice instead — enough to
+   turn a head, not enough to sound like an outage. `info` stays silent.
 
    The alert is a stressed dip, pitched where this speaker can play it: a
    tone falling fast from 920 to 560 Hz with two harmonics for body, a 14 Hz
    shiver on top, a short thump on the attack and a soft 1.76 kHz glint. It
-   fades to nothing at 500 ms.
+   fades to nothing at 500 ms. The notice is one soft tone, well under the
+   alert's volume, a fifth of its length — a nudge, not an alarm.
 
-   Both are rendered once at boot, in float maths only — the S3's FPU is
-   single precision, and double maths (anything touching PI or a plain
+   All three are rendered once at boot, in float maths only — the S3's FPU
+   is single precision, and double maths (anything touching PI or a plain
    sin()) runs in software, slow enough to starve a core. Then a 250 Hz
    high-pass: the speaker cannot move lower, and trying only rattles and
    pulls current.
 
-   Double-tap the right key (BOOT) to silence every sound this build makes,
-   hum and alert alike — double-tap again to bring it back. Mute lives in
-   RAM only, so a restart comes back with sound — except straight after a
-   brown-out reset, when it starts muted so a weak supply cannot loop, and
-   so the intro hum can't be what tips it over again on the very next boot.
+   Double-tap the UP key (BOOT) to silence every sound this build makes —
+   double-tap again to bring it back. Mute clears itself three ways: the
+   double-tap, a restart (RAM only, so it's always back after one — except
+   straight after a brown-out reset, which starts muted so a weak supply
+   cannot loop, and so the intro's own torpedo fire can't be what tips it
+   over again on the very next boot), or the configured timeout elapsing on
+   its own (set on the setup page, default 30 minutes, `0` = never times out).
 
    Past the intro, sound does not care what is on screen, or whether the
-   panel is even awake — RIGHT tap sleeps the display and a critical still
+   panel is even awake — UP tap sleeps the display and a critical still
    sounds in the dark. That is what the speaker is for.
 
    Mirrors ws_lcd_154/mockup.html — same synth, same numbers.
@@ -40,10 +49,15 @@ static I2SClass i2s;
    ~75 a small cell can sag and brown out.                                 */
 #define SOUND_VOLUME     74
 #define SOUND_PEAK    0.85f    /* of full scale, after the high-pass */
-#define INTRO_PEAK    0.72f    /* still under the alert's 0.85 — a hum, not a warning */
-#define INTRO_HUM_HZ    85.0f  /* fundamental, plus one octave up for body — a small
-                                  speaker cannot really move 85 Hz, but the octave
-                                  and the high-pass below give it something to ride */
+#define INTRO_PEAK    0.32f    /* subtle — closer to the notice's 0.35 than the alert's 0.85.
+                                  Present enough to notice, quiet enough to ignore; the
+                                  waveform below (a slow eased attack, a gentle pitch drift
+                                  instead of a sharp glide, and an explicit fade at the tail)
+                                  is what keeps it from reading as a beep even this quiet   */
+#define INTRO_HIT_MS    260    /* one torpedo-fire burst, launch to tail-off */
+#define NOTICE_MS       220    /* a fifth of the alert's length — a nudge, not an alarm */
+#define NOTICE_PEAK    0.35f   /* well under the alert's 0.85 — quiet on purpose */
+#define NOTICE_HZ      660.0f  /* one plain tone, no sweep, no harmonics past a touch of body */
 #define HIGHPASS_HZ     250
 #define PA_IDLE_MS     6000    /* the amp stays on this long after a sound, so the next
                                   one is not clipped by its start-up; then it sleeps */
@@ -54,8 +68,11 @@ static int16_t*     alertBuf  = NULL;
 static int           alertLen = 0;
 static int16_t*     introBuf  = NULL;
 static int           introLen = 0;
+static int16_t*     noticeBuf = NULL;
+static int           noticeLen = 0;
 static int16_t*     playBuf   = NULL;   /* what the task is asked to play next */
 static int           playLen  = 0;
+static uint32_t      muteT0   = 0;      /* millis() mute was last engaged — soundTick() below */
 
 /* a drum kick: a sine sweeping down from fEnd+fSweep to fEnd, decaying */
 static float kick(float tau, float fEnd, float fSweep, float k, float decay){
@@ -79,23 +96,59 @@ static float alertSample(float t){
   return tanhf(1.6f * s) / tanhf(1.6f);
 }
 
-/* The boot-intro hum, one sample at a time, t in seconds from the intro's
-   start. A low tone plus its octave for body, swelling every time a beam
-   sweeps past top — `cosf(TAU_F * 2 * SPIN_HZ * t)` is the exact same phase
-   drawIntroFrame() (intro.ino) pulses its core on, so the loudness and the
-   glow rise and fall together, not just two things that happen to loop at
-   the same rate. Fades in over 150 ms and out over the last 300 ms so it
-   never clicks against silence at either end. */
+/* One sample of the notice, t in seconds from its start. A single soft tone
+   with a touch of its own octave for body, quick in and quicker out — the
+   opposite of the alert's urgency on purpose. Rides `warning` and any
+   connection fault; `critical` keeps the stronger alert above instead, and
+   the two never play together — alertTick() (ws_lcd_154.ino) picks one. */
+static float noticeSample(float t){
+  const float T = NOTICE_MS / 1000.0f;
+  if (t < 0 || t >= T) return 0;
+  const float ph = TAU_F * NOTICE_HZ * t;
+  const float tone = sinf(ph) + 0.15f * sinf(2 * ph);
+  const float attack  = t < 0.02f ? t / 0.02f : 1;
+  const float release = t > T - 0.08f ? (T - t) / 0.08f : 1;
+  return attack * release * tone;
+}
+
+/* One torpedo-fire burst, tau in seconds since THIS hit's own launch instant:
+   a soft downward drift (kick(), barely sweeping) plus a rounder low thump
+   — a launch heard through a wall, not a beep. Three things remove the
+   hardness a sharper version had: a 25 ms eased-in attack (smoothstep, not
+   a straight ramp — no corner where the ramp suddenly stops accelerating),
+   a much smaller pitch sweep (a drift, not a glide — a big frequency slide
+   is what reads as a "beep" or a siren), and an explicit fade over the
+   final 40 ms so the sound always reaches exactly zero on its own terms,
+   never truncated mid-decay by INTRO_HIT_MS (which is what a residual
+   amplitude cut off abruptly would otherwise sound like: a click).       */
+static float torpedoHit(float tau){
+  const float T = INTRO_HIT_MS / 1000.0f;
+  if (tau < 0 || tau > T) return 0;
+  const float whoosh = kick(tau, 420, 260, 0.045f, 0.13f);   /* a smaller drift still, ~680 -> 420 Hz */
+  const float thump  = kick(tau, 130, 60,  0.020f, 0.10f);   /* barely there — texture, not a punch */
+  const float A = 0.03f;                                     /* a touch slower to ease in */
+  const float p = tau < A ? tau / A : 1.0f;
+  const float attack  = p * p * (3.0f - 2.0f * p);           /* smoothstep — no elbow */
+  const float R = 0.04f;
+  const float release = tau > T - R ? (T - tau) / R : 1.0f;
+  return attack * release * (0.38f * whoosh + 0.20f * thump);
+}
+
+/* The boot-intro sound, one sample at a time, t in seconds from the intro's
+   start: a torpedo-fire burst timed to every beam pass. Two beams a turn, so
+   two launches a turn — `fmodf(t, period)` is time since the nearest one,
+   and a beam passes top exactly when that phase hits zero, the same instant
+   drawIntroFrame() (intro.ino) pulses its core on, so the sound and the glow
+   land together. Fades the whole run in over 150 ms and out over the last
+   300 ms so it never clicks against silence at either end. */
 static float introSample(float t){
   const float T = I_ANIM_END;                        /* intro.ino */
   if (t < 0 || t >= T) return 0;
-  const float up    = cosf(TAU_F * 2.0f * SPIN_HZ * t);
-  const float pulse = up > 0 ? powf(up, 3) : 0;
-  const float env     = 0.35f + 0.65f * pulse;
+  const float period  = 1.0f / (2.0f * SPIN_HZ);
+  const float tau      = fmodf(t, period);
   const float attack  = t < 0.15f ? t / 0.15f : 1;
   const float release = t > T - 0.3f ? (T - t) / 0.3f : 1;
-  const float tone = sinf(TAU_F * INTRO_HUM_HZ * t) + 0.5f * sinf(TAU_F * 2 * INTRO_HUM_HZ * t);
-  return attack * release * env * tone * 0.5f;
+  return attack * release * torpedoHit(tau);
 }
 
 /* Render one waveform to a fresh 16-bit buffer: float synthesis, then two
@@ -173,9 +226,9 @@ static void requestSound(int16_t* buf, int len){
   xTaskNotifyGive(soundTask);
 }
 
-/* Before the boot intro, so its hum has something to play through: find the
-   codec, render both sounds once, start the task that streams them. */
-static void soundBegin(){
+/* Before the boot intro, so its torpedo fire has something to play through:
+   find the codec, render both sounds once, start the task that streams them. */
+void soundBegin(){
   audioOK = codecBegin();
   LOGF("boot", "audio: %s", audioOK ? "ES8311 ok" : "NO CODEC - alerts are silent");
   if (!audioOK) return;
@@ -191,25 +244,48 @@ static void soundBegin(){
 
   /* a brown-out means the supply sagged — do not let this sound loop it.
      The toast itself waits until after bootIntro() — nothing is on screen
-     yet for it to appear over (setup(), ws_lcd_154.ino). */
+     yet for it to appear over (setup(), ws_lcd_154.ino). Counts as the mute
+     being "engaged now" too, so it still auto-expires on the same timer. */
   if (esp_reset_reason() == ESP_RST_BROWNOUT){
     soundMuted = true;
-    LOG("sound", "muted - the last reset was a brown-out (weak supply). Double-tap RIGHT to unmute");
+    muteT0 = millis();
+    LOG("sound", "muted - the last reset was a brown-out (weak supply). Double-tap UP to unmute");
   }
 
   introBuf = renderSound(introSample, (int)(I_ANIM_END * 1000), INTRO_PEAK, &introLen);
-  if (!introBuf) LOG("boot", "audio: intro hum alloc FAILED - boot intro will be silent");
+  if (!introBuf) LOG("boot", "audio: intro sound alloc FAILED - boot intro will be silent");
+
+  noticeBuf = renderSound(noticeSample, NOTICE_MS, NOTICE_PEAK, &noticeLen);
+  if (!noticeBuf) LOG("boot", "audio: notice buffer alloc FAILED - warning/fault sound disabled");
 }
 
 /* called by render() in the frame a critical flash first shows */
-static void alertSound(){ requestSound(alertBuf, alertLen); }
+void alertSound(){ requestSound(alertBuf, alertLen); }
 
 /* called once, right as bootIntro() (intro.ino) starts drawing screen 1 */
-static void introSound(){ requestSound(introBuf, introLen); }
+void introSound(){ requestSound(introBuf, introLen); }
 
-/* RIGHT double-tap. RAM only — every restart comes back with sound. */
-static void toggleMute(){
+/* called by render() in the frame a warning or fault flash first shows —
+   never in the same frame as alertSound(), alertTick() picks one or the other */
+void noticeSound(){ requestSound(noticeBuf, noticeLen); }
+
+/* UP double-tap. Also cleared by a restart, or by cfg.muteTimeoutMin
+   elapsing on its own — soundTick() below. */
+void toggleMute(){
   soundMuted = !soundMuted;
-  LOGF("sound", "%s", soundMuted ? "muted until restart" : "on");
+  if (soundMuted) muteT0 = millis();
+  LOGF("sound", "%s", soundMuted ? "muted" : "on");
   showToast(soundMuted ? "SOUND OFF" : "SOUND ON");
+}
+
+/* Checked every loop(). cfg.muteTimeoutMin is minutes, 0 = never — set on
+   the setup page, config.ino owns the store. A mute that started at boot
+   (the brown-out case above) is timed exactly the same way.              */
+void soundTick(){
+  if (!soundMuted || !cfg.muteTimeoutMin) return;
+  if (millis() - muteT0 < (uint32_t)cfg.muteTimeoutMin * 60000UL) return;
+  soundMuted = false;
+  LOGF("sound", "mute auto-expired after %u minute%s", (unsigned)cfg.muteTimeoutMin,
+       cfg.muteTimeoutMin == 1 ? "" : "s");
+  showToast("SOUND ON");
 }

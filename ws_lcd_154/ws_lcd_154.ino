@@ -5,8 +5,18 @@
    platforms; every metric carries its own `gateway` attribute saying where
    it came from — there is no root `gateway` field, only the per-metric one.
 
-   Offline build: no Wi-Fi yet. net.ino holds the test payload and the poll
-   placeholder — wiring the real GET replaces one function.
+   Nothing about the endpoint is baked in. The full URL, the API key and the
+   API secret are set over the device's own Wi-Fi hotspot — hold DOWN 2 s —
+   and kept in NVS with the saved networks; config.ino owns the store,
+   hotspot.ino the page, wifi.ino the joining, net.ino the poll. An
+   unconfigured board says SETUP and shows no numbers at all: a monitor that
+   invents data is worse than one that admits it has none.
+
+   Once real data is showing, the screen locks itself down to the STATUS and
+   ALERT bands only — BODY and FOOTER, the actual stats, stay hidden behind a
+   lock icon until a 6-digit code is entered on an on-screen keypad. Hold UP
+   2 s to lock it (no code needed) or, while locked, to raise that keypad.
+   lock.ino owns all of it; it never touches sound, or any other button.
 
    Screen — four fixed bands, named. Say these names:
        STATUS 0..20 | ALERT 20..56 | BODY 56..216 | FOOTER 216..240
@@ -20,21 +30,33 @@
    build's own docs and mockup sit right beside them. Arduino requires the
    main .ino to share its folder's name, hence `ws_lcd_154.ino` rather than a
    generic name:
-       ws_lcd_154.ino         pins, model, palette, logging, setup/loop
+       ws_lcd_154.ino     pins, model, palette, logging, setup/loop
        intro.ino          the welcome screen — pulsar, then the PULSAR label
        dashboard.ino      the four bands
        input.ino          keys and touch — taps, double-taps, holds
        power.ino          power latch, off/on, display on/off
-       settings.ino       settings screen, hotspot screen
+       config.ino         the stored endpoint and saved networks (NVS)
+       wifi.ino           joining saved networks — priority, enterprise, portals
+       hotspot.ino        the setup hotspot, the page it serves, its screen
+       settings.ino       the settings screen
        sound.ino          the alert sound and mute
-       net.ino            poll scheduling, fetch placeholder, test payload
+       lock.ino           the privacy lock — code, keypad, auto-relock
+       net.ino            poll scheduling and the HTTPS GET
        es8311.*           vendor codec driver, do not edit
 
    Input — the standard map, the whole contract. Anything not here is FUTURE USE:
        GLASS  tap: next metric screen · double-tap: future · hold 2 s: refresh
-       LEFT   tap: settings on/off    · double-tap: future · hold 2 s: hotspot
+       DOWN   tap: settings on/off    · double-tap: future · hold 2 s: setup hotspot
        POWER  tap: future             · double-tap: future · hold 2 s: off / on
-       RIGHT  tap: display on/off     · double-tap: mute   · hold 2 s: future
+       UP     tap: display on/off     · double-tap: mute   · hold 2 s: lock / unlock
+
+   DOWN and UP are physical positions on the case, not silkscreen names — see
+   KEY_LEFT/KEY_RIGHT below. UP hold 2 s locks the screen (BODY and FOOTER
+   hidden behind a lock icon) with no code needed, or — while already
+   locked — raises a keypad to enter the 6-digit code and clear it. Only
+   armed once real data has shown at least once, and only on a touch SKU:
+   there is no way to type a code with three keys alone, so a non-touch board
+   never locks itself at all — see ws_lcd_154/device.md.
 
    Serial is the debugger: 115200 baud, every input, action and poll is logged.
 
@@ -64,6 +86,29 @@
 #include <ESP_I2S.h>                /* ships with the ESP32 core — the alert sound */
 #include <esp_system.h>                /* esp_reset_reason() */
 #include <esp_mac.h>                   /* esp_read_mac() — the settings screen */
+/* Everything below ships with the ESP32 core — nothing to install for the
+   radio, the setup page or the signed-request mode.                       */
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <HTTPClient.h>
+#include <WebServer.h>              /* the setup page — hotspot.ino */
+#include <DNSServer.h>              /* so joining the hotspot pops that page */
+#include <Preferences.h>            /* the config store — config.ino */
+#include <mbedtls/md.h>             /* HMAC-SHA256 when an API secret is set */
+#if __has_include(<esp_random.h>)
+#include <esp_random.h>             /* IDF 5 moved it out of esp_system.h */
+#endif
+/* WPA2-Enterprise: the EAP client moved headers between IDF 4 and 5, and the
+   call names moved with it. wifi.ino uses whichever is here.              */
+#if __has_include(<esp_eap_client.h>)
+#include <esp_eap_client.h>
+#define PULSAR_EAP_IDF5 1
+#elif __has_include(<esp_wpa2.h>)
+#include <esp_wpa2.h>
+#define PULSAR_EAP_IDF5 0
+#else
+#error "No EAP client header - update the ESP32 core (3.x) for WPA2-Enterprise"
+#endif
 #include "es8311.h"                 /* codec driver, beside this sketch — Espressif, Apache-2.0 */
 #if __has_include("TouchDrvCST.hpp")
 #include "TouchDrvCST.hpp"          /* SensorLib 2026+ */
@@ -82,7 +127,7 @@
    story. 115200 baud. Every key, every touch, the action each one caused,
    every poll and every failure prints one line:
 
-       [   1234ms] key: RIGHT tap -> display off
+       [   1234ms] key: UP tap -> display off
 
    Log state changes and actions, never frames — the render loop runs at
    ~25 fps and would bury everything that matters.                         */
@@ -98,6 +143,16 @@
 #define PIN_LCD_MOSI  39
 #define PIN_LCD_RST   40
 #define PIN_LCD_BL    46
+
+/* backlight PWM — a dimmable panel, not just on/off. 5 kHz/8-bit is a
+   standard, flicker-free LEDC duty for driving an LED backlight this way.
+   Bounds match the setup page's slider — power.ino/config.ino.           */
+#define LEDC_BL_FREQ            5000
+#define LEDC_BL_RES             8
+#define BRIGHTNESS_MIN          30
+#define BRIGHTNESS_MAX          100
+#define BRIGHTNESS_DEFAULT_BATTERY   40
+#define BRIGHTNESS_DEFAULT_CHARGING  90
 
 #define PIN_I2C_SDA   42
 #define PIN_I2C_SCL   41
@@ -118,17 +173,122 @@
 /* Keys, left to right on the case. This board's PLUS/BOOT keys are wired the
    opposite of Waveshare's own silkscreen — GPIO4 sits physically on the
    right, GPIO0 physically on the left — so the two are swapped here rather
-   than in input.ino: KEY_LEFT and KEY_RIGHT are the physical positions,
-   whichever name is printed on the key. Every press prints on Serial with
-   its GPIO. KEY_POWER is wired to the power circuit and has to stay on 5. */
-#define KEY_LEFT       0     /* physically left  — tap: settings on / off · hold 2 s: hotspot     */
-#define KEY_POWER      5     /* PWR              — tap: future use        · hold 2 s: off, and on */
-#define KEY_RIGHT      4     /* physically right — tap: display on / off  · double-tap: mute      */
+   than in input.ino: KEY_LEFT and KEY_RIGHT name the physical positions,
+   whichever silkscreen name is printed on the key. The logical roles input.ino
+   assigns them are DOWN and UP, not LEFT/RIGHT — a physical-position macro
+   feeding a differently-named logical key is intentional, not a mismatch.
+   Every press prints on Serial with its GPIO. KEY_POWER is wired to the
+   power circuit and has to stay on 5. */
+#define KEY_LEFT       0     /* physically left  — DOWN: settings on / off · hold 2 s: hotspot    */
+#define KEY_POWER      5     /* PWR              — tap: future use         · hold 2 s: off, and on */
+#define KEY_RIGHT      4     /* physically right — UP: display on / off    · double-tap: mute      */
 
-/* Clock offset applied to measured_at. No RTC and no NTP in this build,
-   so the time on screen is the time the payload says it was measured,
-   shown MM/DD hh:mm AM.                                                   */
-#define TZ_OFFSET_HOURS  0
+/* --------------------------------------------------------------- config
+   What a person sets over the setup page, and the only place the endpoint
+   and the networks come from — nothing here is baked into the firmware.
+   config.ino loads and saves it, hotspot.ino edits it, wifi.ino and net.ino
+   read it. docs/functional-requirements.md §5 is the owner of what each field means.
+
+   MAX_NETWORKS is deliberately not 5: api.md already has two different
+   caps of five — 5 metric screens and 5 tiles per screen (AGENTS.md §10) —
+   and a third would get conflated with them in conversation. Say
+   "networks", and the number is six.                                     */
+#define MAX_NETWORKS  6
+#define LEN_SSID     33    /* 32 + NUL, the 802.11 maximum                 */
+#define LEN_PSK      65    /* 64 + NUL, a WPA2 passphrase or raw PSK       */
+#define LEN_CRED     49    /* enterprise and sign-in names and passwords   */
+#define LEN_URL     129
+#define LEN_KEY      97    /* the API key, and the API secret              */
+#define LEN_CA     2048    /* one pasted PEM root — a real one is ~1.2 KB  */
+
+/* How a network is joined. The setup page picks it per network; a scan can
+   suggest it, but only a person knows whether an "enterprise" SSID wants
+   PEAP or the guest PSK printed on the wall.                             */
+enum { SEC_OPEN = 0, SEC_PSK = 1, SEC_ENT = 2 };
+
+/* One saved network. Order in the array IS the priority — wifi.ino joins the
+   first one it can actually see, so the array is the preference list.
+
+   Two kinds of network need more than an SSID and a password, and they are
+   not the same kind of "more":
+     · WPA2-Enterprise (SEC_ENT) authenticates during the join itself —
+       802.1X wants an identity and an inner username and password, and
+       without them the association never completes
+     · a captive portal joins fine and then holds every request until a
+       sign-in form is posted, so the join succeeds and the backend is
+       still unreachable. `portal` says to expect that, and the two
+       portal fields are what gets posted — a different credential from
+       the enterprise one, often a different account entirely            */
+struct WifiNet {
+  char    ssid[LEN_SSID];
+  uint8_t security;                  /* SEC_OPEN · SEC_PSK · SEC_ENT */
+  char    psk[LEN_PSK];              /* SEC_PSK */
+  char    identity[LEN_CRED];        /* SEC_ENT — outer identity, often anonymous@realm */
+  char    user[LEN_CRED];            /* SEC_ENT — inner username */
+  char    pass[LEN_CRED];            /* SEC_ENT — inner password */
+  uint8_t portal;                    /* 1 = a sign-in page stands after the join */
+  char    portalUser[LEN_CRED];
+  char    portalPass[LEN_CRED];
+};
+
+/* The endpoint, its credentials and the networks to reach it over.
+
+   One key, one secret, and the secret is the mode switch: secret empty means
+   the key is a bearer token, secret set means the key is the public
+   X-Api-Key and the secret signs each request — api.md §1 and its HMAC
+   appendix. Two fields, no third field to contradict them.               */
+
+/* The STATUS band's clock is display-only, and a raw UTC offset cannot show
+   it correctly for half the year in any zone that observes daylight saving
+   — the clock would read an hour wrong every spring and every autumn until
+   someone remembered to change a number. A POSIX TZ string carries the
+   actual transition RULE (which week, which month), so the C library's own
+   localtime_r() applies daylight saving automatically, forever, for
+   whichever zone is picked — one setenv("TZ", ...); tzset(); at boot
+   (ws_lcd_154.ino's setup(), right after configLoad()) is the whole cost.
+   This never touches what net.ino signs: time(nullptr) always returns raw
+   UTC seconds regardless of TZ — only localtime_r() reads it, gmtime_r()
+   and time() never do.                                                   */
+struct TzZone { const char* label; const char* posix; };
+static const TzZone TZ_TABLE[] = {
+  { "UTC",                          "UTC0" },
+  { "US Eastern (New York)",        "EST5EDT,M3.2.0,M11.1.0" },
+  { "US Central (Chicago)",         "CST6CDT,M3.2.0,M11.1.0" },
+  { "US Mountain (Denver)",         "MST7MDT,M3.2.0,M11.1.0" },
+  { "US Mountain, no DST (Phoenix)","MST7" },
+  { "US Pacific (Los Angeles)",     "PST8PDT,M3.2.0,M11.1.0" },
+  { "US Alaska (Anchorage)",        "AKST9AKDT,M3.2.0,M11.1.0" },
+  { "US Hawaii (Honolulu)",         "HST10" },
+  { "UK (London)",                  "GMT0BST,M3.5.0/1,M10.5.0" },
+  { "Central Europe (Berlin)",      "CET-1CEST,M3.5.0,M10.5.0/3" },
+  { "India (Kolkata)",              "IST-5:30" },
+  { "Japan (Tokyo)",                "JST-9" },
+  { "Australia Eastern (Sydney)",   "AEST-10AEDT,M10.1.0,M4.1.0/3" },
+};
+#define TZ_COUNT ((uint8_t)(sizeof(TZ_TABLE) / sizeof(TZ_TABLE[0])))
+#define TZ_DEFAULT_INDEX 1     /* US Eastern (New York) — this device's own default */
+
+struct Config {
+  char     url[LEN_URL];              /* the full URL to poll, exactly as configured */
+  char     key[LEN_KEY];
+  char     secret[LEN_KEY];
+  char     ca[LEN_CA];                /* optional PEM root; empty = TLS unverified */
+  WifiNet  nets[MAX_NETWORKS];
+  uint8_t  nnets;
+  uint16_t muteTimeoutMin;            /* minutes until a mute clears itself; 0 = never — sound.ino */
+  uint8_t  tzIndex;                    /* index into TZ_TABLE — display-only clock zone, applied via
+                                          setenv("TZ",...)/tzset() at boot. NEVER read by net.ino:
+                                          signed requests always sign raw UTC seconds — time(nullptr),
+                                          never localtime_r() — unaffected by whatever this is set to. */
+  char     lockCode[7];                /* the privacy lock's 6-digit code, plus NUL — lock.ino.
+                                          Defaults to "123456"; never sent back to the setup page or
+                                          printed to Serial, same rule as the API secret.            */
+  uint16_t lockTimeoutMin;             /* minutes until an unlocked screen re-locks itself on its own;
+                                          0 = never (only a manual lock or a restart) — lock.ino      */
+  uint8_t  brightnessBattery;          /* backlight %, on the cell — BRIGHTNESS_MIN..MAX, default 40 */
+  uint8_t  brightnessCharging;         /* backlight %, on the charger — BRIGHTNESS_MIN..MAX, default 90 */
+};
+static Config cfg;
 
 /* ----------------------------------------------------------------- model
    One gateway. Every metric row carries the gateway it came from, so a
@@ -194,12 +354,13 @@ static constexpr uint16_t C_RD    = rgb(0xff2626);   /* bright red, nothing mixe
 static constexpr uint16_t C_GY    = rgb(0x8aa0c0);
 static constexpr uint16_t C_INK   = rgb(0x04060a);   /* words printed on a level colour */
 
-/* level → word, solid colour, dark shade, flashes, sounds */
-struct Level { const char* word; uint16_t c, dark; bool flashes, sounds; };
-static const Level LV_INFO  = { "INFO",     C_GR, rgb(0x12380c), false, false };
-static const Level LV_WARN  = { "WARNING",  C_OR, rgb(0x3d1c00), true,  false };
-static const Level LV_CRIT  = { "CRITICAL", C_RD, rgb(0x4a0c0c), true,  true  };
-static const Level LV_FAULT = { "OFFLINE",  C_GY, rgb(0x18202d), true,  false };
+/* level → word, solid colour, dark shade, flashes, sounds (the full alert),
+   soft (the quieter notice instead — never both on the same level) */
+struct Level { const char* word; uint16_t c, dark; bool flashes, sounds, soft; };
+static const Level LV_INFO  = { "INFO",     C_GR, rgb(0x12380c), false, false, false };
+static const Level LV_WARN  = { "WARNING",  C_OR, rgb(0x3d1c00), true,  false, true  };
+static const Level LV_CRIT  = { "CRITICAL", C_RD, rgb(0x4a0c0c), true,  true,  false };
+static const Level LV_FAULT = { "OFFLINE",  C_GY, rgb(0x18202d), true,  false, true  };
 
 /* One alert pattern for warning, critical and no connection alike: the WHOLE
    screen flashes the level colour for the first ALERT_FLASH_MS of every new
@@ -228,6 +389,14 @@ static uint8_t mixCh(uint32_t a, uint32_t b, int shift, float t){
 }
 static uint16_t mixHex(uint32_t a, uint32_t b, float t){
   return rgb(((uint32_t)mixCh(a, b, 16, t) << 16) | ((uint32_t)mixCh(a, b, 8, t) << 8) | mixCh(a, b, 0, t));
+}
+/* the same blend as mixHex(), but between two colours already in RGB565 —
+   for blending a divider against whatever it's sitting on, not a fixed
+   hex constant. */
+static uint16_t mix565(uint16_t a, uint16_t b, float t){
+  const int ar = (a >> 11) & 0x1F, ag = (a >> 5) & 0x3F, ab = a & 0x1F;
+  const int br = (b >> 11) & 0x1F, bg = (b >> 5) & 0x3F, bb = b & 0x1F;
+  return (uint16_t)((lround(ar + (br - ar) * t) << 11) | (lround(ag + (bg - ag) * t) << 5) | lround(ab + (bb - ab) * t));
 }
 static void litTheme(struct Theme& t, uint32_t hex){
   t.bg    = rgb(hex);
@@ -289,6 +458,23 @@ Arduino_GFX* panel = new Arduino_ST7789(bus, PIN_LCD_RST, PANEL_ROTATION, true /
    which lives in PSRAM. Never draw straight to the panel inside loop().     */
 Arduino_Canvas* cv = new Arduino_Canvas(240, 240, panel);
 
+/* a soft divider instead of a flat rule — fades in from `bg`, peaks at `c`
+   in the middle, fades back to `bg`, one pixel at a time (this canvas has
+   no gradient fill of its own, unlike the mockup's vFade()/hFade()). Must
+   come after `cv` above — these draw directly to it.                    */
+static void hFade(int x, int y, int w, uint16_t bg, uint16_t c){
+  for (int i = 0; i < w; i++){
+    const float t = w > 1 ? (float)i / (w - 1) : 0;
+    cv->drawPixel(x + i, y, mix565(bg, c, t < 0.5f ? t * 2 : (1 - t) * 2));
+  }
+}
+static void vFade(int x, int y, int h, uint16_t bg, uint16_t c){
+  for (int i = 0; i < h; i++){
+    const float t = h > 1 ? (float)i / (h - 1) : 0;
+    cv->drawPixel(x, y + i, mix565(bg, c, t < 0.5f ? t * 2 : (1 - t) * 2));
+  }
+}
+
 TouchDrvCSTXXX touch;
 static bool touchOK = false;
 
@@ -298,14 +484,56 @@ static uint8_t  curRow = 0;                  /* which metric screen is up */
 #define VIEW_MAIN      0
 #define VIEW_SETTINGS  1
 #define VIEW_HOTSPOT   2
+#define VIEW_LOCK      3
 static uint8_t  view = VIEW_MAIN;
 static char     deviceName[20] = "pulsar";   /* pulsar-xxxxxx from the MAC — set in setup() */
 static uint8_t  macAddr[6];
 
-/* What the radio would report. This build has no Wi-Fi, so it stays empty and
-   the settings screen says so; an online build fills it after connecting.  */
-struct NetInfo { bool connected; int rssi; char ip[16]; };
-static NetInfo net = { false, 0, "" };
+/* What the radio reports — filled by wifi.ino as it joins and drops, read by
+   the STATUS band's bars and the settings screen. `portalBlocked` is the
+   awkward middle state a captive portal puts us in: associated, with an IP,
+   and still unable to reach anything until a sign-in form is posted.     */
+struct NetInfo {
+  bool connected;
+  int  rssi;
+  char ip[16];
+  char ssid[LEN_SSID];
+  bool portalBlocked;
+  bool timeSynced;                   /* SNTP answered — the signed mode needs a clock */
+};
+static NetInfo net = { false, 0, "", "", false, false };
+
+/* The fetch layer's own verdict, separate from the payload's — api.md §6.
+   While this is set the ALERT band shows it instead of `alert`, the last
+   good numbers stay exactly where they were, and the whole screen flashes
+   grey: "I cannot reach you" and "you say you are degraded" have different
+   owners, and neither may be silent. A poll that works clears it.        */
+static char faultWord[14]   = "";    /* "" = the last poll was good */
+static char faultDetail[22] = "";
+
+/* ----------------------------------------------- radio and hotspot state
+   wifi.ino and hotspot.ino own all of this; it lives here because the IDE
+   concatenates the .ino files and a global has to be declared before the
+   first file that reads it.
+
+   Joining is a state machine stepped from loop(), never a blocking connect:
+   the render loop runs at ~25 fps and a board frozen for ten seconds on a
+   network that is not there looks broken.                                */
+enum { WS_IDLE, WS_SCAN, WS_JOIN, WS_PORTAL, WS_ONLINE, WS_WAIT, WS_SUSPENDED };
+static uint8_t  wifiState   = WS_IDLE;
+static uint32_t wifiStateT0 = 0;
+static uint8_t  wifiCand[MAX_NETWORKS];   /* cfg.nets indices worth trying, best first */
+static uint8_t  wifiNcand   = 0;
+static uint8_t  wifiTry     = 0;          /* how far down wifiCand we are */
+static uint32_t wifiJoined  = 0;          /* millis() we went online — the settings screen */
+
+/* The setup hotspot. Both servers are raised only while it is up, so a board
+   that never opens it never pays for them.                                */
+static WebServer* apServer  = nullptr;
+static DNSServer* apDns     = nullptr;
+static char       apPass[10] = "";        /* this session's AP password, shown on screen */
+static uint8_t    apSaves   = 0;          /* how many times the page has saved */
+static uint32_t   apLastHit = 0;          /* millis() of the last request served */
 
 static uint32_t countT0 = 0;
 static double   countFromP[MAX_TILES];      /* each tile's value, last screen */
@@ -320,8 +548,8 @@ static uint32_t toastT0 = 0;       /* a short message over the screen — "SOUND
 static const char* toastText = "";
 
 /* ------------------------------------------------------------- small utils */
-static float easeOut(float t){ t = 1 - t; return 1 - t*t*t; }
-static float clampf(float v, float a, float b){ return v < a ? a : v > b ? b : v; }
+float easeOut(float t){ t = 1 - t; return 1 - t*t*t; }
+float clampf(float v, float a, float b){ return v < a ? a : v > b ? b : v; }
 
 /* Every number on screen is at most 5 characters. Exact while it fits, then
    k · m · b (thousand, million, billion) with as many decimals as still fit:
@@ -370,7 +598,7 @@ static const char* fmtLatency(double ms, char* out, size_t cap){
    anything else (or no unit) is a plain compacted count. Returns the unit
    text to draw after the value, or NULL when there is none to draw
    separately (a share, or a bare count).                                 */
-static const char* fmtTileValue(double v, const char* unit, char* out, size_t cap){
+const char* fmtTileValue(double v, const char* unit, char* out, size_t cap){
   if (unit && !strcmp(unit, "ms")) return fmtLatency(v, out, cap);
   if (unit && !strcmp(unit, "%")){ fmtShare(v, 1, out, cap); return nullptr; }
   if (unit && !strcmp(unit, "s")){ snprintf(out, cap, "%.1f", v); return "s"; }
@@ -382,7 +610,7 @@ static const char* fmtTileValue(double v, const char* unit, char* out, size_t ca
    compacted so the number never needs more than 2 digits: 60+ s becomes
    minutes, 60+ m becomes hours. Sits in the heading tile's own second
    line — the row's span, not anything the tile itself carries. api.md §4. */
-static void spanCaption(int size, int count, const char* unit, char* out, size_t cap){
+void spanCaption(int size, int count, const char* unit, char* out, size_t cap){
   long span = (long)size * count;
   char u = (unit && unit[0]) ? (char)toupper(unit[0]) : 'M';
   if (u == 'S' && span >= 60){ span = (span + 30) / 60; u = 'M'; }
@@ -390,7 +618,7 @@ static void spanCaption(int size, int count, const char* unit, char* out, size_t
   snprintf(out, cap, "LAST %ld%c", span, u);
 }
 /* 4s ago · 3m ago · 2h ago */
-static void ageText(uint32_t ms, char* out, size_t cap){
+void ageText(uint32_t ms, char* out, size_t cap){
   const uint32_t s = ms / 1000;
   if (s < 5)          snprintf(out, cap, "just now");
   else if (s < 60)    snprintf(out, cap, "%lus ago", (unsigned long)s);
@@ -427,12 +655,34 @@ static int txt(const char* s, int x, int y, uint8_t size, uint16_t c,
 /* `struct` in these signatures is required: Arduino IDE injects prototypes
    above the type definitions, and without it the compile dies with
    `'Level' does not name a type`. */
-static const struct Level& levelNow(){
+const struct Level& levelNow(){
+  /* NO CLOCK is this device waiting on its own SNTP, not a connectivity
+     problem with the backend — orange, not the grey every other fault
+     gets, so it doesn't read as "can't reach you" when it's really
+     "give me a second." Still a fault: still holds the last good data. */
+  if (faultWord[0] && !strcmp(faultWord, "NO CLOCK")) return LV_WARN;
+  if (faultWord[0])                    return LV_FAULT;   /* cannot reach the backend */
   if (!strcmp(snap.level, "critical")) return LV_CRIT;
   if (!strcmp(snap.level, "warning"))  return LV_WARN;
   if (!strcmp(snap.level, "info"))     return LV_INFO;
   return LV_FAULT;
 }
+/* What the ALERT band actually prints. A fault speaks over the payload's
+   alert — the numbers under it are held, and saying "INFO" above held
+   numbers would read as good news. api.md §6.                            */
+const char* alertWord(const struct Level& L){
+  return faultWord[0] ? faultWord : L.word;
+}
+const char* alertDetail(){
+  return faultWord[0] ? faultDetail : snap.message;
+}
+/* Set or clear the fault banner. Only ever called by net.ino and wifi.ino,
+   and every change is logged there — never set silently.                 */
+void setFault(const char* word, const char* detail){
+  strlcpy(faultWord,   word   ? word   : "", sizeof faultWord);
+  strlcpy(faultDetail, detail ? detail : "", sizeof faultDetail);
+}
+void clearFault(){ faultWord[0] = faultDetail[0] = 0; }
 /* There is no root `gateway` any more — a device shows whatever rows the
    backend sends, each named on its own. For the one place that still wants
    a single label (the settings screen), the first row stands for all of
@@ -446,7 +696,7 @@ static const char* deviceGateway(){
 static bool alertFlash(const struct Level& L){
   return L.flashes && millis() - screenT0 < ALERT_FLASH_MS;
 }
-static const struct Theme& themeFor(const struct Level& L){
+const struct Theme& themeFor(const struct Level& L){
   if (!alertFlash(L)) return TH_DARK;
   if (&L == &LV_CRIT) return TH_RED;
   if (&L == &LV_WARN) return TH_ORANGE;
@@ -467,19 +717,127 @@ static float batteryVolts(){
   for (int i = 0; i < 8; i++) mv += analogReadMilliVolts(PIN_BAT_ADC);
   return (mv / 8.0f) / 1000.0f * 3.0f;
 }
-static int batteryPercent(){
-  float v = batteryVolts();
-  if (v < 3.52f) return 1;
-  if (v < 3.64f) return 20;
-  if (v < 3.76f) return 40;
-  if (v < 3.88f) return 60;
-  if (v < 4.00f) return 80;
+/* The same five voltage calibration points this always had (3.52/3.64/
+   3.76/3.88/4.00 V), now interpolated linearly between them instead of
+   stepped — a slow discharge should read as a slow, smooth decline on
+   screen, not a sudden jump from 100% to 80% the moment it crosses one of
+   these. Below the lowest point there's no calibration data to
+   interpolate against, so it stays flat at the original "critically low"
+   reading rather than guessing further.                                 */
+int batteryPercent(){
+  const float v = batteryVolts();
+  static const float VOLTS[] = { 3.52f, 3.64f, 3.76f, 3.88f, 4.00f };
+  static const int   PCT[]   = {    20,    40,    60,    80,   100 };
+  const int n = sizeof(VOLTS) / sizeof(VOLTS[0]);
+  if (v <= VOLTS[0])     return 1;
+  if (v >= VOLTS[n - 1]) return 100;
+  for (int i = 1; i < n; i++){
+    if (v > VOLTS[i]) continue;
+    const float t = (v - VOLTS[i - 1]) / (VOLTS[i] - VOLTS[i - 1]);
+    return (int)lround(PCT[i - 1] + (PCT[i] - PCT[i - 1]) * t);
+  }
   return 100;
 }
-static bool charging(){ return digitalRead(PIN_CHARGING) == LOW; }
+bool charging(){ return digitalRead(PIN_CHARGING) == LOW; }
 
 /* ------------------------------------------------------------------ toast */
-static void showToast(const char* s){ toastText = s; toastT0 = millis(); }
+void showToast(const char* s){ toastText = s; toastT0 = millis(); }
+
+/* ----------------------------------------------------- forward declarations
+   The IDE's ctags-based prototype scanner reads every .ino file as if it
+   were all C++, and does not reliably parse this sketch's mix of nested
+   structs, references and multi-file calls — it was found silently failing
+   to prototype whole batches of functions, in ways that shifted with
+   unrelated edits elsewhere. Every function called from a file other than
+   the one that defines it is declared explicitly here instead, so the build
+   no longer depends on that scanner at all. None of these are `static`: a
+   `static` definition can't satisfy an extern-linkage prototype, and that
+   mismatch is what an "undefined reference" at link time, rather than a
+   compile error, means — so the matching definitions had `static` dropped
+   too. Purely-internal helpers, used only within their own file, keep it.
+
+   Grouped by the file that defines them; alphabetical within each group. */
+
+/* config.ino */
+bool        configApplyJson(JsonObjectConst in, char* err, size_t errcap);
+bool        configHasEndpoint();
+void        configJson(JsonDocument& doc);
+void        configLoad();
+bool        configSave();
+bool        configFactoryReset();
+bool        configSigned();
+bool        configTlsVerified();
+const char* secName(uint8_t s);
+void        urlHostOf(const char* url, char* out, size_t cap);
+
+/* dashboard.ino */
+void        beginCount();
+void        drawDashboard();
+void        drawToast();
+void        nextScreen();
+
+/* hotspot.ino */
+void        drawHotspot();
+void        hotspotStart();
+void        hotspotStop();
+void        hotspotTick();
+
+/* input.ino */
+void        drawHoldOverlay();
+void        handleKeys();
+void        handleTouch();
+void        holdRing(float p, const char* label);
+void        keysBegin();
+
+/* intro.ino */
+void        bootIntro();
+
+/* lock.ino */
+void        drawLock();
+void        drawLockedBody(const struct Theme& th);
+void        lockBegin();
+void        lockDigit(char d);
+void        lockEngage();
+bool        lockIsLocked();
+void        lockHandleTap(int16_t x, int16_t y);
+void        lockOpenKeypad();
+void        lockTick();
+bool        lockArmed();
+
+/* net.ino */
+void        cycleBegin();
+void        cycleResetTimer();
+void        cycleTick();
+bool        netFetch();
+void        netBegin();
+uint32_t    pollIntervalMs();
+void        refreshNow();
+
+/* power.ino */
+void        applyBacklight();
+void        backlightTick();
+void        batteryTick();
+void        displayToggle();
+void        powerOff();
+void        powerOnHold();
+
+/* settings.ino */
+void        drawSettings();
+
+/* sound.ino */
+void        alertSound();
+void        introSound();
+void        noticeSound();
+void        soundBegin();
+void        soundTick();
+void        toggleMute();
+
+/* wifi.ino */
+void        wifiBegin();
+void        wifiResume();
+const char* wifiStateName(uint8_t s);
+void        wifiSuspend();
+void        wifiTick();
 
 /* =========================================================================
    Render
@@ -488,20 +846,24 @@ static void render(){
   if (!displayAwake) return;                 /* panel asleep — polls and alerts carry on */
   if (view == VIEW_SETTINGS) drawSettings();
   else if (view == VIEW_HOTSPOT) drawHotspot();
+  else if (view == VIEW_LOCK) drawLock();
   else drawDashboard();
   drawHoldOverlay();        /* a key or a finger on its way to a 2 s hold — input.ino */
   drawToast();
   cv->flush();
 }
 
-/* The alert sound rides the flash, and runs whether or not the panel is awake
-   and whatever screen is up — the point of the speaker is to reach you when
-   you are not looking at it.                                              */
+/* The alert sound (or the quieter notice) rides the flash, and runs whether
+   or not the panel is awake and whatever screen is up — the point of the
+   speaker is to reach you when you are not looking at it.                */
 static void alertTick(){
   static bool wasFlash = false;
   const Level& L = levelNow();
   const bool flash = alertFlash(L);
-  if (flash && !wasFlash && L.sounds) alertSound();       /* sound.ino */
+  if (flash && !wasFlash){
+    if (L.sounds)     alertSound();     /* sound.ino — critical only */
+    else if (L.soft)  noticeSound();    /* sound.ino — warning, and any connection fault */
+  }
   wasFlash = flash;
 }
 
@@ -527,11 +889,11 @@ static const char* resetName(){
 void setup(){
   Serial.begin(SERIAL_BAUD);
   delay(200);
-  Serial.printf("\nPulsar - ESP32-S3-LCD-1.54 - offline build - serial %d baud\n", SERIAL_BAUD);
+  Serial.printf("\nPulsar - ESP32-S3-LCD-1.54 - serial %d baud\n", SERIAL_BAUD);
   LOGF("boot", "reset: %s", resetName());          /* a boot loop names itself here */
 
-  pinMode(PIN_LCD_BL, OUTPUT);
-  digitalWrite(PIN_LCD_BL, HIGH);
+  ledcAttach(PIN_LCD_BL, LEDC_BL_FREQ, LEDC_BL_RES);   /* dimmable, not just on/off — power.ino */
+  ledcWrite(PIN_LCD_BL, 255);           /* full brightness until configLoad() below picks the real duty */
 
   if (!panel->begin()){ LOG("boot", "panel begin FAILED"); }
   panel->setTextWrap(false);
@@ -561,29 +923,43 @@ void setup(){
   LOGF("boot", "battery: %.2f V  %d%%  %s",
        batteryVolts(), batteryPercent(), charging() ? "charging" : "on battery");
 
-  if (!netFetch()){                /* net.ino — the placeholder poll */
-    LOG("boot", "no usable payload - stopping");
-    panel->fillScreen(RGB565_BLACK);
-    panel->setCursor(8, 100); panel->setTextColor(RGB565_RED); panel->setTextSize(2);
-    panel->println("BAD PAYLOAD");
-    while (true) delay(1000);
-  }
+  /* No payload is baked in, so there is nothing to show yet and nothing to
+     stop for either: a board with no config, or one whose networks are all
+     out of range, is a working board with an honest banner on it. The first
+     poll happens the moment wifi.ino gets online.                        */
+  configLoad();                    /* config.ino — the endpoint and the saved networks */
+  applyBacklight();                /* the configured duty, now that it's loaded — power.ino */
+  lockBegin();                     /* lock.ino — the persisted lockout count, if any */
+  /* Display-only: the STATUS band's clock reads through this; net.ino's
+     signing clock (time(nullptr)) never does — see the TZ_TABLE comment. */
+  setenv("TZ", TZ_TABLE[cfg.tzIndex < TZ_COUNT ? cfg.tzIndex : TZ_DEFAULT_INDEX].posix, 1);
+  tzset();
   buildThemes();
-  soundBegin();             /* codec, the critical alert and the intro hum — before the intro needs either — sound.ino */
+  netBegin();                      /* net.ino — the banner starts out saying what we wait for */
+  wifiBegin();                     /* wifi.ino — joining runs in the background from here */
+  soundBegin();             /* codec, the critical alert and the intro's torpedo fire — before the intro needs either — sound.ino */
   bootIntro();              /* once per power-on, hums with the beams, fades into the dashboard — intro.ino */
   if (soundMuted) showToast("SOUND OFF");  /* the brown-out mute check inside soundBegin() ran before
                                                anything was on screen to show it on — say it now instead */
   beginCount();             /* sweepT0 stays 0: the graph is already whole, as it faded in */
   cycleBegin();             /* start the 5 s screen rotation — net.ino */
-  LOGF("boot", "ready - %u metric screens, poll every %lus",
-       (unsigned)snap.nrows, (unsigned long)(pollIntervalMs() / 1000));
+  LOGF("boot", "ready - %u saved network%s, endpoint %s, poll every %lus",
+       (unsigned)cfg.nnets, cfg.nnets == 1 ? "" : "s",
+       cfg.url[0] ? cfg.url : "NOT SET - hold DOWN 2 s",
+       (unsigned long)(pollIntervalMs() / 1000));
 }
 
 void loop(){
   handleTouch();            /* input.ino */
   handleKeys();             /* input.ino */
+  wifiTick();               /* wifi.ino — scan, join, watch for drops */
+  hotspotTick();            /* hotspot.ino — serves the setup page while the AP is up */
   cycleTick();              /* 5 s per screen, refetch when the loop wraps — net.ino */
   alertTick();
+  backlightTick();          /* re-applies the duty only when the charge state actually changes — power.ino */
+  batteryTick();            /* shuts the board down 2 min after the battery hits 10%, unless it recovers — power.ino */
+  soundTick();              /* auto-clears a mute once its configured timeout elapses — sound.ino */
+  lockTick();               /* auto-relocks an unlocked screen once its timeout elapses — lock.ino */
   render();                 /* ~25 fps; the alert flash and the count-up need it */
   delay(28);
 }
