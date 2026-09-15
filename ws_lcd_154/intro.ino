@@ -16,7 +16,7 @@
                             in RGB565 — real pixels, not a wipe.
 
    The intro sound is rendered ONCE into a buffer at boot and streamed,
-   exactly like the critical alert — never synthesised live. An earlier
+   exactly like the crit alert — never synthesised live. An earlier
    version did synthesise live, on core 0, and starved that core's idle task
    past the watchdog and boot-looped the board. That is why sound.ino always
    renders first and only ever streams from here on.

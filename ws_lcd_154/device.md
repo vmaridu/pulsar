@@ -37,7 +37,7 @@ Waveshare square kit, SKU **33867** with cell.
 The panel runs at `rotation = 1`.
 
 - 🔌 **So it can be read while it charges.** Upright, the USB-C cable comes out of the bottom edge and fights the desk; turned a quarter turn it leaves the side and the screen still faces you
-- 🔊 The **speaker hole faces out** instead of into the bench, which is the difference between hearing a critical and not
+- 🔊 The **speaker hole faces out** instead of into the bench, which is the difference between hearing a crit and not
 - 📐 The panel is square, so **no layout number changes** — only which edge is up
 
 📌 **Exact pin assignments** (the physical silkscreen, LCD/touch/I²C/I²S/battery lines
@@ -82,11 +82,11 @@ the display zone never touches it, in either direction.
 
 ## 2. 👆 Input
 
-This build implements the standard input map:
+This build's own input map — the physical keys and the glass, and what each one does:
 
 | Input                | Tap                       | Double-tap              | Hold 2 s                                |
 | -------------------- | ------------------------- | ----------------------- | ----------------------------------------- |
-| **Glass** · anywhere | Next metric screen        | **Settings** on / off   | **Force refresh**                        |
+| **Glass** · anywhere | Next metric screen — or, locked, **open the unlock keypad** | **Settings** on / off   | **Force refresh**                        |
 | **DOWN** key         | _future use_ — off the main screen, back | **Settings** on / off | **Setup hotspot**                    |
 | **PWR** · middle key | _future use_              | _future use_            | **Power off** · from off: on             |
 | **UP** key           | **Display on / off**      | **Sound mute / unmute** | **Lock the screen**, or open the unlock keypad → [§6](#6--privacy-lock) |
@@ -94,8 +94,9 @@ This build implements the standard input map:
 - ⏱️ **Every hold is 2 s** — keys and glass alike
 - ⭕ Anything held past a tap shows a ring filling toward 2 s with the action written inside — `REFRESH`, `SETUP`, `EXIT`, `OFF`, `ON`, `LOCK`, `UNLOCK` — so you see it coming and can let go. A hold that is future use shows **no ring**: nothing is coming
 - 👆 **One glass, no zones** on the main screen; the unlock keypad is the one place a tap position matters at all → [§6](#6--privacy-lock). Elsewhere a single tap waits 450 ms to be sure it is not the first half of a double-tap, and a finger that slides is not a tap
+- 🔓 **A tap on the glass while the dashboard is showing locked opens the unlock keypad** — the same destination UP's own hold already reaches, not the next metric screen (which stays hidden behind the padlock anyway). A double-tap still opens **Settings** either way, locked or not — the lock never gates diagnostics → [§6](#6--privacy-lock)
 - 🔙 **Off the main screen**, a tap on the glass goes back to it — except the keypad, which reads a tap as a digit; DOWN backs out of that one too
-- 🌑 **UP tap sleeps the panel only.** The cycle keeps turning, the poll keeps polling, and a critical still sounds in the dark → [functional-requirements.md §1](../docs/functional-requirements.md#-display-off-is-not-power-off)
+- 🌑 **UP tap sleeps the panel only.** The cycle keeps turning, the poll keeps polling, and a crit still sounds in the dark → [functional-requirements.md §1](../docs/functional-requirements.md#-display-off-is-not-power-off)
 - 🔕 **UP double-tap** mutes every sound until it is double-tapped again or the board restarts → [§5](#5--alert-sound-and-mute)
 - 🔌 **Off and on are both a 2-second hold of PWR.** The key powers the board up by itself; the firmware latches power (GPIO2) only once the hold reaches 2 s, so a brush against it does nothing. Off drops the latch — on battery that is truly off
 - 🔋 On USB the rail stays up whatever GPIO2 says, so off is the panel dark plus deep sleep, and PWR (GPIO5, an RTC pin) wakes it into the same 2 s hold
@@ -158,7 +159,7 @@ choose differently; only the position matters to this build.
   grows — it's already as small as it needs to be
 
 - 🔢 Number and unit formatting → [AGENTS.md §10](../AGENTS.md#10--aggregate-tile-formatting)
-- 🎨 **A tile's colour is its own `level`**, nothing this build computes: `critical` red, `warning` orange, `info` (or omitted) the theme's own colour. Any tile may carry one — a backend that wants `4XX` to read as trouble sends `"level": "warning"` itself
+- 🎨 **A tile's colour is its own `level`**, nothing this build computes: `crit` red, `warn` orange, `info` (or omitted) the theme's own colour. Any tile may carry one — a backend that wants `4XX` to read as trouble sends `"level": "warn"` itself
 - 📈 **The graph is the ground, not a panel.** It plots one count per bucket (`buckets_value_type: total_count`) with no headroom, so a steady series runs in the gap under the hero instead of through the text. A 1 px halo keeps every name readable where the line crosses it. It sweeps in left → right over ~900 ms
 - 🩵 One graph colour at every level — the ALERT band carries the alarm, the graph only carries the shape
 - 🔢 The numbers count up from the previous screen's over ~520 ms
@@ -172,25 +173,25 @@ Same y, same height, every frame. What changes is loudness, not position.
 | `alert.level`  | ALERT band at rest                     | Flash                | Sound                             |
 | -------------- | -------------------------------------- | -------------------- | ---------------------------------- |
 | 🟢 `info`       | Plain background, bold lime word       | none                 | none                               |
-| 🟠 `warning`    | Plain background, bold orange word     | **500 ms every 5 s** | short, quiet notice, every flash   |
-| 🔴 `critical`   | Plain background, bold red word        | **500 ms every 5 s** | **full alert, every flash**       |
+| 🟠 `warn`       | Plain background, bold orange word     | **500 ms every 5 s** | short, quiet notice, every flash   |
+| 🔴 `crit`       | Plain background, bold red word        | **500 ms every 5 s** | **full alert, every flash**       |
 | 🩶 fetch fault  | Plain background, bold grey word       | **500 ms every 5 s** | short, quiet notice, every flash   |
 
 - 💡 **The level word is always full-strength colour, bold, held steady** — that is the whole identification at rest, not a coloured background. The band never blinks — the level is always readable at a glance
-- 🚨 **The flash is the entire screen, and it is synced to the cycle, not a clock of its own.** Under `warning`, `critical` or a lost connection **all four bands** — including this one's own background — flash the level colour for the **first 500 ms of every new 5 s screen** — right at the 5 s mark, every time, whatever else is happening. `info` never flashes. `critical` gets the full alert; `warning` and a fetch fault get a shorter, quieter notice instead — in the same frame either way → [§5](#5--alert-sound-and-mute)
-- 🕰️ **One fetch fault borrows this table's `warning` row instead of `fetch fault`'s:** `NO CLOCK` (a signed board waiting on its own SNTP) is a local hold-up, not "can't reach the backend," so it reads as orange, same as a real `warning` — still a held-data fault underneath
+- 🚨 **The flash is the entire screen, and it is synced to the cycle, not a clock of its own.** Under `warn`, `crit` or a lost connection **all four bands** — including this one's own background — flash the level colour for the **first 500 ms of every new 5 s screen** — right at the 5 s mark, every time, whatever else is happening. `info` never flashes. `crit` gets the full alert; `warn` and a fetch fault get a shorter, quieter notice instead — in the same frame either way → [§5](#5--alert-sound-and-mute)
+- 🕰️ **One fetch fault borrows this table's `warn` row instead of `fetch fault`'s:** `NO CLOCK` (a signed board waiting on its own SNTP) is a local hold-up, not "can't reach the backend," so it reads as orange, same as a real `warn` — still a held-data fault underneath
 - 🎯 **The alert belongs to the response, not to the metric on screen.** It follows you through every screen; tap through and look at whichever one you want
 - 🖋️ **During the flash every foreground turns to near-black ink** — numbers, labels, hairlines, the graph, the battery. No one colour reads on black, red, orange and grey alike (white on orange is under 3:1), so the ink follows the ground. The rest of the 5 s it is the normal screen, thresholds and all
 - ➖ Under an alert a rule parts the ALERT band from the BODY
 - 🔤 **Heading and subscript.** The level word at size 2, the message small under it at size 1
 - ✅ `alert` is required in every response, so this band always has something to draw — there is no empty state to design
-- 🔤 Levels spelled out, never abbreviated. `CRITICAL` is eight characters and there is room
+- 🔤 Levels drawn abbreviated — `INFO` / `WARN` / `CRIT` — the same short form `alert.level` itself carries on the wire, so the screen never spells out anything the backend didn't send
 - 🚫 No glyph. The word and the colour say it
 - 🙅 No acknowledged level → [api.md §3](../docs/api.md#3--alert)
 
 ### 📐 Layout rules
 
-- 📍 **Identity lives in the FOOTER, on one line.** The gateway's first five letters, uppercase and dim (`ORDER`), then the metric `name` bright — `ORDER Created`, `ORDER Dispatched`, `PAYME Paid`. A long name gives way first, and never leaves a one- or two-letter stub
+- 📍 **Identity lives in the FOOTER, on one line.** The gateway's first five letters, uppercase and dim, sit at the left edge; the metric `name`, bright, sits at the right edge — `ORDER` left / `Created` right, `ORDER` left / `Dispatched` right, `PAYME` left / `Paid` right. A long name gives way first, and never leaves a one- or two-letter stub
 - 🏷️ The gateway comes from the **row's own `gateway`** field — required on every row, never a top-level fallback — so a merged backend always says which platform a number came from
 - ➖ **The rule above the FOOTER is the position** — one segment per metric screen, the current one lit
 - 🕐 **The clock is `MM/DD hh:mm AM`** of `measured_at` — the time of the reading, not the time now
@@ -233,7 +234,7 @@ Four groups, in the order you would ask the questions: what am I holding, what d
 | ↳ right of it           | Screen count and how old the numbers are. With nothing parsed yet, the poll interval instead            |
 
 - 🔕 Sound is not a row here — the crossed-speaker icon in the STATUS band already says it, and the space is worth more to the radio
-- 🔔 The critical alert sound plays here too — it belongs to the response, not to the screen you happen to be on
+- 🔔 The crit alert sound plays here too — it belongs to the response, not to the screen you happen to be on
 
 ### 📶 The setup hotspot
 
@@ -264,7 +265,7 @@ Hold **DOWN** 2 s. The board raises a WPA2 access point named after itself, answ
 
 ## 5. 🔔 Alert sound and mute
 
-- 🔴 **`critical` gets the full alert; `warning` and any connection fault get a
+- 🔴 **`crit` gets the full alert; `warn` and any connection fault get a
   shorter, quieter notice instead.** Whichever it is, it plays with every flash —
   started in the same frame the flash is drawn, faded to nothing exactly as the
   flash ends. `info` stays silent
@@ -290,7 +291,8 @@ at all — this is strictly about who can read the numbers.
 
 - 🔐 **Hold UP 2 s to lock it — no code needed.** There is nothing to prove to take
   a screen *out* of view. Held again while already locked, the same gesture raises
-  the keypad instead
+  the keypad instead — **so does a plain tap on the glass** while the dashboard is
+  showing locked, a second way to the same keypad → [§2](#2--input)
 - 🔢 **Six digits, entered on a 3x3 grid of 1-9** (no 0, no clear, no backspace — the
   buttons stay big enough to hit reliably), auto-submitting on the sixth. Right
   unlocks; wrong just clears the entry and counts as a try. `DOWN` backs out of the
@@ -300,7 +302,7 @@ at all — this is strictly about who can read the numbers.
   the one most recent digit, never enough to read the whole code at a glance
 - 🔟 **Default code `123456`**, changed on the setup page like any other secret —
   1-9 only, never shown back once set, only that one exists → [functional-requirements.md §5](../docs/functional-requirements.md#5--configuration)
-- 🚫 **Five wrong codes inside a rolling 30 minutes** blocks the keypad until enough
+- 🚫 **Five wrong codes inside a rolling 5 minutes** blocks the keypad until enough
   of that window has passed — kept in NVS (count, plus when it last grew), not just
   RAM, so a restart can't be used to dodge it. A correct code clears it outright
 - 🤐 **The code is never printed on Serial** — stored or typed, right or wrong.
@@ -332,11 +334,11 @@ Once per power-on, **5 s**, **two screens**, then a cross-fade into the dashboar
 
 - ⭐ **Only two beams.** A real pulsar sweeps two opposite beams from its magnetic poles, and its spin does not speed up — so nothing else streams out, and the rate never changes. **Steady 1.3 turns a second**, filling the whole panel — centred on screen, reaching almost to every edge
 - 📏 **The beams are walked pixel by pixel along their own ray** — `centre + r·(cos a, sin a)` for a single, unchanging `a` — rather than drawn as separate line segments, which is what keeps them perfectly straight at every angle
-- 🔊 **A torpedo-launch burst fires with every beam pass** — twice a turn, a soft whoosh and a rounder thump, audible but soft-edged on purpose (well under the critical alert's own volume) — a launch, not a siren, so it never reads as trouble. Rendered once into a buffer at boot and streamed, exactly like the critical alert — never synthesised live. Each burst lands on the same instant the core's glow pulses on, so the ear and the eye read one thing, not two that happen to share a rate. The whole run fades in over 150 ms, fades out over the last 300 ms, and stays off for the rest of the intro
+- 🔊 **A torpedo-launch burst fires with every beam pass** — twice a turn, a soft whoosh and a rounder thump, audible but soft-edged on purpose (well under the crit alert's own volume) — a launch, not a siren, so it never reads as trouble. Rendered once into a buffer at boot and streamed, exactly like the crit alert — never synthesised live. Each burst lands on the same instant the core's glow pulses on, so the ear and the eye read one thing, not two that happen to share a rate. The whole run fades in over 150 ms, fades out over the last 300 ms, and stays off for the rest of the intro
 - 🔤 **A stencil-cut label, not an effect.** Plain black background, bold `PULSAR`, larger than before — the built-in monospace font printed twice, one row apart, for extra weight — then two thin bands cut back to black straight across the whole word, the way a real stencil template needs "bridges" to hold its cut-out letters together. It appears fully formed the instant screen 2 starts; no per-letter motion, no plate behind it
 - 🌈 **A travelling gradient, not a flat colour.** Every pixel the stencil cut left lit is recoloured live from light blue to red and back, the mix a function of its position and the time since screen 2 started, plus a small fast ripple for shimmer — so the whole word visibly drifts for as long as it's on screen, never static, never repeating the exact same frame twice
 - 🎞️ **The cross-fade is real pixels:** the dashboard is painted once into a PSRAM copy and every intro frame for the last 0.6 s is blended toward it in RGB565. The graph arrives already whole, so it does not sweep in again after
-- 🔇 **Silent past screen 1.** The torpedo fire stops exactly when the beams do; the critical alert (§5) is the only other sound this build makes, and it never plays during the intro. Both are rendered once into a buffer, never synthesised live — an earlier version generated a soundtrack live on core 0; stretched to 5 s it starved that core's idle task past the **5 s task watchdog**, and the board reset straight back into the intro, over and over
+- 🔇 **Silent past screen 1.** The torpedo fire stops exactly when the beams do; the crit alert (§5) is the only other sound this build makes, and it never plays during the intro. Both are rendered once into a buffer, never synthesised live — an earlier version generated a soundtrack live on core 0; stretched to 5 s it starved that core's idle task past the **5 s task watchdog**, and the board reset straight back into the intro, over and over
 - 🧯 Every boot prints `boot: reset: …` on Serial — if the board ever loops again, that line names the cause
 
 ---
@@ -380,7 +382,7 @@ The sketch is modular — one concern per file, all flat in `ws_lcd_154/` (Ardui
 - [ ] 240 × 240, black background, four bands
 - [ ] Clock reads `MM/DD hh:mm AM` of `measured_at`
 - [ ] No gateway dots anywhere — the FOOTER is the only place a gateway is named
-- [ ] FOOTER reads `ORDER Created` on the first screen, and the gateway half comes from the row's own `gateway`
+- [ ] FOOTER reads `ORDER` at the left edge and `Created` at the right edge on the first screen, and the gateway half comes from the row's own `gateway`
 - [ ] No number wider than 5 characters, at any count
 - [ ] **Screens turn on their own every 5 s** and wrap back to the first
 - [ ] On the wrap it refetches — and `net:` says either `refetching` or how long until the next poll
@@ -401,23 +403,24 @@ The sketch is modular — one concern per file, all flat in `ws_lcd_154/` (Ardui
 - [ ] PWR held 2 s switches off; from off, PWR held 2 s switches on — shorter does nothing
 - [ ] On USB, off goes dark and PWR held 2 s brings it back
 - [ ] **UP tap blanks the panel**; tap again and it comes back
-- [ ] With the panel blank, a critical **still sounds**, right at every 5 s mark
+- [ ] With the panel blank, a crit **still sounds**, right at every 5 s mark
 - [ ] **UP double-tap** shows `SOUND OFF` and the crossed speaker; double-tap again brings sound back
 - [ ] Muted, then power off and on → sound is back
-- [ ] `critical`, `warning` and no connection flash **the whole screen** for 500 ms right at the start of every 5 s screen — every number readable during the flash
-- [ ] `critical` plays the full alert with every flash; `warning` and no connection play the shorter, quieter notice instead — never both, and `info` stays silent
+- [ ] `crit`, `warn` and no connection flash **the whole screen** for 500 ms right at the start of every 5 s screen — every number readable during the flash
+- [ ] `crit` plays the full alert with every flash; `warn` and no connection play the shorter, quieter notice instead — never both, and `info` stays silent
 - [ ] Before any data has ever arrived, or on a non-touch SKU, UP held 2 s shows **no ring** and Serial says `future use` — the lock never engages
 - [ ] Once real data is showing (touch SKU only), UP held 2 s locks it instantly, no code asked for: BODY and FOOTER are replaced by a lock icon, STATUS and ALERT keep drawing normally, and sound is unaffected
 - [ ] UP held 2 s again, locked, raises a 6-digit keypad; the default code `123456` unlocks it and shows `UNLOCKED`
+- [ ] A plain tap on the glass while locked also raises the same keypad — no hold needed; a double-tap still opens Settings instead, locked or not
 - [ ] A wrong code clears the entry and shows `WRONG CODE` rather than unlocking
-- [ ] Five wrong codes in a row lock the keypad out, with a wait-time message, until the 30-minute window ages out
+- [ ] Five wrong codes in a row lock the keypad out, with a wait-time message, until the 5-minute window ages out
 - [ ] Restarting the board mid-lockout comes back still locked out, not reset — five wrong codes, then a restart, then a sixth still shows `TOO MANY ATTEMPTS`
 - [ ] The correct code clears a partial lockout outright — a couple of wrong codes, then the right one, then five more wrong codes are needed again, not just three
 - [ ] DOWN backs out of the keypad without submitting anything, still locked
 - [ ] Restarting the board while unlocked comes back locked
 - [ ] Changing the code and the auto-relock timeout on the setup page survives a restart
 - [ ] ALERT band's word is bold and full-strength colour at every level; the band's own background matches the rest of the screen at rest and only goes solid during the whole-screen flash
-- [ ] `critical` plays its 500 ms sound with every flash, in step with it; `warning` and no connection stay silent
+- [ ] `crit` plays its 500 ms sound with every flash, in step with it; `warn` and no connection stay silent
 - [ ] The battery icon shows an explicit bolt while charging, not just a colour change
 - [ ] Sending a metric with no `gateway`, no `aggregates`, or a null field logs the problem on Serial and still renders — never a crash
 - [ ] A one-metric payload shows one full-width position segment and polls every 30 s

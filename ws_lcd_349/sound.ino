@@ -1,5 +1,5 @@
 /* ===========================================================================
-   Sound — the boot-intro torpedo fire, the critical alert, and the subtler
+   Sound — the boot-intro torpedo fire, the crit alert, and the subtler
    notice. The same three waveforms as the square build, on this board's
    ES8311 codec and speaker.
 
@@ -9,8 +9,8 @@
 
    There is no separate amplifier-enable pin on this board; the audio path
    is switched on through the expander's NS_MODE line at boot (main sketch)
-   and left on. RIGHT double-tap mutes; a restart or the timeout set on the
-   setup page clears it again.
+   and left on. The sound icon on the settings screen mutes; a restart or
+   the timeout set on the setup page clears it again.
    =========================================================================== */
 #include <esp_system.h>
 
@@ -186,15 +186,16 @@ void soundBegin(){
   introBuf = renderSound(introSample, (int)(I_ANIM_END * 1000), INTRO_PEAK, &introLen);
   if (!introBuf) LOG("boot", "audio: intro sound alloc FAILED - boot intro will be silent");
   noticeBuf = renderSound(noticeSample, NOTICE_MS, NOTICE_PEAK, &noticeLen);
-  if (!noticeBuf) LOG("boot", "audio: notice buffer alloc FAILED - warning sound disabled");
+  if (!noticeBuf) LOG("boot", "audio: notice buffer alloc FAILED - warn sound disabled");
 }
 
 void alertSound(){ requestSound(alertBuf, alertLen); }
 void introSound(){ requestSound(introBuf, introLen); }
 void noticeSound(){ requestSound(noticeBuf, noticeLen); }
 
-/* RIGHT double-tap. Also cleared by a restart, or by cfg.muteTimeoutMin
-   elapsing on its own — soundTick() below. */
+/* The settings screen's sound icon — see settings.ino's own CONTROLS
+   comment. Also cleared by a restart, or by cfg.muteTimeoutMin elapsing
+   on its own — soundTick() below. */
 void toggleMute(){
   soundMuted = !soundMuted;
   if (soundMuted) muteT0 = millis();

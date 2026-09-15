@@ -24,7 +24,7 @@
    Locked is the default the moment it does arm — every restart starts
    locked, on purpose, whether or not it was unlocked before the reset.
 
-   Five wrong codes inside a rolling 30 minutes blocks further tries until
+   Five wrong codes inside a rolling 5 minutes blocks further tries until
    enough of that window has passed — a count plus the epoch time of the
    most recent failure, both kept in NVS ("lock" namespace) so a restart
    cannot be used to dodge the lockout. Epoch, not millis(): millis() means
@@ -55,7 +55,7 @@
 
 #define LOCK_DIGITS       6
 #define LOCK_MAX_FAILS    5
-#define LOCK_FAIL_WINDOW_S  (30UL * 60UL)   /* the rolling 30 minutes, in epoch seconds */
+#define LOCK_FAIL_WINDOW_S  (5UL * 60UL)    /* the rolling 5 minutes, in epoch seconds */
 #define LOCK_REVEAL_MS     550    /* how long the just-pressed digit shows before it masks */
 
 static bool     locked        = true;    /* the default the moment the feature arms */

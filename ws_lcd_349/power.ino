@@ -44,10 +44,23 @@ void applyBacklight(){
    board shuts itself down after a 2-minute grace period rather than run
    the cell down to where it can't safely restart. Checked once a second.
    With no charger detection on this board the cancel can only come from
-   the voltage climbing back over the line — which a charger does cause. */
+   the voltage climbing back over the line — which a charger does cause.
+
+   The backlight is real load: turning it back on (RIGHT tap, off to on)
+   pulls noticeably more current than a dark panel, and a cell that's
+   getting weak sags under that step just long enough to read low for a
+   check or two even though it recovers moments later. batteryVolts()'s
+   own 8-sample burst can't catch this — the whole burst happens within
+   the same brief moment, so it rides straight through a sag exactly
+   like it rides through real ADC noise. So a low reading has to repeat
+   for LOW_BATT_CONFIRM checks running before the grace timer even
+   starts — long enough that a load-step sag has settled back out, short
+   enough that a genuinely low cell (which stays low) is barely delayed. */
 #define LOW_BATT_PCT       10
 #define LOW_BATT_GRACE_MS  (2UL * 60000UL)
-static uint32_t lowBattT0 = 0;     /* 0 = the shutdown timer isn't running */
+#define LOW_BATT_CONFIRM_S     3       /* consecutive low seconds before it's trusted */
+static uint32_t lowBattT0 = 0;         /* 0 = the shutdown timer isn't running */
+static uint8_t  lowBattStreak = 0;     /* consecutive low checks so far, confirming it first */
 void batteryTick(){
   static uint32_t lastCheck = 0;
   if (millis() - lastCheck < 1000) return;
@@ -57,7 +70,12 @@ void batteryTick(){
   if (charging() || pc > LOW_BATT_PCT){
     if (lowBattT0) LOG("power", "battery recovered - shutdown cancelled");
     lowBattT0 = 0;
+    lowBattStreak = 0;
     return;
+  }
+  if (lowBattStreak < LOW_BATT_CONFIRM_S){
+    lowBattStreak++;
+    return;                       /* could still be a load-step sag settling out, not yet trusted */
   }
   if (!lowBattT0){
     lowBattT0 = millis();
@@ -72,20 +90,35 @@ void batteryTick(){
   }
 }
 
-/* RIGHT tap. DISPLAY OFF IS NOT POWER OFF: the panel sleeps and the backlight
-   goes dark, and nothing else stops — the cycle keeps turning, and a
-   critical still sounds in the dark.                                     */
+/* RIGHT tap. DISPLAY OFF IS NOT POWER OFF: the backlight goes dark, and
+   nothing else stops — the cycle keeps turning, and a crit still
+   sounds in the dark.
+
+   ===== DEVICE-SPECIFIC FIX — read before copying this pattern anywhere =====
+   This does NOT call panel->displayOff()/displayOn() any more, on purpose.
+   Those send SLPIN/SLPOUT, and on THIS AXS15231B panel that pair is not
+   reliably reversible by a bare wake call: the first off-then-on cycle
+   looks fine, but a second one can leave the panel showing a corrupted
+   line and the picture degrading from there — this board's own repro.
+   powerDown() below already hit the same wall once, for the power
+   off/on path, and worked around it by going through a full reboot
+   (which re-runs tftInit()) instead of a bare displayOn() — see its own
+   comment on EXIO_SYS_EN. The display toggle has no reboot to fall back
+   on, so it takes the other way out: it never puts the panel to sleep
+   in the first place. Only the backlight goes dark; the panel keeps
+   rendering behind it the whole time. functional-requirements.md only
+   ever promised the panel goes dark, never that this is a genuine
+   low-power sleep, so nothing here breaks that contract — it just
+   sidesteps a sleep/wake bug specific to this one panel. Before reusing
+   panel->displayOff()/displayOn() on another board (or putting them back
+   here), confirm on real hardware that ITS panel actually survives a
+   repeated sleep/wake cycle — this one didn't.
+   ============================================================================ */
 void displayToggle(){
   displayAwake = !displayAwake;
-  if (displayAwake){
-    panel->displayOn();
-    applyBacklight();
-    LOG("key", "RIGHT tap -> display on (the cycle never stopped)");
-  } else {
-    applyBacklight();          /* dark, now that displayAwake is false */
-    panel->displayOff();
-    LOG("key", "RIGHT tap -> display off (still cycling, a critical still sounds)");
-  }
+  applyBacklight();
+  LOG("key", displayAwake ? "RIGHT tap -> display on (the cycle never stopped)"
+                           : "RIGHT tap -> display off (still cycling, a crit still sounds)");
 }
 
 /* ------------------------------------------------------------------ power */

@@ -32,7 +32,7 @@
    A FAILED POLL NEVER CLEARS THE SCREEN. The last good payload stays exactly
    where it was, and the fault is said out loud over it — api.md §6. Stale
    numbers shown calmly read as good news, so every fault flashes on the same
-   5 s pattern as a warning, and none of them sound: a Wi-Fi roam must not
+   5 s pattern as `warn`, and none of them sound: a Wi-Fi roam must not
    sound like an outage.
 
    The cycle, and why the poll is tied to it:

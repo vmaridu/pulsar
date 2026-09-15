@@ -69,8 +69,8 @@ kbd{border:1px solid var(--line);border-radius:3px;padding:0 4px;font-size:9px;c
   text-align:center;font-family:var(--mono);font-size:10.5px;cursor:pointer;color:var(--dim);
   letter-spacing:.06em}
 .lv[data-l=info].on{border-color:#1a6b3d;background:#071c11;color:var(--gr)}
-.lv[data-l=warning].on{border-color:#7a3a0a;background:#1d0e04;color:var(--or)}
-.lv[data-l=critical].on{border-color:#7d2532;background:#1f070c;color:var(--rd)}
+.lv[data-l=warn].on{border-color:#7a3a0a;background:#1d0e04;color:var(--or)}
+.lv[data-l=crit].on{border-color:#7d2532;background:#1f070c;color:var(--rd)}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:11px;margin-top:11px}
 .kv b{font-weight:400;color:var(--dim2)}
 .kv span{color:var(--tx);text-align:right}
@@ -197,8 +197,8 @@ footer{margin-top:24px;color:var(--dim2);font-size:10.5px;text-align:center}
   <h3>alert.level</h3>
   <div class="lvls">
     <div class="lv" data-l="info">INFO</div>
-    <div class="lv" data-l="warning">WARNING</div>
-    <div class="lv" data-l="critical">CRITICAL</div>
+    <div class="lv" data-l="warn">WARN</div>
+    <div class="lv" data-l="crit">CRIT</div>
   </div>
   <div class="row" style="margin-top:9px">
     <button class="b" id="doFault">simulate OFFLINE<kbd>f</kbd></button>
@@ -274,17 +274,17 @@ for (const [k, v] of Object.entries({
 
 /* level → word, solid colour, dark graph body */
 const LV = {
-  info:     { w:'INFO',     c:C.gr, d:C.grD },
-  warning:  { w:'WARNING',  c:C.or, d:C.orD },
-  critical: { w:'CRITICAL', c:C.rd, d:C.rdD },
-  fault:    { w:'OFFLINE',  c:C.gy, d:C.gyD },
+  info:  { w:'INFO',    c:C.gr, d:C.grD },
+  warn:  { w:'WARN',    c:C.or, d:C.orD },
+  crit:  { w:'CRIT',    c:C.rd, d:C.rdD },
+  fault: { w:'OFFLINE', c:C.gy, d:C.gyD },
 };
-/* One alert pattern for warning, critical and no connection alike: the WHOLE
+/* One alert pattern for warn, crit and no connection alike: the WHOLE
    SCREEN flashes the level colour for 500 ms, once every 5 s — every band, not
-   a stripe. `critical` gets the full alert; `warning` and `fault` get a
+   a stripe. `crit` gets the full alert; `warn` and `fault` get a
    shorter, quieter notice instead — never both, and `info` gets neither.  */
-const FLASHES = { info:false, warning:true,  critical:true,  fault:true  };
-const SOUNDS  = { info:null,  warning:'notice', critical:'alert', fault:'notice' };
+const FLASHES = { info:false, warn:true,  crit:true,  fault:true  };
+const SOUNDS  = { info:null,  warn:'notice', crit:'alert', fault:'notice' };
 const ALERT_FLASH_MS = 500;   // synced to st.screenT0, not a free-running clock — see frame()
 
 /* ==========================================================================
@@ -449,8 +449,8 @@ function mkTile(name, value, unit, level){
 /* Same thresholds simulator/server.js's levelFor() uses, so this standalone
    mockup's own sample backend reads the same way a real one would.      */
 function levelFor(name, share){
-  if (name === '5XX') return share >= 1 ? 'critical' : share >= 0.5 ? 'warning' : undefined;
-  if (name === '4XX') return share >= 2 ? 'warning' : undefined;
+  if (name === '5XX') return share >= 1 ? 'crit' : share >= 0.5 ? 'warn' : undefined;
+  if (name === '4XX') return share >= 2 ? 'warn' : undefined;
   return undefined;
 }
 /* No root `gateway` — api.md only carries the word per row. This backend
@@ -629,9 +629,9 @@ const TH = {
           gLine: mix('#05070c', '#22d3ee', 0.62),
           gFill: Array.from({ length: FADE }, (_, i) => mix('#05070c', '#22d3ee', 0.15 - i * 0.012)),
           ink: false },
-  critical: litTheme('#ff2626'),
-  warning:  litTheme('#ff7a00'),
-  fault:    litTheme('#8aa0c0'),
+  crit:  litTheme('#ff2626'),
+  warn:  litTheme('#ff7a00'),
+  fault: litTheme('#8aa0c0'),
 };
 /* inside the 500 ms flash of the 3 s alert cycle — one clock for every level */
 const themeFor = lv => FLASHES[lv] && st.flashOn ? TH[lv] : TH.dark;
@@ -692,13 +692,13 @@ function drawTile(o, x, right, y, valSize, yUnit, unitSize, labSize, shareSize, 
   if (side) g.text(side, right, o + ySub, shareSize, vc, 'r', false, 0, H_);
 }
 
-/* A tile's `level` — "critical" red, "warning" orange, "info" (or
+/* A tile's `level` — "crit" red, "warn" orange, "info" (or
    omitted) the theme's own colour. Under a level flash every foreground
    is already near-black ink, so a tile's own colour never fights it.    */
 function levelColor(level, th){
   if (th.ink) return null;
-  if (level === 'critical') return C.rd;
-  if (level === 'warning')  return C.or;
+  if (level === 'crit') return C.rd;
+  if (level === 'warn') return C.or;
   return null;
 }
 
@@ -772,8 +772,8 @@ function drawFoot(th){
     const sp = nm.lastIndexOf(' ');                  // "Disburse P" → "Disburse"
     if (sp > 0 && nm.length - sp - 1 < 3) nm = nm.slice(0, sp);
   }
-  const wg = g.text(gwName, X_L, y + 6, 2, th.dim);
-  if (nm) g.text(nm, X_L + wg + 12, y + 6, 2, th.tx, 'l', true);
+  g.text(gwName, X_L, y + 6, 2, th.dim);
+  if (nm) g.text(nm, X_R, y + 6, 2, th.tx, 'r', true);
 }
 
 /* What the radio reports once it has joined one of the saved networks, and
@@ -1018,7 +1018,7 @@ function drawIntroOver(I, t, f){
    stops with the animation. Audible but soft-edged on purpose — well under
    the alert's own volume — a launch, not a siren, so it never reads as
    trouble. Once running, one of two sounds rides each flash, ending as it
-   ends: `critical` gets the full 500 ms alert; `warning` and `fault` get a
+   ends: `crit` gets the full 500 ms alert; `warn` and `fault` get a
    shorter, quieter notice. Double-tap UP to mute any of them; a restart
    (power off, then on) brings sound back — real hardware also clears a
    mute on its own after a configured timeout, set on the setup page, not
@@ -1045,7 +1045,7 @@ function alertSample(t){
   return Math.tanh(1.6 * s) / Math.tanh(1.6);
 }
 /* one soft tone, quick in and quicker out — a nudge, not an alarm. Rides
-   `warning` and any connection fault; `critical` keeps the alert instead. */
+   `warn` and any connection fault; `crit` keeps the alert instead. */
 function noticeSample(t){
   const T = NOTICE_MS / 1000;
   if (t < 0 || t >= T) return 0;
@@ -1123,7 +1123,7 @@ function alertSound(){
     return alertBuf;
   });
 }
-/* rides a warning or fault flash — never the same flash as alertSound() */
+/* rides a warn or fault flash — never the same flash as alertSound() */
 function noticeSound(){
   playPCM(() => noticeBuf, () => {
     const pcm = renderSound(noticeSample, NOTICE_MS, NOTICE_PEAK);
@@ -1229,12 +1229,12 @@ function settingsToggle(who){
   else { st.view = 'main'; st.screenT0 = Date.now(); log(who + ' → main screen'); }
   sync();
 }
-/* UP tap — the panel only. The cycle turns, the poll polls, a critical
+/* UP tap — the panel only. The cycle turns, the poll polls, a crit
    still sounds in the dark.                                                */
 function displayToggle(){
   st.screen = !st.screen;
   log('UP tap → display <b>' + (st.screen ? 'on' : 'off') + '</b>'
-      + (st.screen ? '' : ' · still polling, a critical still sounds'));
+      + (st.screen ? '' : ' · still polling, a crit still sounds'));
   sync();
 }
 /* ---- privacy lock — mirrors ws_lcd_154/lock.ino exactly: BODY and FOOTER
@@ -1246,7 +1246,7 @@ function displayToggle(){
    Real hardware also keeps that count (and when it last grew) in NVS, so
    restarting the board can't be used to dodge the lockout — not simulated
    here, since reloading this page is already a harder reset than that.  */
-const LOCK_FAIL_WINDOW_MS = 30 * 60000, LOCK_MAX_FAILS = 5, LOCK_REVEAL_MS = 550;
+const LOCK_FAIL_WINDOW_MS = 5 * 60000, LOCK_MAX_FAILS = 5, LOCK_REVEAL_MS = 550;
 const lockArmed     = () => SNAP.metrics.length > 0;
 const lockIsLocked  = () => lockArmed() && st.locked;
 function lockRecentFails(){
@@ -1410,7 +1410,8 @@ function keyHoldTick(){
   }
   if (TOUCH.pendingT && !TOUCH.down && now - TOUCH.pendingT >= DOUBLE_TAP_MS){
     TOUCH.pendingT = 0;
-    nextPanel(); log('glass tap → <b>' + curR().name + '</b>');
+    if (lockIsLocked()){ log('glass tap → opening the <b>unlock keypad</b>'); lockOpenKeypad(); }
+    else { nextPanel(); log('glass tap → <b>' + curR().name + '</b>'); }
   }
 }
 function powerOff(){
@@ -1489,7 +1490,7 @@ function frame(){
   }
   if (!st.screen){
     /* UP tap blanked the panel. Nothing else stopped — the cycle turned and
-       the poll polled the whole time, and a critical still sounded.        */
+       the poll polled the whole time, and a crit still sounded.            */
     g.fillScreen('#000000');
     g.text('DISPLAY OFF - TAP UP', W/2, 116, 1, '#101722', 'c');
   } else if (st.view === 'settings'){
@@ -1593,9 +1594,9 @@ function poll(force, why){
 function setLevel(l){
   SNAP.fault = null;
   SNAP.alert.level = l;
-  SNAP.alert.message = l === 'info'     ? 'error budget healthy'
-                       : l === 'warning'  ? '5xx 0.68% max 0.50%'
-                                          : '5xx 2.14% max 0.50%';
+  SNAP.alert.message = l === 'info'  ? 'error budget healthy'
+                       : l === 'warn'  ? '5xx 0.68% max 0.50%'
+                                       : '5xx 2.14% max 0.50%';
   if (l !== 'info'){ panel.classList.remove('beep'); void panel.offsetWidth;
                      panel.classList.add('beep');
                      log('speaker · ' + (SOUNDS[l] || 'no') + ' sound on the next flash'); }

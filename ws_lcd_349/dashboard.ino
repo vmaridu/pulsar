@@ -14,7 +14,7 @@
    nothing boxed off: each part reads as one calm block. Colour lives in
    the level word alone at rest.
 
-   THE ALERT COVERS THE WHOLE SCREEN. Under warning, critical or a fetch
+   THE ALERT COVERS THE WHOLE SCREEN. Under warn, crit or a fetch
    fault every part goes to the level colour for 500 ms every 5 s and every
    foreground on it turns to near-black ink — the device flashes, not a
    stripe of it. That happens through `th`, never a fill any one part
@@ -97,13 +97,13 @@ static void drawWifiIcon(int cx, int cy, const struct Theme& th){
   }
 }
 
-/* A tile's `level` — "critical" red, "warning" orange, "info" (or
+/* A tile's `level` — "crit" red, "warn" orange, "info" (or
    omitted) the theme's own colour. Under a flash every foreground is
    already ink, so a tile's own colour never fights it.                  */
 static uint16_t levelColor(const char* level, const struct Theme& th){
   if (th.ink) return 0;
-  if (!strcmp(level, "critical")) return C_RD;
-  if (!strcmp(level, "warning"))  return C_OR;
+  if (!strcmp(level, "crit")) return C_RD;
+  if (!strcmp(level, "warn")) return C_OR;
   return 0;
 }
 

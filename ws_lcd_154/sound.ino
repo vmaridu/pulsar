@@ -1,16 +1,16 @@
 /* ===========================================================================
-   Sound — the boot-intro torpedo fire, the critical alert, the subtler
+   Sound — the boot-intro torpedo fire, the crit alert, the subtler
    notice, and mute.
 
    The boot intro (intro.ino) fires a torpedo-launch burst every time a beam
    sweeps past top — twice a turn, same phase drawIntroFrame() pulses the
    core on — then stops with the animation: silent for the "PULSAR" screen
    and the cross-fade after it. Audible but soft-edged on purpose — well
-   under the critical alert's own volume, and a different character
+   under the crit alert's own volume, and a different character
    entirely — a launch, not a siren — so it never reads as trouble. Once
    running, one of two sounds rides every alert flash — started in the same
-   frame the flash is drawn, ending as it ends: `critical` gets the full
-   500 ms alert below; `warning` and any connection fault (OFFLINE, NOT FOUND, NO ACCESS, every
+   frame the flash is drawn, ending as it ends: `crit` gets the full
+   500 ms alert below; `warn` and any connection fault (OFFLINE, NOT FOUND, NO ACCESS, every
    banner api.md §6 names) get a short, quiet notice instead — enough to
    turn a head, not enough to sound like an outage. `info` stays silent.
 
@@ -35,7 +35,7 @@
    its own (set on the setup page, default 30 minutes, `0` = never times out).
 
    Past the intro, sound does not care what is on screen, or whether the
-   panel is even awake — UP tap sleeps the display and a critical still
+   panel is even awake — UP tap sleeps the display and a crit still
    sounds in the dark. That is what the speaker is for.
 
    Mirrors ws_lcd_154/mockup.html — same synth, same numbers.
@@ -98,8 +98,8 @@ static float alertSample(float t){
 
 /* One sample of the notice, t in seconds from its start. A single soft tone
    with a touch of its own octave for body, quick in and quicker out — the
-   opposite of the alert's urgency on purpose. Rides `warning` and any
-   connection fault; `critical` keeps the stronger alert above instead, and
+   opposite of the alert's urgency on purpose. Rides `warn` and any
+   connection fault; `crit` keeps the stronger alert above instead, and
    the two never play together — alertTick() (ws_lcd_154.ino) picks one. */
 static float noticeSample(float t){
   const float T = NOTICE_MS / 1000.0f;
@@ -256,16 +256,16 @@ void soundBegin(){
   if (!introBuf) LOG("boot", "audio: intro sound alloc FAILED - boot intro will be silent");
 
   noticeBuf = renderSound(noticeSample, NOTICE_MS, NOTICE_PEAK, &noticeLen);
-  if (!noticeBuf) LOG("boot", "audio: notice buffer alloc FAILED - warning/fault sound disabled");
+  if (!noticeBuf) LOG("boot", "audio: notice buffer alloc FAILED - warn/fault sound disabled");
 }
 
-/* called by render() in the frame a critical flash first shows */
+/* called by render() in the frame a crit flash first shows */
 void alertSound(){ requestSound(alertBuf, alertLen); }
 
 /* called once, right as bootIntro() (intro.ino) starts drawing screen 1 */
 void introSound(){ requestSound(introBuf, introLen); }
 
-/* called by render() in the frame a warning or fault flash first shows —
+/* called by render() in the frame a warn or fault flash first shows —
    never in the same frame as alertSound(), alertTick() picks one or the other */
 void noticeSound(){ requestSound(noticeBuf, noticeLen); }
 

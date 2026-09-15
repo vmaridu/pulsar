@@ -38,8 +38,8 @@ function pct(n, total) { return total ? Math.round((n * 100 / total) * 100) / 10
 /* Same thresholds the client used to bake in before `level` existed —
    now it's this backend's call, sent on the wire instead of assumed.    */
 function levelFor(name, share) {
-  if (name === '5XX') return share >= 1 ? 'critical' : share >= 0.5 ? 'warning' : undefined;
-  if (name === '4XX') return share >= 2 ? 'warning' : undefined;
+  if (name === '5XX') return share >= 1 ? 'crit' : share >= 0.5 ? 'warn' : undefined;
+  if (name === '4XX') return share >= 2 ? 'warn' : undefined;
   return undefined;
 }
 
@@ -106,8 +106,8 @@ function defaultMetrics() {
 
 const DEFAULT_MESSAGE = {
   info: 'error budget healthy',
-  warning: '5xx 0.68% max 0.50%',
-  critical: '5xx 2.14% max 0.50%',
+  warn: '5xx 0.68% max 0.50%',
+  crit: '5xx 2.14% max 0.50%',
 };
 
 function defaultState() {
@@ -234,7 +234,7 @@ const PATTERNS = {
              gen: (b, t) => b * (1 - 0.6 * Math.exp(-((t - 0.5) ** 2) / 0.015)) * (0.95 + Math.random() * 0.1) },
   spike:   { label: 'Spike — a short burst near the end',
              gen: (b, t) => b * (1 + 2.2 * Math.exp(-((t - 0.75) ** 2) / 0.003)) * (0.95 + Math.random() * 0.1) },
-  cliff:   { label: 'Cliff — falls off a ledge at the newest end (pairs well with critical)',
+  cliff:   { label: 'Cliff — falls off a ledge at the newest end (pairs well with crit)',
              gen: (b, t) => t < 0.72 ? b * (0.95 + Math.random() * 0.1)
                                       : b * (0.95 + Math.random() * 0.1) * Math.max(0.04, 1 - (t - 0.72) / 0.28) },
   noisy:   { label: 'Noisy — wide random scatter, no shape',

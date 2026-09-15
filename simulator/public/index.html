@@ -105,8 +105,8 @@ section > h2{margin:0 0 10px;font-size:10.5px;font-weight:600;color:var(--dim2);
 .lvl:hover{border-color:#3d4c6e;color:var(--tx);transform:translateY(-1px)}
 .lvl:active{transform:translateY(0) scale(.98)}
 .lvl.sel[data-l=info]{border-color:#1f7a44;background:#08210f;color:var(--gr)}
-.lvl.sel[data-l=warning]{border-color:#8a4610;background:#20100a;color:var(--or)}
-.lvl.sel[data-l=critical]{border-color:#8a2530;background:#220a0d;color:var(--rd)}
+.lvl.sel[data-l=warn]{border-color:#8a4610;background:#20100a;color:var(--or)}
+.lvl.sel[data-l=crit]{border-color:#8a2530;background:#220a0d;color:var(--rd)}
 .lvl.sel[data-a=off]{border-color:var(--line2);background:#0d1420;color:var(--tx)}
 .lvl.sel[data-a=on]{border-color:#1f7a44;background:#08210f;color:var(--gr)}
 input.msg{width:100%;background:var(--panel);border:1px solid var(--line2);color:var(--tx);
@@ -251,8 +251,8 @@ input.msg:focus{outline:none;border-color:var(--cy)}
   <h2>Alert</h2>
   <div class="lvls" id="lvls">
     <div class="lvl" data-l="info">INFO</div>
-    <div class="lvl" data-l="warning">WARNING</div>
-    <div class="lvl" data-l="critical">CRITICAL</div>
+    <div class="lvl" data-l="warn">WARN</div>
+    <div class="lvl" data-l="crit">CRIT</div>
   </div>
   <input class="msg" id="msg" maxlength="20" placeholder="≤ 20 chars, one line">
   <div class="presets" id="presets"></div>
@@ -286,8 +286,8 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 
 const DEFAULT_MSG = {
   info: 'error budget healthy',
-  warning: '5xx 0.68% max 0.50%',
-  critical: '5xx 2.14% max 0.50%',
+  warn: '5xx 0.68% max 0.50%',
+  crit: '5xx 2.14% max 0.50%',
 };
 /* Canned outcomes a person can pick with one click instead of typing —
    every string here is checked to be <= 20 chars, same cap as the input. */
@@ -299,14 +299,14 @@ const PRESET_MSG = {
     'steady state',
     'healthy, no errors',
   ],
-  warning: [
+  warn: [
     '5xx 0.68% max 0.50%',
     'latency creeping up',
     'elevated 4xx rate',
     'retry storm rising',
     'degraded, watching',
   ],
-  critical: [
+  crit: [
     '5xx 2.14% max 0.50%',
     'gateway unreachable',
     'error spike ongoing',
@@ -384,8 +384,8 @@ function pctOf(n, total) { return total ? Math.round((n * 100 / total) * 100) / 
 /* Same thresholds server.js's levelFor() uses — a preview of the SHAPE
    and the level a real Apply would compute, before Apply sends anything. */
 function levelFor(name, share) {
-  if (name === '5XX') return share >= 1 ? 'critical' : share >= 0.5 ? 'warning' : undefined;
-  if (name === '4XX') return share >= 2 ? 'warning' : undefined;
+  if (name === '5XX') return share >= 1 ? 'crit' : share >= 0.5 ? 'warn' : undefined;
+  if (name === '4XX') return share >= 2 ? 'warn' : undefined;
   return undefined;
 }
 
@@ -436,7 +436,7 @@ function fmtCount(n) {
    actually present — a row need not carry 2XX/4XX/5XX at all, and this
    never assumes it does. Every tile access is presence-checked first;
    a tile that isn't there is simply not drawn, never a crash.           */
-function levelClass(t) { return t.level === 'critical' ? 'crit' : t.level === 'warning' ? 'warn' : ''; }
+function levelClass(t) { return t.level === 'crit' || t.level === 'warn' ? t.level : ''; }
 function statsLine(m) {
   const byName = (n) => (m.aggregates || []).find((t) => t && t.name === n);
   const t2 = byName('2XX'), t4 = byName('4XX'), t5 = byName('5XX');

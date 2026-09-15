@@ -4,8 +4,8 @@ A desk display that answers one question: **is your API gateway healthy?**
 
 - 🔌 Polls one backend you control — **one device, one endpoint**, set over the device's own Wi-Fi, never reflashed
 - 🔁 Shows each metric for **5 s** and refetches when the cycle wraps, never faster than **30 s**
-- 🔔 A **critical** sounds a short alert with every flash — **even with the screen off**
-- 🔕 Double-tap the UP key to silence every sound; a restart always brings it back
+- 🔔 A **crit** sounds a short alert with every flash — **even with the screen off**
+- 🔕 Mute every sound with one gesture; a restart always brings it back
 - 🚨 An alert flashes the **whole screen**, not a stripe of it
 - 🔒 A 6-digit code locks the stats away — ALERT still shows, BODY/FOOTER don't
 - 👁️ Reads only — no acknowledge, no writes
@@ -18,7 +18,7 @@ Authorization: Bearer <token>
 ```
 
 - 📦 One `GET`, one JSON object under **4 KB** — a bearer token, or a signed request when you set an API secret
-- 🩺 An `alert` verdict — `info` · `warning` · `critical` + one 20-char line
+- 🩺 An `alert` verdict — `info` · `warn` · `crit` + one 20-char line
 - 📊 Up to **5 rows**, max **5 aggregate stats** per metric
 - 🏷️ Each row carries a **`gateway`** attribute, so a backend that merges several platforms still says where a number came from
 - 🚫 Nothing derived is ever sent — a tile carries `name` + `value` + optional `unit`/`level`, nothing computed from anything else on the wire
@@ -27,14 +27,12 @@ Authorization: Bearer <token>
 
 ## 🎛️ Controls
 
-| Input             | Tap                 | Double-tap        | Hold 2 s           |
-| ----------------- | ------------------- | ----------------- | ------------------ |
-| **Glass** (touch) | Next metric screen  | **Settings** on/off | **Force refresh**  |
-| **DOWN** (PLUS)   | _future use_        | **Settings** on/off | **Setup hotspot**  |
-| **POWER** (PWR)   | _future use_        | _future use_      | **Power off / on** |
-| **UP** (BOOT)     | **Display on/off**  | **Mute / unmute** | **Lock / unlock**  |
-
-The three-key map is the square board's. The wide board has two programmable keys and the glass; how the same functions land on those is settled as each one arrives → [ws_lcd_349/device.md](ws_lcd_349/device.md).
+Every build lets you: go to the next metric, toggle the display, mute/unmute
+sound, toggle the settings screen, raise the setup hotspot, force a poll,
+lock/unlock the screen, and power off/on. Which physical control triggers
+which, and with what gesture, is different on every board — see each one's
+own input map: [ws_lcd_154/device.md §2](ws_lcd_154/device.md#2--input) ·
+[ws_lcd_349/device.md §2](ws_lcd_349/device.md#2--input)
 
 ## 📚 Docs
 
@@ -52,14 +50,13 @@ The three-key map is the square board's. The wide board has two programmable key
 ## 🚀 Getting started
 
 1. 📡 Implement `GET {url}` against **[docs/api.md](docs/api.md)** — or want to test the contract first? Point at **[simulator/](simulator/)** and get real data with no backend
-2. 🖥️ Choose a device and flash it — **[ws_lcd_154/](ws_lcd_154/)** ([flashing guide](ws_lcd_154/README.md)) or **[ws_lcd_349/](ws_lcd_349/)** ([flashing guide](ws_lcd_349/README.md)); the wide board's privacy lock is still a placeholder
-3. 📶 Hold **DOWN** for 2 s to raise the device's setup hotspot, join it, and fill in the full URL, API key/secret and your Wi-Fi networks at `192.168.4.1` → **[docs/functional-requirements.md §5](docs/functional-requirements.md#5--configuration)**
+2. 🖥️ Choose a device and flash it — **[ws_lcd_154/](ws_lcd_154/)** ([flashing guide](ws_lcd_154/README.md)) or **[ws_lcd_349/](ws_lcd_349/)** ([flashing guide](ws_lcd_349/README.md))
+3. 📶 Raise the device's setup hotspot (a 2 s hold — which control depends on the board, see its `device.md`), join it, and fill in the full URL, API key/secret and your Wi-Fi networks at `192.168.4.1` → **[docs/functional-requirements.md §5](docs/functional-requirements.md#5--configuration)**
 4. 🖼️ Or skip hardware entirely — open a display's `mockup.html` to see it rendered
 
 ## 🗺️ Next
 
 - 🔐 Confirm HMAC signing on the device actually verifies
-- 🖥️ Finish the landscape board (`ws_lcd_349/`) — the privacy lock's code entry and keypad
 - 📦 Ship flashable `.bin` images for both boards
 - 🔀 Merge the working branch to `main`
 - ✍️ A public write-up — pick a home, then post it (LinkedIn and elsewhere)

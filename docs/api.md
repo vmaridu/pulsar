@@ -50,8 +50,8 @@ Accept: application/json
       ],
       "aggregates": [
         { "name": "2XX", "value": 18659 },
-        { "name": "4XX", "value": 109, "level": "warning" },
-        { "name": "5XX", "value": 15, "level": "critical" },
+        { "name": "4XX", "value": 109, "level": "warn" },
+        { "name": "5XX", "value": 15, "level": "crit" },
         { "name": "AVG", "value": 42, "unit": "ms" },
         { "name": "P95", "value": 180, "unit": "ms" }
       ]
@@ -70,7 +70,7 @@ Accept: application/json
       ],
       "aggregates": [
         { "name": "2XX", "value": 14467 },
-        { "name": "4XX", "value": 51, "level": "warning" },
+        { "name": "4XX", "value": 51, "level": "warn" },
         { "name": "5XX", "value": 7 },
         { "name": "AVG", "value": 71, "unit": "ms" },
         { "name": "P95", "value": 310, "unit": "ms" }
@@ -122,14 +122,14 @@ Exactly one, never an array. **Always sent** — including when everything is fi
 
 | Field     | Type   | Req | Rule                                  |
 | --------- | ------ | --- | ------------------------------------- |
-| `level`   | string | ✅  | `info` · `warning` · `critical`       |
+| `level`   | string | ✅  | `info` · `warn` · `crit`              |
 | `message` | string | ✅  | **≤ 20** chars, one line, every level |
 
-| `level`       | Means                                 |
-| ------------- | -------------------------------------- |
-| 🟢 `info`     | Nothing to act on — the resting state |
-| 🟠 `warning`  | Degraded                              |
-| 🔴 `critical` | Broken                                |
+| `level`    | Means                                 |
+| ---------- | -------------------------------------- |
+| 🟢 `info`  | Nothing to act on — the resting state |
+| 🟠 `warn`  | Degraded                              |
+| 🔴 `crit`  | Broken                                |
 
 - 🖥️ **The verdict belongs to the response as a whole, not to any one row** — it applies regardless of which metric a client happens to be showing → **[functional requirements](functional-requirements.md)** for how a client presents each level
 
@@ -189,13 +189,13 @@ Each row's `aggregates` is an array of **1–5 tiles**, not a fixed object — o
 | `name`  | string | ✅  | **≤ 5 chars.** IS the text actually shown — no separate label                           |
 | `value` | number | ✅  | The tile's number                                                                       |
 | `unit`  | string | ➖  | `ms` · `s` · `%` · omitted for a plain count                                            |
-| `level` | string | ➖  | `info` · `warning` · `critical` — default `info` → [below](#-level--a-tiles-own-severity) |
+| `level` | string | ➖  | `info` · `warn` · `crit` — default `info` → [below](#-level--a-tiles-own-severity) |
 
 ```json
 "aggregates": [
   { "name": "2XX", "value": 18659 },
-  { "name": "4XX", "value": 109,   "level": "warning" },
-  { "name": "5XX", "value": 15,    "level": "critical" },
+  { "name": "4XX", "value": 109,   "level": "warn" },
+  { "name": "5XX", "value": 15,    "level": "crit" },
   { "name": "AVG", "value": 42,  "unit": "ms" },
   { "name": "P95", "value": 180, "unit": "ms" }
 ]
@@ -208,10 +208,10 @@ Each row's `aggregates` is an array of **1–5 tiles**, not a fixed object — o
 
 ### 🚦 `level` — a tile's own severity
 
-Any tile may carry `level`, the same three words as [`alert.level`](#3--alert): `info` · `warning` · `critical`. Omit it and the tile is `info` — a normal-looking number, nothing to flag.
+Any tile may carry `level`, the same three words as [`alert.level`](#3--alert): `info` · `warn` · `crit`. Omit it and the tile is `info` — a normal-looking number, nothing to flag.
 
-- 🎯 **Per-tile, not per-row, and independent of `alert.level`.** `4XX` can be `warning` while `5XX` is `critical` on the same row — each tile speaks for itself, and neither one changes the response's own `alert` verdict
-- 🚫 **The client never computes this.** No threshold baked in — a backend that wants `4XX` flagged past some rate sends `"level": "critical"` itself
+- 🎯 **Per-tile, not per-row, and independent of `alert.level`.** `4XX` can be `warn` while `5XX` is `crit` on the same row — each tile speaks for itself, and neither one changes the response's own `alert` verdict
+- 🚫 **The client never computes this.** No threshold baked in — a backend that wants `4XX` flagged past some rate sends `"level": "crit"` itself
 - 🔕 **Scoped to that one tile only.** `alert` (§3) is the only field that speaks for the response as a whole
 
 ### 📈 `buckets` + `buckets_value_type`

@@ -3,13 +3,13 @@
 
        STATUS   0..20    device internals: battery, the reading's timestamp,
                          Wi-Fi, the poll hairline, the mute icon
-       ALERT   20..56    info / warning / critical, and its one-line message
+       ALERT   20..56    info / warn / crit, and its one-line message
        BODY    56..216   the stats and the graph for the current metric
        FOOTER 216..240   gateway name + metric name, and the position rule
 
    A band never moves, never resizes, and never borrows another band's job.
 
-   THE ALERT COVERS THE WHOLE SCREEN. Under warning, critical or a fetch
+   THE ALERT COVERS THE WHOLE SCREEN. Under warn, crit or a fetch
    fault every one of the four bands goes to the level colour for 500 ms
    every 5 s and every foreground on them turns to near-black ink — the
    device flashes, not a stripe of it. Tap through to whichever screen you
@@ -49,6 +49,36 @@ static void drawChargeIcon(int x, int y, uint16_t c){
   cv->fillTriangle(x + 4, y + 3, x + 6, y + 3, x + 1, y + 8, c);
 }
 
+/* a Wi-Fi fan: a dot and three arcs, lit by signal — ~10 x 8, anchored by
+   its bottom-centre. Scaled down from ws_lcd_349's own drawWifiIcon(),
+   same rules: not joined dims the whole fan and adds a slash through it
+   (a different shape at a glance, not just a dimmer one); joined but
+   walled in by a sign-in page turns the dot orange. Replaces the old
+   three ascending bars, which read as a phone's signal icon, not Wi-Fi's. */
+static void drawWifiIcon(int cx, int cy, const struct Theme& th){
+  static const int   RADII[3] = { 2, 4, 6 };
+  static float cs[31], sn[31];
+  static bool  tab = false;
+  if (!tab){                                  /* the 90-degree fan, once */
+    for (int i = 0; i < 31; i++){ const float a = (-135 + i * 3) * PI / 180; cs[i] = cos(a); sn[i] = sin(a); }
+    tab = true;
+  }
+  const int lit = net.connected ? (net.rssi > -55 ? 3 : net.rssi > -65 ? 2 : net.rssi > -75 ? 1 : 0) : 0;
+  const uint16_t on  = th.ink ? th.tx : C_DIM;
+  const uint16_t off = th.ink ? th.rule : C_DIM2;
+  for (int k = 0; k < 3; k++){
+    const uint16_t c = k < lit ? on : off;
+    for (int i = 0; i < 31; i++)
+      cv->drawPixel(cx + (int)lround(RADII[k] * cs[i]), cy + (int)lround(RADII[k] * sn[i]), c);
+  }
+  cv->fillCircle(cx, cy, 1, th.ink ? th.tx : (net.connected ? (net.portalBlocked ? C_OR : C_DIM) : C_DIM2));
+  if (!net.connected){                        /* no link: a slash across the fan */
+    const uint16_t sc = th.ink ? th.tx : C_OR;
+    cv->drawLine(cx - 5, cy + 1, cx + 5, cy - 7, sc);
+    cv->drawLine(cx - 4, cy + 1, cx + 6, cy - 7, sc);
+  }
+}
+
 /* ================================================================== STATUS
    The device talking about itself, and nothing else. No gateway lives here —
    there is only one, and the FOOTER names it.                             */
@@ -85,11 +115,8 @@ static void drawStatus(const struct Theme& th){
                          h12, tmv.tm_min, tmv.tm_hour < 12 ? "AM" : "PM");
   txt(clk, 120, y + 6, 1, th.dim, 'c');
 
-  /* Wi-Fi — three bars, lit by signal. No radio in this build, so they are flat */
-  const int bars = net.connected ? (net.rssi > -60 ? 3 : net.rssi > -75 ? 2 : 1) : 0;
-  for (int i = 0; i < 3; i++)
-    cv->fillRect(232 - 8 + i * 4, y + 12 - i * 3, 2, 3 + i * 3,
-                 th.ink ? th.tx : (i < bars ? C_DIM : C_DIM2));
+  /* Wi-Fi — a dot and three arcs, lit by signal, same shape as ws_lcd_349's */
+  drawWifiIcon(229, y + 15, th);
 
   /* muted: a small speaker with a cross, left of the Wi-Fi bars */
   if (soundMuted) drawMuteIcon(200, y + 6, th.ink ? th.tx : C_DIM);
@@ -180,13 +207,13 @@ static void drawTile(int x, int right, int y, uint8_t valSize, uint8_t unitSize,
   if (share) txt(share, right, ySub, shareSize, vc, 'r', false, th.bg);
 }
 
-/* A tile's `level` — "critical" red, "warning" orange, "info" (or
+/* A tile's `level` — "crit" red, "warn" orange, "info" (or
    omitted) the theme's own colour. Under a level flash every foreground
    is already near-black ink, so a tile's own colour never fights it.    */
 static uint16_t levelColor(const char* level, const struct Theme& th){
   if (th.ink) return 0;
-  if (!strcmp(level, "critical")) return C_RD;
-  if (!strcmp(level, "warning"))  return C_OR;
+  if (!strcmp(level, "crit")) return C_RD;
+  if (!strcmp(level, "warn")) return C_OR;
   return 0;
 }
 
@@ -274,10 +301,10 @@ static void drawBody(const struct Theme& th){
 
 /* ================================================================== FOOTER
    Gateway name and metric name on one line, one size: the gateway's first
-   five letters dim, the metric name bright. The gateway comes from the row,
-   so a backend that merged platforms still says which one this came from.
-   The rule above is the position — one segment per metric screen, the
-   current one lit.                                                       */
+   five letters dim at the left edge, the metric name bright at the right
+   edge. The gateway comes from the row, so a backend that merged platforms
+   still says which one this came from. The rule above is the position —
+   one segment per metric screen, the current one lit.                    */
 static void drawFoot(const struct Theme& th){
   const int y = BAND_FOOT_Y;
   cv->fillRect(0, y, 240, BAND_FOOT_H, th.bg);
@@ -303,8 +330,8 @@ static void drawFoot(const struct Theme& th){
     char* sp = strrchr(nm, ' ');                        /* "Disburse P" → "Disburse" */
     if (sp && sp > nm && strlen(sp + 1) < 3) *sp = 0;
   }
-  const int wg = txt(up, X_L, y + 6, 2, th.dim);
-  if (nm[0]) txt(nm, X_L + wg + 12, y + 6, 2, th.tx, 'l', true);
+  txt(up, X_L, y + 6, 2, th.dim);
+  if (nm[0]) txt(nm, X_R, y + 6, 2, th.tx, 'r', true);
 }
 
 /* ------------------------------------------------------------------ toast */

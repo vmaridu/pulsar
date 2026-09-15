@@ -18,7 +18,7 @@ configure it → [docs/functional-requirements.md §5](../docs/functional-requir
   | `settings.ino`                       | The settings screen                                               |
   | `lock.ino`                           | The privacy lock — code, keypad, auto-relock                      |
   | `fonts.h`                            | ProFont at four sizes, Adafruit GFX format — the screen's one font |
-  | `sound.ino`                          | The boot-intro torpedo fire, the critical alert sound, and mute    |
+  | `sound.ino`                          | The boot-intro torpedo fire, the crit alert sound, and mute        |
   | `net.ino`                            | Poll scheduling and the HTTPS `GET`                               |
   | `es8311.cpp` / `.h` / `es8311_reg.h` | Speaker codec driver (Espressif, Apache-2.0), from Waveshare's demo |
   | `README.md`                          | This file — flashing and troubleshooting                          |
@@ -59,7 +59,7 @@ configure it → [docs/functional-requirements.md §5](../docs/functional-requir
 
 > If SensorLib asks to install dependencies, say yes.
 
-🔊 **Nothing extra for the boot-intro torpedo fire or the critical alert sound.** `ESP_I2S` is part of the ESP32 board package from step 2, and the codec driver ships in the sketch folder.
+🔊 **Nothing extra for the boot-intro torpedo fire or the crit alert sound.** `ESP_I2S` is part of the ESP32 board package from step 2, and the codec driver ships in the sketch folder.
 
 📶 **Nothing extra for the radio or the setup page either.** `WiFi`, `HTTPClient`, `WebServer`, `DNSServer`, `Preferences` and mbedtls all come with the ESP32 core. WPA2-Enterprise needs **core 3.x** — that is where `WiFi.begin(ssid, WPA2_AUTH_PEAP, …)` lives.
 

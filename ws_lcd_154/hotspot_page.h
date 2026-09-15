@@ -116,7 +116,7 @@ cursor:pointer}
     </select></label>
   <p class="hint">Double-tap the right key to mute every sound. It always clears on a
      restart — this is the <em>other</em> way it clears, on its own, so a mute from
-     last week can't silence a real critical today.</p>
+     last week can't silence a real crit today.</p>
 </section>
 
 <section>
@@ -159,7 +159,7 @@ cursor:pointer}
      it's already locked — to raise this same keypad and unlock it again. Digits 1-9 only —
      the on-device keypad is a 3x3 grid with no 0 key, so a code with a zero in it could
      never be typed back in. Defaults to <code>123456</code> until you set your own. Five
-     wrong tries inside 30 minutes locks the keypad out for a while, so it can't just be
+     wrong tries inside 5 minutes locks the keypad out for a while, so it can't just be
      guessed at.</p>
 </section>
 

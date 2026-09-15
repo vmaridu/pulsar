@@ -17,10 +17,13 @@
    is a hard reset). LEFT is on the board's power circuit and a press of it
    resets the chip on this hardware, so it is power and nothing else; the
    settings and setup-hotspot gestures live on the glass's left part — the
-   STATUS / ALERT part, on screen whenever the dashboard is. input.ino:
-       GLASS  left part: tap next · double-tap settings · hold 2 s setup hotspot
+   STATUS / ALERT part, on screen whenever the dashboard is. No gesture
+   waits for a double-tap any more — it read as unreliable on this hardware,
+   on the keys and on the glass alike — so sound's mute toggle lives on the
+   settings screen now, not a RIGHT double-tap. input.ino:
+       GLASS  left part: tap settings · hold 2 s setup hotspot
               right parts: tap next · hold 2 s refresh
-       RIGHT  tap: display on/off · double-tap: sound mute/unmute · hold 2 s: lock, or the unlock keypad
+       RIGHT  tap: display on/off · hold 2 s: lock, or the unlock keypad
        LEFT   hold 2 s: power off · from off, hold 2 s: on
 
    Screen — the four bands, folded into three parts across 640 px:
@@ -36,7 +39,7 @@
        ws_lcd_349.ino     pins, model, palette, logging, setup/loop
        intro.ino          the welcome screen
        dashboard.ino      the three parts
-       input.ino          keys and touch — taps, double-taps, holds
+       input.ino          keys and touch — taps and holds
        power.ino          power latch, off/on, display on/off, the backlight
        config.ino         the stored endpoint and saved networks (NVS)
        wifi.ino           joining saved networks — priority, enterprise, portals
@@ -299,10 +302,10 @@ static constexpr uint16_t C_INK   = rgb(0x04060a);   /* words printed on a level
 /* level → word, solid colour, dark shade, flashes, sounds (the full alert),
    soft (the quieter notice instead — never both on the same level) */
 struct Level { const char* word; uint16_t c, dark; bool flashes, sounds, soft; };
-static const Level LV_INFO  = { "INFO",     C_GR, rgb(0x12380c), false, false, false };
-static const Level LV_WARN  = { "WARNING",  C_OR, rgb(0x3d1c00), true,  false, true  };
-static const Level LV_CRIT  = { "CRITICAL", C_RD, rgb(0x4a0c0c), true,  true,  false };
-static const Level LV_FAULT = { "OFFLINE",  C_GY, rgb(0x18202d), true,  false, true  };
+static const Level LV_INFO  = { "INFO",    C_GR, rgb(0x12380c), false, false, false };
+static const Level LV_WARN  = { "WARN",    C_OR, rgb(0x3d1c00), true,  false, true  };
+static const Level LV_CRIT  = { "CRIT",    C_RD, rgb(0x4a0c0c), true,  true,  false };
+static const Level LV_FAULT = { "OFFLINE", C_GY, rgb(0x18202d), true,  false, true  };
 
 /* The WHOLE screen flashes the level colour for the first ALERT_FLASH_MS of
    every new metric screen — synced to screenT0, never a clock of its own. */
@@ -428,7 +431,20 @@ static inline uint32_t fbIndex(int x, int y){
    column's top). So every strip is sent with its own first two pixels
    repeated after it: the real last pixel is no longer last, and the two
    extras either fall off the end of the window or land back on the
-   pixels they copy — right either way.                                  */
+   pixels they copy — right either way. That cleared nine of the ten.
+
+   The tenth dot — always the same one, in the strip nearest the top-left
+   corner — outlived that fix and a first attempt at this one (priming the
+   transaction with a throwaway pixel before the real loop, on the theory
+   that the FIRST write after startWrite() was the odd one out — it
+   wasn't; the dot came back exactly the same afterward). The other
+   natural asymmetry is the LAST write: it alone sits right up against
+   endWrite(), whatever that does to actually close the transaction out.
+   So the last strip is sent twice — identically, tail padding and all —
+   right before endWrite() runs. If closing the transaction is what
+   mangles a pixel, it now mangles the second, throwaway copy; the first,
+   real copy already landed correctly, the same way every other strip's
+   single copy already does.                                             */
 #define FLUSH_ROWS 64
 #define FLUSH_TAIL  2
 static uint16_t* flushBuf = NULL;   /* one strip plus the tail, internal RAM */
@@ -437,6 +453,7 @@ void panelFlush(){
   if (!flushBuf) flushBuf = (uint16_t*)malloc(((size_t)PANEL_W * FLUSH_ROWS + FLUSH_TAIL) * sizeof(uint16_t));
   Arduino_TFT* tft = (Arduino_TFT*)panel;
   tft->startWrite();
+  int lastY = 0, lastH = 0;
   for (int y = 0; y < PANEL_H; y += FLUSH_ROWS){
     const int h = (PANEL_H - y) < FLUSH_ROWS ? (PANEL_H - y) : FLUSH_ROWS;
     const uint16_t* strip = fb + (size_t)y * PANEL_W;
@@ -449,6 +466,15 @@ void panelFlush(){
     } else {
       bus->writePixels((uint16_t*)strip, n);   /* no room for the copy — the dots come back, nothing else does */
     }
+    lastY = y; lastH = h;
+  }
+  if (flushBuf){                      /* the redundant resend — see the comment above */
+    const uint16_t* strip = fb + (size_t)lastY * PANEL_W;
+    const size_t n = (size_t)PANEL_W * lastH;
+    tft->writeAddrWindow(0, lastY, PANEL_W, lastH);
+    memcpy(flushBuf, strip, n * sizeof(uint16_t));
+    memcpy(flushBuf + n, strip, FLUSH_TAIL * sizeof(uint16_t));
+    bus->writePixels(flushBuf, n + FLUSH_TAIL);
   }
   tft->endWrite();
 }
@@ -615,7 +641,7 @@ static uint32_t screenT0 = 0;      /* when the current metric screen came up —
 static uint32_t sweepT0 = 0;
 static uint32_t refreshT0 = 0;     /* last forced refresh — lights the STATUS hairline */
 static bool     audioOK = false;
-static bool     soundMuted = false;/* RIGHT double-tap; RAM only, so every restart has sound */
+static bool     soundMuted = false;/* toggled from settings' sound icon; RAM only, so every restart has sound */
 static bool     displayAwake = true;/* RIGHT tap; the panel only — polling and alerts carry on */
 static uint32_t toastT0 = 0;
 static const char* toastText = "";
@@ -751,9 +777,9 @@ const struct Level& levelNow(){
      gets. Still a fault: still holds the last good data.               */
   if (faultWord[0] && !strcmp(faultWord, "NO CLOCK")) return LV_WARN;
   if (faultWord[0])                    return LV_FAULT;   /* cannot reach the backend */
-  if (!strcmp(snap.level, "critical")) return LV_CRIT;
-  if (!strcmp(snap.level, "warning"))  return LV_WARN;
-  if (!strcmp(snap.level, "info"))     return LV_INFO;
+  if (!strcmp(snap.level, "crit")) return LV_CRIT;
+  if (!strcmp(snap.level, "warn")) return LV_WARN;
+  if (!strcmp(snap.level, "info")) return LV_INFO;
   return LV_FAULT;
 }
 const char* alertWord(const struct Level& L){ return faultWord[0] ? faultWord : L.word; }
@@ -877,6 +903,7 @@ void        powerOnHold();
 
 /* settings.ino */
 void        drawSettings();
+void        settingsHandleTap(int16_t x, int16_t y);
 
 /* sound.ino */
 void        alertSound();
@@ -1088,9 +1115,11 @@ void setup(){
        (unsigned long)(pollIntervalMs() / 1000));
 }
 
-/* The pause between frames, spent watching the inputs. A quick double-tap
-   lifts and lands again inside one frame; read once a frame, the two taps
-   merged into one long touch and the double-tap was hit or miss.        */
+/* The pause between frames, spent watching the inputs. Reading only once
+   a frame (~28 ms) would blur every debounce window in input.ino down to
+   that same coarse step — a touch-down would settle late, a mid-hold
+   blink might outlast its own bridge window entirely. Every 7 ms keeps
+   each of them meaningfully finer than what it's timed against.        */
 static void idleWait(uint32_t ms){
   const uint32_t t0 = millis();
   do {

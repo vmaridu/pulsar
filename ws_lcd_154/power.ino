@@ -15,7 +15,7 @@
 
    DISPLAY OFF IS NOT POWER OFF. A tap on UP sleeps the panel and kills the
    backlight, and nothing else stops: the cycle keeps turning, the poll keeps
-   polling, and a critical still sounds in the dark. That is the whole point —
+   polling, and a crit still sounds in the dark. That is the whole point —
    the speaker is there for when you are not looking at it.
    =========================================================================== */
 #include <esp_sleep.h>
@@ -57,7 +57,7 @@ void displayToggle(){
   } else {
     applyBacklight();          // duty 0, now that displayAwake is false
     panel->displayOff();
-    LOG("key", "UP tap -> display off (still polling, a critical still sounds)");
+    LOG("key", "UP tap -> display off (still polling, a crit still sounds)");
   }
 }
 
