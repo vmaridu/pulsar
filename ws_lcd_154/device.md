@@ -59,7 +59,7 @@ rather than stepped, so a slow discharge reads as a slow decline, not a jump bet
 fixed values.
 
 🔋 **Backlight brightness has two figures, one for on-battery and one for on-charger** —
-each 30-100 %, defaulting to 40 % on battery and 90 % on the charger, set on the setup
+each 30-100 %, defaulting to 50 % on battery and 90 % on the charger, set on the setup
 page → [§4](#4--settings-and-hotspot). The board switches between them the moment it
 notices the charge state change, no restart needed.
 
@@ -86,8 +86,8 @@ This build implements the standard input map:
 
 | Input                | Tap                       | Double-tap              | Hold 2 s                                |
 | -------------------- | ------------------------- | ----------------------- | ----------------------------------------- |
-| **Glass** · anywhere | Next metric screen        | _future use_            | **Force refresh**                        |
-| **DOWN** key         | **Settings** on / off     | _future use_            | **Setup hotspot**                        |
+| **Glass** · anywhere | Next metric screen        | **Settings** on / off   | **Force refresh**                        |
+| **DOWN** key         | _future use_ — off the main screen, back | **Settings** on / off | **Setup hotspot**                    |
 | **PWR** · middle key | _future use_              | _future use_            | **Power off** · from off: on             |
 | **UP** key           | **Display on / off**      | **Sound mute / unmute** | **Lock the screen**, or open the unlock keypad → [§6](#6--privacy-lock) |
 
@@ -199,14 +199,14 @@ Same y, same height, every frame. What changes is loudness, not position.
 
 ### 🔠 Text budget
 
-Fixed **6 × 8** cell, multiplied by `setTextSize(n)`. Never wraps, never scrolls.
+One font, **ProFont** — the same monospaced terminal face the wide build draws — in three sizes, shipped in `fonts.h` in Adafruit GFX format and picked by `txt(…, size)`. Every glyph is the same width, so the counts below are exact. Bold is the same glyph printed twice, one pixel apart. Never wraps, never scrolls.
 
-| Size | Cell    | Chars across 240 px | Used for                                 |
-| ---- | ------- | ------------------- | ---------------------------------------- |
-| 1    | 6 × 8   | **40**              | STATUS band, alert message               |
-| 2    | 12 × 16 | **20**              | level word, labels, shares, FOOTER       |
-| 3    | 18 × 24 | **13**              | tile values                              |
-| 4    | 24 × 32 | **10**              | the 2xx hero, `PULSAR` in the boot intro |
+| Size | Face      | Advance × cap | Chars across 240 px | Used for                                 |
+| ---- | --------- | ------------- | ------------------- | ---------------------------------------- |
+| 1    | ProFont12 | 6 × 8         | **40**              | STATUS band, alert message, tile names, units, hints |
+| 2    | ProFont22 | 12 × 14       | **20**              | level word, labels, shares, FOOTER       |
+| 3, 4 | ProFont29 | 16 × 19       | **15**              | every tile value — two and three characters draw the same |
+| 5    | built-in  | 30 × 40       | —                   | `PULSAR` in the boot intro, the one place the classic 6 × 8 cell font still draws |
 
 This is where the [api.md §5](../docs/api.md#5--limits) limits come from: 14 / 16 / **20**.
 
@@ -216,10 +216,8 @@ This is where the [api.md §5](../docs/api.md#5--limits) limits come from: 14 / 
 
 ### Settings screen
 
-Tap **DOWN** to open it, tap again to go back. Read-only — everything the board knows about itself. The 5 s cycle holds still while it is up. See it live in the mockup — it renders the identical layout.
+Double-tap **DOWN**, or double-tap the glass, to open it; a tap on either goes back. Read-only — everything the board knows about itself. The 5 s cycle holds still while it is up. See it live in the mockup — it renders the identical layout. What every build's settings screen answers → [functional-requirements.md §7](../docs/functional-requirements.md#7--settings-screen); the rows below are this build's.
 
-| Row                     | Where it comes from                                                                                    |
-| ----------------------- | ------------------------------------------------------------------------------------------------------ |
 Four groups, in the order you would ask the questions: what am I holding, what did it join, where is it pointing, and what came back.
 
 | Row                     | Where it comes from                                                                                    |
@@ -254,7 +252,7 @@ Hold **DOWN** 2 s. The board raises a WPA2 access point named after itself, answ
 - 🔙 Tap DOWN, hold DOWN 2 s again, or tap the glass to leave — **the AP goes down the moment you do**
 - 📻 The station side stays enabled but unassociated while it is up, so the page can scan for networks; it never joins one, because one radio cannot follow your network's channel and hold this AP still at the same time
 - 🔆 **Two backlight brightness figures, one for on-battery and one for on-charger** — each
-  30-100 %, defaulting to 40 % on battery and 90 % on the charger → [§1](#1--hardware). The
+  30-100 %, defaulting to 50 % on battery and 90 % on the charger → [§1](#1--hardware). The
   board switches between them the moment it notices the charge state change, no restart
   needed
 - 🗑️ **A factory reset**, behind its own confirmation on the page — a checkbox plus typing
@@ -387,9 +385,9 @@ The sketch is modular — one concern per file, all flat in `ws_lcd_154/` (Ardui
 - [ ] **Screens turn on their own every 5 s** and wrap back to the first
 - [ ] On the wrap it refetches — and `net:` says either `refetching` or how long until the next poll
 - [ ] A glass tap steps on early and the chosen screen gets a fresh 5 s; a slide does nothing
-- [ ] A glass double-tap does nothing and Serial says `future use`
+- [ ] A glass double-tap opens settings, and a tap goes back; a DOWN tap on the main screen says `future use`
 - [ ] Glass held 2 s refreshes: `REFRESH` ring, hairline lights, graph sweeps in, `last poll` resets
-- [ ] DOWN tap opens settings, tap again goes back; MAC and name are real, battery tracks the STATUS band, WI-FI names the network it joined with its real IP, BACKEND names the configured host, GATEWAYS lists both platforms
+- [ ] DOWN double-tap opens settings, tap goes back; MAC and name are real, battery tracks the STATUS band, WI-FI names the network it joined with its real IP, BACKEND names the configured host, GATEWAYS lists both platforms
 - [ ] DOWN held 2 s raises the hotspot: the screen names the network, a fresh password and `192.168.4.1`
 - [ ] A phone joining it makes the count on screen go to `1 CONNECTED`, and the setup page opens by itself
 - [ ] The page lists the saved networks in priority order and shows **no** stored password, only `saved - leave blank to keep`

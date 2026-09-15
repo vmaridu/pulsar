@@ -1,5 +1,5 @@
 /* ===========================================================================
-   The settings screen — DOWN tap. Everything the board knows about itself,
+   The settings screen — a double-tap on DOWN or on the glass. Everything the board knows about itself,
    read-only. Tap again to go back.
 
    Read-only is the point: this is the screen you look at when the device is

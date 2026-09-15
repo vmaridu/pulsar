@@ -86,7 +86,7 @@ PORT=8080 node server.js
 ## Point a device at it
 
 The device needs to reach this machine's LAN IP, not `localhost` — find it with
-`ipconfig` (Windows) or `ifconfig` / `ip addr` (macOS/Linux). Then hold **LEFT** on the
+`ipconfig` (Windows) or `ifconfig` / `ip addr` (macOS/Linux). Then hold **DOWN** on the
 device for 2 s, join the hotspot it raises, and put this in as the **URL** — the device
 polls exactly what you paste, nothing appended:
 

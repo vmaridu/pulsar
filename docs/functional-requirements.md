@@ -91,12 +91,23 @@ polled successfully shows no numbers at all: a monitor that renders invented
 data while it is broken is worse than one that admits it has none.
 
 Every failure gets its own banner rather than a blank or silently stale
-screen — no endpoint configured, no network in range, a sign-in page in the
-way, a rejected key, a host that never answers. One of these, `NO CLOCK`,
-reads as `warning` rather than the grey fault colour: a signed board that
-hasn't yet heard back from SNTP is waiting on itself, not on the network, so
-it doesn't get the same colour as a real connection failure. The device
-keeps retrying and clears the banner the moment a poll succeeds.
+screen. The device keeps retrying and clears the banner the moment a poll
+succeeds.
+
+| Banner         | When                                                                      |
+| -------------- | ------------------------------------------------------------------------- |
+| `SETUP`        | No endpoint configured, or the address is not an `http(s)` URL            |
+| `OFFLINE`      | No saved network in range, the join dropped, or the host never answered   |
+| `PORTAL`       | Joined, but a Wi-Fi sign-in page still stands between the device and the backend |
+| `NO ACCESS`    | The credential was rejected                                               |
+| `NOT FOUND`    | The address does not resolve                                              |
+| `REDIRECT`     | The address answers with a redirect — fix the URL                         |
+| `SERVER ERROR` | A backend error, a rate limit (honoured, with its retry delay), or any other status |
+| `BAD DATA`     | A success whose body could not be read or parsed                          |
+| `NO CLOCK`     | Signed mode, and the clock is not yet trustworthy — waits rather than sign wrongly |
+
+`NO CLOCK` reads as `warning` rather than the grey fault colour: a board
+waiting on its own clock is waiting on itself, not on the network.
 
 ---
 
@@ -124,6 +135,14 @@ only on its screen — and opens the page it serves at `192.168.4.1`:
 - **The privacy lock's 6-digit code**, and **how long an unlocked screen stays
   that way** before it re-locks itself — same set as the mute timeout, default
   30 minutes → [§6](#6--privacy-lock)
+- **Where the backlight can be dimmed, two brightness figures — one for
+  on-battery and one for on-charger** — each 30-100%, defaulting to 50% on
+  battery and 90% on the charger. The device switches between them the
+  moment it notices the power source change, no restart needed
+- **A factory reset**, behind a confirmation deliberate enough that a stray
+  tap or click cannot trigger it — not a single click alone. Wipes every
+  value above and every saved network, then restarts into the same state
+  as a fresh, unconfigured device
 
 A stored secret never comes back to the page — it reports that one exists,
 never what it is, and leaving the field empty on save means "keep it." Save
@@ -171,3 +190,53 @@ This is strictly about who can read the numbers.
   ask for the code back
 - **Settings and the setup hotspot are unaffected** — this only ever hides
   the stats, never the device's own diagnostics
+
+---
+
+## 7. 🔍 Settings screen
+
+A read-only view of everything the device knows about itself — opened with a
+double-tap, closed with a tap, holding the screen cycle still while it is up. It
+answers, in order: what am I holding, what did it join, where is it
+pointing, and what came back.
+
+| Group        | Lines                                                                          |
+| ------------ | ------------------------------------------------------------------------------ |
+| **DEVICE**   | Battery and charge state · device name · hardware address                       |
+| **WI-FI**    | The network joined — or what the radio is doing instead, or that a sign-in page is in the way · signal · IP |
+| **BACKEND**  | The host · the auth mode, and whether the connection is verified — called out plainly when it is not |
+| **GATEWAYS** | Every distinct gateway named in the response · the current level · how many screens · how old the data is |
+
+Sound is not listed: the mute icon in STATUS already says it. Editing
+happens on the setup page, never here → [§5](#5--configuration).
+
+---
+
+## 8. 🌠 Boot intro
+
+Once per power-on, **5 s**, then the dashboard — never longer, never
+waiting on anything.
+
+| Time        | What                                                                                  |
+| ----------- | ------------------------------------------------------------------------------------- |
+| 0.0 – 3.0 s | The pulsar: a bright core, two straight beams turning at a steady 1.3 turns a second, a soft launch burst on every beam pass |
+| 3.0 – 5.0 s | A stencil-cut `PULSAR`, a light-blue → red gradient drifting across it. Silent          |
+| 4.4 – 5.0 s | Cross-fades into the dashboard — real pixels, no cut                                   |
+
+Every sound it makes is rendered once at boot and streamed, never
+synthesised live — an intro that starves the core is a boot loop.
+
+---
+
+## 9. 🔋 Power
+
+- **Off and on are the same 2 s hold.** A press let go early does nothing.
+  On the cell, off is truly off; on USB the rail stays up, so off is the
+  panel dark plus deep sleep, and the same key wakes it into the same hold
+- **A cell is protected from running flat.** At 10 % and not on the
+  charger the device says `LOW BATTERY`, plays the quiet notice, and shuts
+  itself down two minutes later — unless the charger arrives first, which
+  cancels it
+- **The backlight follows the power source**, where a build can dim it:
+  one brightness on the cell, another on the charger, switching the moment
+  the source changes → [§5](#5--configuration)

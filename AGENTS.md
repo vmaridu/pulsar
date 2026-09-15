@@ -12,7 +12,7 @@ rules into them, never let them drift. Edit *this* file and both tools follow.
 | The wire contract (what a backend sends) | [docs/api.md](docs/api.md)                        |
 | Behaviour shared by every build         | [docs/functional-requirements.md](docs/functional-requirements.md) |
 | The square board's firmware + pixels    | [ws_lcd_154/](ws_lcd_154/) — flat folder, `.ino` files + `device.md` + `README.md` + `mockup.html` |
-| The landscape board (mockup only so far)| [ws_lcd_349/](ws_lcd_349/) — same flat pattern    |
+| The landscape board's firmware + pixels | [ws_lcd_349/](ws_lcd_349/) — same flat pattern    |
 | A fake backend to point either build at | [simulator/](simulator/) — `node server.js`, zero deps |
 | Rules for how to work in this repo (you are here) | This file — §1 onward |
 
@@ -60,8 +60,8 @@ listed is **future use** and must be documented as "future use", never silently 
 
 | Input             | Tap                        | Double-tap              | Hold 2 s                 |
 | ----------------- | -------------------------- | ----------------------- | ------------------------ |
-| **Glass** (touch) | Next metric screen         | *future use*            | **Force refresh**        |
-| **DOWN** (PLUS)   | **Settings screen** on/off | *future use*            | **Setup hotspot**        |
+| **Glass** (touch) | Next metric screen         | **Settings screen** on/off | **Force refresh**     |
+| **DOWN** (PLUS)   | *future use*               | **Settings screen** on/off | **Setup hotspot**     |
 | **POWER** (PWR)   | *future use*               | *future use*            | **Power off / on**       |
 | **UP** (BOOT)     | **Display on/off**         | **Sound mute / unmute** | **Lock the screen**, or open the unlock keypad → [functional-requirements.md §6](docs/functional-requirements.md#6--privacy-lock) |
 
@@ -79,7 +79,8 @@ listed is **future use** and must be documented as "future use", never silently 
   ALERT, sound and every other key are untouched. No code is needed to lock, only
   to unlock; it re-arms on its own after a configurable timeout (same set as mute's,
   default 30 m) and always boots locked → [functional-requirements.md §6](docs/functional-requirements.md#6--privacy-lock)
-- 🔙 Off the main screen, a glass tap returns to it
+- 🔙 Off the main screen, a glass tap returns to it — and so does a DOWN tap
+- 👆 **Settings is a double-tap**, on the glass or on DOWN, so a stray brush never opens it. The wide board has no DOWN key: there, the glass's left part (STATUS / ALERT) carries the DOWN roles — double-tap for settings, hold for the hotspot → [ws_lcd_349/device.md §2](ws_lcd_349/device.md#2--input)
 - 📝 When you change this table, change it **here first**, then in the code and in every
   readme in the same commit
 
@@ -191,6 +192,12 @@ Authored in hex, quantised to RGB565.
   exists, never what it is — it comes back as `""` with a `…Set` flag beside it, and an
   empty field posted back means "keep the one you have". Anyone within radio range of the
   hotspot can open that page; none of them may read what is already on the board
+- 🛟 **Every stored setting has a compiled-in default that is in force whenever nothing is
+  stored** — first boot, and straight after a factory reset. Only the endpoint and the saved
+  networks may legitimately be empty, and both have an honest banner for it. A board must
+  never come up holding a zero nobody chose: a backlight at 0 % is a dark glass, a timeout
+  of 0 is "never", a time-zone index of 0 is the wrong clock. Set the defaults first,
+  unconditionally, then overlay whatever storage actually holds
 - 🧪 **No sample payload ships in the firmware.** Point a board at `simulator/` to get data
   without a backend. A fallback that renders made-up numbers when the real poll fails is
   the one bug in a monitor that costs more than a blank screen

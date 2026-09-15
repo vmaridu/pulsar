@@ -1,7 +1,7 @@
 <title>Pulsar · 240×240</title>
 <style>
 :root{
-  --bg:#07090e; --pane:#0b0f16; --line:#161c27; --line2:#232c3b;
+  --bg:#05070a; --pane:#0b0f16; --line:#161c27; --line2:#232c3b;
   --tx:#e6edf7; --dim:#7f8fa8; --dim2:#4d5c76;
   --cy:#22d3ee; --gr:#5cf22e; --or:#ff7a00; --rd:#ff2626; --gy:#8aa0c0;
   --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
@@ -10,36 +10,100 @@
 [hidden]{display:none!important}
 body{margin:0;background:var(--bg);color:var(--tx);font-family:var(--mono);font-size:12px;
      -webkit-font-smoothing:antialiased}
-.wrap{max-width:1180px;margin:0 auto;padding:28px 20px 60px}
+.wrap{max-width:900px;margin:0 auto;padding:26px 20px 56px}
 
-header{display:flex;align-items:baseline;gap:14px;margin-bottom:4px}
-header h1{font-size:15px;font-weight:600;margin:0;letter-spacing:.02em}
-header .sub{color:var(--dim);font-size:11px}
+header{display:flex;justify-content:center;align-items:baseline;gap:12px;flex-wrap:wrap}
+header h1{font-size:14px;font-weight:600;margin:0;letter-spacing:.02em}
+header .sub{color:var(--dim2);font-size:10.5px}
 header .dot{color:var(--cy)}
-.lede{color:var(--dim);font-size:11.5px;line-height:1.7;margin:10px 0 22px;max-width:720px}
-.lede b{color:var(--tx);font-weight:500}
-.lede a{color:var(--cy);text-decoration:none;border-bottom:1px solid #14424e}
-.nav{display:flex;gap:6px;margin:-12px 0 24px}
-.nav a,.nav b{padding:5px 11px;border-radius:6px;border:1px solid var(--line);
-  color:var(--dim);text-decoration:none;font-size:11px;font-weight:400}
-.nav b{border-color:#14424e;background:#07222a;color:var(--cy)}
-.nav a:hover{border-color:var(--line2);color:var(--tx)}
 
-.stage{display:grid;grid-template-columns:auto 1fr;gap:26px;align-items:start}
-@media(max-width:900px){.stage{grid-template-columns:1fr}}
+/* ---------- device stage: the glass, centred, its case around it ---------- */
+.deviceStage{position:relative;margin:26px 0 14px;padding:36px 16px;border-radius:22px;
+  display:flex;justify-content:center;
+  background:radial-gradient(ellipse 70% 80% at 50% 50%,rgba(34,211,238,.06),transparent 72%)}
+.caseArt{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity .3s;pointer-events:none}
+.caseWrap.device .caseArt{opacity:1}
+.caseBody{fill:none;stroke:var(--cy);stroke-width:2}
+.caseWrap.real .caseBody{stroke-width:1.4}
+/* the case keys stay clickable although the rest of the SVG is click-through */
+.caseBtn{pointer-events:auto;cursor:pointer}
+.caseBtn .hitArea{fill:transparent}
+.caseKey{fill:none;stroke:var(--cy);stroke-width:1.6;opacity:.85;transition:opacity .15s,filter .15s}
+.caseIcon{fill:var(--cy);opacity:.85;transition:opacity .15s,filter .15s}
+.caseBtn.pressed .caseKey,.caseBtn.pressed .caseIcon{opacity:1;filter:drop-shadow(0 0 4px rgba(34,211,238,.7))}
 
-/* ---------- device ---------- */
-.deviceCol{display:flex;flex-direction:column;gap:12px;align-items:center}
-.panel{--side:360px;position:relative;width:var(--side);height:var(--side);border-radius:14px;overflow:hidden;
-  background:#000;box-shadow:0 0 0 1px var(--line2),0 24px 60px -20px #000,0 0 60px -30px var(--cy);
-  cursor:pointer;user-select:none;transition:box-shadow .3s}
-.panel.blank{cursor:default}
+/* ---------- controls: one pill row, then cards, all centred ---------- */
+.controlRow{display:flex;justify-content:center}
+.controls{display:inline-flex;gap:3px;padding:3px;border:1px solid var(--line);border-radius:9px;background:var(--pane);flex-wrap:wrap;justify-content:center}
+.controls button{border:none;background:transparent;color:var(--dim);border-radius:6px;
+  padding:7px 13px;font-family:var(--mono);font-size:11px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px}
+.controls button:hover{color:var(--tx)}
+.controls button.on{background:#07222a;color:var(--cy)}
+kbd{border:1px solid var(--line);border-radius:3px;padding:0 4px;font-size:9px;color:var(--dim2)}
+
+.calib{display:flex;flex-direction:column;gap:9px;align-items:center;
+  border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--pane);
+  margin:12px auto 0;width:min(92vw,560px)}
+.calRow{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;justify-content:center;
+  color:var(--dim);font-size:10.5px}
+.calib input{width:60px;background:#0e131c;border:1px solid var(--line2);color:var(--tx);
+  border-radius:4px;padding:3px 5px;font-family:var(--mono);font-size:11px}
+.calDim{color:var(--dim2)}
+.cardRef{border:1px dashed #3b4a63;display:flex;align-items:center;justify-content:center;
+  color:var(--dim2);font-size:10px;text-align:center;padding:6px}
+.calNote{margin:0;color:var(--dim2);font-size:10px;line-height:1.55;max-width:300px;text-align:center}
+
+.card{border:1px solid var(--line);border-radius:9px;background:var(--pane);padding:12px 14px;
+  width:min(92vw,560px);margin:12px auto 0}
+.card h3{margin:0 0 10px;font-size:10px;font-weight:500;color:var(--dim2);
+  letter-spacing:.14em;text-transform:uppercase}
+.row{display:flex;gap:7px;flex-wrap:wrap}
+.b{border:1px solid var(--line2);background:#0e131c;color:var(--dim);border-radius:6px;
+  padding:7px 11px;font-family:var(--mono);font-size:11px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:7px}
+.b:hover{border-color:#3b4a63;color:var(--tx)}
+.b.act{border-color:#14424e;background:#07222a;color:var(--cy)}
+.lvls{display:flex;gap:6px}
+.lv{flex:1;border:1px solid var(--line2);background:#0e131c;border-radius:6px;padding:7px 0;
+  text-align:center;font-family:var(--mono);font-size:10.5px;cursor:pointer;color:var(--dim);
+  letter-spacing:.06em}
+.lv[data-l=info].on{border-color:#1a6b3d;background:#071c11;color:var(--gr)}
+.lv[data-l=warning].on{border-color:#7a3a0a;background:#1d0e04;color:var(--or)}
+.lv[data-l=critical].on{border-color:#7d2532;background:#1f070c;color:var(--rd)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:11px;margin-top:11px}
+.kv b{font-weight:400;color:var(--dim2)}
+.kv span{color:var(--tx);text-align:right}
+.meter{height:2px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:11px}
+.meter i{display:block;height:100%;width:0;background:var(--cy);transition:width .25s linear}
+pre.json{margin:0;font-size:10.5px;line-height:1.6;color:#9fb2cc;max-height:300px;overflow:auto;
+  white-space:pre-wrap;word-break:break-word}
+pre.json .k{color:var(--cy)} pre.json .n{color:#e6edf7} pre.json .s{color:#a9e39a}
+.log{font-size:10.5px;line-height:1.75;color:var(--dim2);max-height:150px;overflow:auto}
+.log b{color:var(--dim);font-weight:400}
+.log .t{color:#3d4a5f;margin-right:7px}
+/* the two long cards fold shut so the page fits one screen; click to open */
+details.fold summary{list-style:none;cursor:pointer;font-size:10px;font-weight:500;color:var(--dim2);
+  letter-spacing:.14em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+details.fold summary::-webkit-details-marker{display:none}
+details.fold summary::before{content:"▸";color:var(--dim2);font-size:10px}
+details.fold[open] summary::before{content:"▾"}
+details.fold summary:hover{color:var(--dim)}
+details.fold > :not(summary){margin-top:10px}
+footer{margin-top:24px;color:var(--dim2);font-size:10.5px;text-align:center}
+
+/* the square: a 1:1 case with the glass inset and three keys on the left wall */
+.caseWrap{position:relative;width:min(92vw,360px);aspect-ratio:1;transition:width .3s ease}
+.caseWrap.device{width:min(92vw,420px)}
+.panel{--side:360px;position:absolute;inset:0;border-radius:14px;overflow:hidden;background:#000;
+  box-shadow:0 0 0 1px var(--line2),0 24px 60px -20px #000,0 0 60px -30px var(--cy);
+  cursor:pointer;user-select:none;transition:left .3s ease,top .3s ease,width .3s ease,height .3s ease,border-radius .3s ease}
+.caseWrap.device .panel{left:11.43%;top:7.14%;width:85.71%;height:85.71%;border-radius:8px}
 .panel canvas{display:block;width:100%;height:100%;image-rendering:pixelated}
-/* actual size: the glass at its physical 27.7 mm, drawn at the screen's own pixels */
-.panel.real{border-radius:3px;box-shadow:0 0 0 1px var(--line2),0 10px 24px -12px #000}
-.panel.real canvas{image-rendering:auto}
-.panel.real .grid{display:none}
-.panel.real .zones{font-size:5px;letter-spacing:0}
+.caseWrap.real .panel{border-radius:3px;box-shadow:0 0 0 1px var(--line2),0 10px 24px -12px #000}
+.caseWrap.real .panel canvas{image-rendering:auto}
+.caseWrap.real .grid{display:none}
+.caseWrap.real .zones{font-size:5px;letter-spacing:0}
 .panel .sheen{position:absolute;inset:0;pointer-events:none;
   background:linear-gradient(150deg,rgba(255,255,255,.055),transparent 42%)}
 .panel .grid{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .2s;
@@ -57,61 +121,6 @@ header .dot{color:var(--cy)}
   30%,50%,70%{transform:translateX(-7px)}40%,60%{transform:translateX(7px)}}
 .panel.beep{animation:beep .4s ease-in-out}
 @keyframes beep{25%{transform:scale(1.012)}75%{transform:scale(.996)}}
-.keys{display:flex;gap:8px}
-.key{border:1px solid var(--line2);background:var(--pane);color:var(--dim);border-radius:6px;
-  padding:6px 13px;font-family:var(--mono);font-size:10.5px;cursor:pointer;letter-spacing:.05em}
-.key:hover{border-color:#3b4a63;color:var(--tx)}
-.key:active{background:#131b28}
-.key kbd{margin-left:6px;border:1px solid var(--line);border-radius:3px;padding:0 4px;font-size:9px;color:var(--dim2)}
-.keyHint{color:var(--dim2);font-size:10px;text-align:center;max-width:360px;line-height:1.5}
-.keyHint b{color:var(--dim);font-weight:500}
-.toggles{display:flex;gap:6px;margin-top:2px}
-.tg{border:1px solid var(--line);background:transparent;color:var(--dim2);border-radius:5px;
-  padding:4px 9px;font-family:var(--mono);font-size:10px;cursor:pointer}
-.tg.on{border-color:#14424e;color:var(--cy);background:#07222a}
-.calib{display:flex;flex-direction:column;gap:9px;align-items:center;max-width:100%;
-  border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--pane)}
-.calRow{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;justify-content:center;
-  color:var(--dim);font-size:10.5px}
-.calib input{width:60px;background:#0e131c;border:1px solid var(--line2);color:var(--tx);
-  border-radius:4px;padding:3px 5px;font-family:var(--mono);font-size:11px}
-.calDim{color:var(--dim2)}
-.cardRef{border:1px dashed #3b4a63;display:flex;align-items:center;justify-content:center;
-  color:var(--dim2);font-size:10px;text-align:center;padding:6px;max-width:none}
-.calNote{margin:0;color:var(--dim2);font-size:10px;line-height:1.55;max-width:300px;text-align:center}
-
-/* ---------- control rail ---------- */
-.rail{display:flex;flex-direction:column;gap:14px;min-width:0}
-.card{border:1px solid var(--line);border-radius:9px;background:var(--pane);padding:13px 14px}
-.card h3{margin:0 0 10px;font-size:10px;font-weight:500;color:var(--dim2);
-  letter-spacing:.14em;text-transform:uppercase}
-.row{display:flex;gap:7px;flex-wrap:wrap}
-.b{border:1px solid var(--line2);background:#0e131c;color:var(--dim);border-radius:6px;
-  padding:7px 11px;font-family:var(--mono);font-size:11px;cursor:pointer;
-  display:inline-flex;align-items:center;gap:7px}
-.b:hover{border-color:#3b4a63;color:var(--tx)}
-.b.act{border-color:#14424e;background:#07222a;color:var(--cy)}
-.b kbd{border:1px solid var(--line);border-radius:3px;padding:0 4px;font-size:9px;color:var(--dim2)}
-.lvls{display:flex;gap:6px}
-.lv{flex:1;border:1px solid var(--line2);background:#0e131c;border-radius:6px;padding:7px 0;
-  text-align:center;font-family:var(--mono);font-size:10.5px;cursor:pointer;color:var(--dim);
-  letter-spacing:.06em}
-.lv[data-l=info].on{border-color:#1a6b3d;background:#071c11;color:var(--gr)}
-.lv[data-l=warning].on{border-color:#7a3a0a;background:#1d0e04;color:var(--or)}
-.lv[data-l=critical].on{border-color:#7d2532;background:#1f070c;color:var(--rd)}
-.kv{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:11px;margin-top:11px}
-.kv b{font-weight:400;color:var(--dim2)}
-.kv span{color:var(--tx);text-align:right}
-.meter{height:2px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:11px}
-.meter i{display:block;height:100%;width:0;background:var(--cy);transition:width .25s linear}
-pre.json{margin:0;font-size:10.5px;line-height:1.6;color:#9fb2cc;max-height:330px;overflow:auto;
-  white-space:pre-wrap;word-break:break-word}
-pre.json .k{color:var(--cy)} pre.json .n{color:#e6edf7} pre.json .s{color:#a9e39a}
-.log{font-size:10.5px;line-height:1.75;color:var(--dim2);max-height:150px;overflow:auto}
-.log b{color:var(--dim);font-weight:400}
-.log .t{color:#3d4a5f;margin-right:7px}
-footer{margin-top:34px;color:var(--dim2);font-size:10.5px;line-height:1.8}
-footer a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--line2)}
 </style>
 
 <div class="wrap">
@@ -121,22 +130,8 @@ footer a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--lin
   <span class="sub">1.54″ IPS · 240 × 240 · ST7789 · CST816 touch</span>
 </header>
 
-<p class="lede">
-  Every pixel inside the glass is a real draw call at device scale — 6 × 8 font cell, RGB565
-  quantised, four fixed bands: <b>STATUS · ALERT · BODY · FOOTER</b>.
-  One device, <b>one gateway</b>; each metric names the gateway it came from.
-  Screens turn on their own every <b>5 s</b> and the data refetches when the cycle wraps.
-  <b>actual size</b> shrinks the glass to its real 27.7 mm; <b>boot intro</b> replays the
-  power-on animation. The three keys press and <b>hold</b> like the real ones.
-</p>
-
-<div class="nav">
-  <b>240 × 240 square</b>
-</div>
-
-<div class="stage">
-
-  <div class="deviceCol">
+<div class="deviceStage">
+  <div class="caseWrap device" id="caseWrap">
     <div class="panel" id="panel">
       <canvas id="screen" width="720" height="720"></canvas>
       <div class="sheen"></div><div class="grid"></div>
@@ -145,89 +140,94 @@ footer a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--lin
           <span>TAP · NEXT METRIC</span><span>DOUBLE-TAP · FUTURE USE</span><span>HOLD 2 S · REFRESH</span></div>
       </div>
     </div>
-    <div class="keys">
-      <button class="key" id="kLeft"  data-k="left"  title="tap: settings on / off · hold 2 s: setup hotspot">DOWN<kbd>1</kbd></button>
-      <button class="key" id="kPower" data-k="power" title="tap: future use · hold 2 s: off / on">PWR<kbd>2</kbd></button>
-      <button class="key" id="kRight" data-k="right" title="tap: display on / off · double-tap: mute · hold 2 s: lock the screen, or open the unlock keypad">UP<kbd>3</kbd></button>
-    </div>
-    <div class="keyHint">tap <b>DOWN</b>: settings · hold 2 s: setup hotspot · tap <b>PWR</b>: future use · hold 2 s: off / on · tap <b>UP</b>: display on / off · double-tap: mute · hold 2 s: lock / unlock</div>
-    <div class="toggles">
-      <button class="tg" id="tgReal" title="z">actual size</button>
-      <button class="tg" id="tgPx">pixel grid</button>
-      <button class="tg" id="tgZn">touch zones</button>
-    </div>
-    <div class="calib" id="calib" hidden>
-      <div class="calRow">
-        <label>your screen <input id="diag" type="number" min="5" max="45" step="0.1" value="14"> in diagonal</label>
-        <span class="calDim" id="calRes"></span>
-      </div>
-      <div class="cardRef" id="cardRef">lay a bank card here —<br>edges should line up</div>
-      <p class="calNote">A browser cannot read a screen's physical size, so enter it once (saved in
-        this browser). If the card is off, nudge the number. Keep page zoom at 100 %.</p>
-    </div>
-  </div>
-
-  <div class="rail">
-
-    <div class="card">
-      <h3>Interact</h3>
-      <div class="row">
-        <button class="b" id="doNext">▸ next metric<kbd>→</kbd></button>
-        <button class="b" id="doHold">⏸ pause cycle<kbd>h</kbd></button>
-        <button class="b" id="doIntro">▶ boot intro<kbd>b</kbd></button>
-        <button class="b" id="doLock">🔒 lock<kbd>l</kbd></button>
-        <button class="b" id="doUnlock">🔓 unlock<kbd>u</kbd></button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>alert.level</h3>
-      <div class="lvls">
-        <div class="lv" data-l="info">INFO</div>
-        <div class="lv" data-l="warning">WARNING</div>
-        <div class="lv" data-l="critical">CRITICAL</div>
-      </div>
-      <div class="row" style="margin-top:9px">
-        <button class="b" id="doFault">simulate OFFLINE<kbd>f</kbd></button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>Power &amp; polling</h3>
-      <div class="row">
-        <button class="b act" id="doPwr">🔌 on USB<kbd>space</kbd></button>
-        <button class="b" id="doPoll">poll now<kbd>p</kbd></button>
-      </div>
-      <div class="meter"><i id="bar"></i></div>
-      <div class="kv">
-        <b>interval</b><span id="kInt">—</span>
-        <b>next poll</b><span id="kNext">—</span>
-        <b>screen</b><span id="kScr">—</span>
-        <b>display</b><span id="kDisp">on</span>
-        <b>measured_at</b><span id="kMeas">—</span>
-      </div>
-      <p class="calNote" style="margin:8px 0 0">
-        max(30, metrics × 5) seconds — each metric is up for 5 s and the wrap is the poll.
-      </p>
-    </div>
-
-    <div class="card">
-      <h3>Response · <span id="jName" style="color:var(--cy)"></span></h3>
-      <pre class="json" id="json"></pre>
-    </div>
-
-    <div class="card">
-      <h3>Log</h3>
-      <div class="log" id="log"></div>
-    </div>
-
+    <svg class="caseArt" viewBox="0 0 420 420" preserveAspectRatio="none" aria-hidden="true">
+      <rect x="1" y="1" width="418" height="418" rx="22" ry="22" class="caseBody"/>
+      <g class="caseBtn" data-btn="left" title="DOWN — double-tap: settings · hold 2 s: setup hotspot · tap: back, off the main screen">
+        <circle cx="24" cy="176" r="10" class="hitArea"/>
+        <circle cx="24" cy="176" r="8" class="caseKey"/>
+        <path d="M24,171.5 L19.5,178 L28.5,178 Z" class="caseIcon" transform="rotate(180 24 175.5)"/>
+      </g>
+      <g class="caseBtn" data-btn="power" title="PWR — hold 2 s: power off / on">
+        <circle cx="24" cy="210" r="10" class="hitArea"/>
+        <circle cx="24" cy="210" r="8" class="caseKey"/>
+        <circle cx="24" cy="210.8" r="4" class="caseKey"/>
+        <line x1="24" y1="204.4" x2="24" y2="210" class="caseKey"/>
+      </g>
+      <g class="caseBtn" data-btn="right" title="UP — tap: display on/off · double-tap: mute · hold 2 s: lock / unlock">
+        <circle cx="24" cy="244" r="10" class="hitArea"/>
+        <circle cx="24" cy="244" r="8" class="caseKey"/>
+        <path d="M24,239.5 L19.5,246 L28.5,246 Z" class="caseIcon"/>
+      </g>
+    </svg>
   </div>
 </div>
 
-<footer>
-  One gateway · one endpoint · four bands — STATUS, ALERT, BODY, FOOTER.
-  Contract in docs/api.md · build in ws_lcd_154/device.md · shared behaviour in docs/device.md.
-</footer>
+<div class="controlRow">
+  <div class="controls">
+    <button id="doIntro">▶ replay boot<kbd>b</kbd></button>
+    <button id="tgCase" class="on">device view<kbd>v</kbd></button>
+    <button id="tgReal">actual size<kbd>z</kbd></button>
+    <button id="tgPx">pixel grid<kbd>g</kbd></button>
+    <button id="tgZn">touch zones<kbd>t</kbd></button>
+  </div>
+</div>
+<div class="calib" id="calib" hidden>
+  <div class="calRow">
+    <label>your screen <input id="diag" type="number" min="5" max="45" step="0.1" value="14"> in diagonal</label>
+    <span class="calDim" id="calRes"></span>
+  </div>
+  <div class="cardRef" id="cardRef">lay a bank card here —<br>edges should line up</div>
+  <p class="calNote">A browser cannot read a screen's physical size, so enter it once (saved in
+    this browser). If the card is off, nudge the number. Keep page zoom at 100 %.</p>
+</div>
+
+<div class="card">
+  <h3>Interact</h3>
+  <div class="row">
+    <button class="b" id="doNext">▸ next metric<kbd>→</kbd></button>
+    <button class="b" id="doHold">⏸ pause cycle<kbd>h</kbd></button>
+    <button class="b" id="doPoll">poll now<kbd>p</kbd></button>
+    <button class="b act" id="doPwr">🔌 on charger<kbd>space</kbd></button>
+    <button class="b" id="doLock">🔒 lock<kbd>l</kbd></button>
+    <button class="b" id="doUnlock">🔓 unlock<kbd>u</kbd></button>
+  </div>
+</div>
+
+<div class="card">
+  <h3>alert.level</h3>
+  <div class="lvls">
+    <div class="lv" data-l="info">INFO</div>
+    <div class="lv" data-l="warning">WARNING</div>
+    <div class="lv" data-l="critical">CRITICAL</div>
+  </div>
+  <div class="row" style="margin-top:9px">
+    <button class="b" id="doFault">simulate OFFLINE<kbd>f</kbd></button>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Polling</h3>
+  <div class="meter"><i id="bar"></i></div>
+  <div class="kv">
+    <b>interval</b><span id="kInt">—</span>
+    <b>next poll</b><span id="kNext">—</span>
+    <b>screen</b><span id="kScr">—</span>
+    <b>display</b><span id="kDisp">on</span>
+    <b>measured_at</b><span id="kMeas">—</span>
+  </div>
+</div>
+
+<details class="card fold">
+  <summary>Response · <span id="jName" style="color:var(--cy)"></span></summary>
+  <pre class="json" id="json"></pre>
+</details>
+
+<details class="card fold">
+  <summary>Log</summary>
+  <div class="log" id="log"></div>
+</details>
+
+<footer>Build in ws_lcd_154/device.md · shared behaviour in docs/functional-requirements.md · contract in docs/api.md.</footer>
 </div>
 
 <script>
@@ -811,7 +811,7 @@ function infoRow(y, label, value, c = C.tx){
 
 /* The settings screen — everything the board knows about itself, read-only,
    in the order you would ask the questions: what am I holding, what did it
-   join, where is it pointing, and what came back. Tap DOWN to toggle it;
+   join, where is it pointing, and what came back. Double-tap DOWN or the glass to open it, tap to leave;
    hold DOWN 2 s for the setup hotspot, where it all becomes editable. A tap
    on the glass goes back too.                                             */
 function drawSettings(){
@@ -1172,8 +1172,9 @@ function drawChargeIcon(x, y, c){
    Input and power — THE STANDARD MAP, exactly as input.ino implements it.
    Anything not listed is FUTURE USE, and future use says so out loud.
 
-     GLASS  tap: next metric screen  double-tap: future use  hold 2 s: refresh
-     DOWN   tap: settings on / off   double-tap: future use  hold 2 s: setup hotspot
+     GLASS  tap: next metric screen  double-tap: settings    hold 2 s: refresh
+     DOWN   tap: future use          double-tap: settings    hold 2 s: setup hotspot
+            (off the main screen, a DOWN tap goes back to it)
      PWR    tap: future use          double-tap: future use  hold 2 s: off / on
      UP     tap: display on / off    double-tap: mute        hold 2 s: lock the
                                                               screen, or open the
@@ -1186,7 +1187,7 @@ function drawChargeIcon(x, y, c){
    ========================================================================== */
 const HOLD_MS = 2000, TAP_MS = 400, DOUBLE_TAP_MS = 450;
 const KEYS = {
-  left:  { name: 'DOWN', hasDouble: false },
+  left:  { name: 'DOWN', hasDouble: true  },   // double-tap opens settings
   power: { name: 'PWR',  hasDouble: false },
   right: { name: 'UP',   hasDouble: true  },   // double-tap mutes
 };
@@ -1209,9 +1210,9 @@ function keyUp(k){
 function keyTap(k){
   if (st.off || st.intro) return;
   if (k === 'left'){
-    st.view = st.view === 'main' ? 'settings' : 'main';
-    if (st.view === 'main') st.screenT0 = Date.now();
-    log('DOWN tap → ' + (st.view === 'settings' ? '<b>settings</b>' : 'main screen')); return sync();
+    if (st.view === 'main'){ log('DOWN tap → <i>future use</i> (double-tap for settings, hold 2 s for the setup hotspot)'); return; }
+    st.view = 'main'; st.screenT0 = Date.now();
+    log('DOWN tap → main screen'); return sync();
   }
   if (k === 'power'){ log('PWR tap → <i>future use</i>'); return; }
   if (k === 'right') displayToggle();
@@ -1219,7 +1220,14 @@ function keyTap(k){
 function keyDoubleTap(k){
   if (st.off || st.intro) return;
   if (k === 'right') return toggleMute();
+  if (k === 'left') return settingsToggle('DOWN double-tap');
   log(KEYS[k].name + ' double-tap → <i>future use</i>');
+}
+/* settings on, or — from any other screen — back to the main one */
+function settingsToggle(who){
+  if (st.view === 'main'){ st.view = 'settings'; log(who + ' → <b>settings</b>'); }
+  else { st.view = 'main'; st.screenT0 = Date.now(); log(who + ' → main screen'); }
+  sync();
 }
 /* UP tap — the panel only. The cycle turns, the poll polls, a critical
    still sounds in the dark.                                                */
@@ -1604,6 +1612,8 @@ const store = {
   set(k, v){ try { localStorage.setItem(k, v); } catch {} },
 };
 
+const caseWrap = $('#caseWrap');
+const CASE_SCALE = 420 / 360;                    // the case outline vs the glass, in the sketch above
 function applySize(){
   const cvs = $('#screen'), dpr = window.devicePixelRatio || 1;
   let side = 360, res = 720;
@@ -1616,13 +1626,25 @@ function applySize(){
     card.width = CARD_MM[0]*k + 'px'; card.height = CARD_MM[1]*k + 'px';
     card.borderRadius = CARD_MM[2]*k + 'px';
     $('#calRes').textContent = `${screen.width} × ${screen.height} · glass ${Math.round(side)} px`;
+    caseWrap.style.width = Math.round(side * (st.caseView ? CASE_SCALE : 1)) + 'px';
+  } else {
+    caseWrap.style.width = '';
+    side = caseWrap.clientWidth / (st.caseView ? CASE_SCALE : 1);
   }
   panel.style.setProperty('--side', side + 'px');
   if (cvs.width !== res){ cvs.width = cvs.height = res; g.x.textBaseline = 'middle'; }
   S = res / W;
-  panel.classList.toggle('real', st.real);
+  caseWrap.classList.toggle('real', st.real);
   $('#calib').hidden = !st.real;
   $('#tgReal').classList.toggle('on', st.real);
+}
+function toggleCase(){
+  st.caseView = !st.caseView;
+  store.set('pulsar.ws_lcd_154.caseView', st.caseView ? '1' : '0');
+  caseWrap.classList.toggle('device', st.caseView);
+  $('#tgCase').classList.toggle('on', st.caseView);
+  log(st.caseView ? 'device view · case outline' : 'device view · glass only');
+  applySize();
 }
 function toggleReal(){
   st.real = !st.real;
@@ -1652,7 +1674,7 @@ panel.addEventListener('pointerup', () => {
   if (st.view !== 'main'){ st.view = 'main'; st.screenT0 = Date.now(); TOUCH.pendingT = 0;
     log('glass tap → main screen'); return sync(); }
   if (TOUCH.pendingT && Date.now() - TOUCH.pendingT < DOUBLE_TAP_MS){
-    TOUCH.pendingT = 0; log('glass double-tap → <i>future use</i>');
+    TOUCH.pendingT = 0; settingsToggle('glass double-tap');
   } else TOUCH.pendingT = Date.now();
 });
 panel.addEventListener('pointercancel', () => { TOUCH.down = false; });
@@ -1665,11 +1687,11 @@ $('#doHold').onclick = e => {
   log(st.paused ? 'cycle <b>paused</b> — mockup only, the board always turns' : 'cycle running · 5 s a screen');
 };
 /* the three keys press and hold like the real ones — pointer, or 1 · 2 · 3 */
-document.querySelectorAll('.key[data-k]').forEach(el => {
-  const k = el.dataset.k;
-  el.addEventListener('pointerdown', e => { e.preventDefault(); el.setPointerCapture(e.pointerId); keyDown(k); });
-  el.addEventListener('pointerup', () => keyUp(k));
-  el.addEventListener('pointercancel', () => { KEYS[k].down = false; });
+document.querySelectorAll('.caseBtn[data-btn]').forEach(el => {
+  const k = el.dataset.btn;
+  el.addEventListener('pointerdown', e => { e.preventDefault(); el.classList.add('pressed'); keyDown(k); });
+  el.addEventListener('pointerup', () => { el.classList.remove('pressed'); keyUp(k); });
+  el.addEventListener('pointerleave', () => { el.classList.remove('pressed'); KEYS[k].down = false; });
 });
 $('#doPoll').onclick = () => poll(true);
 $('#doIntro').onclick = () => { st.view = 'main'; st.screenT0 = Date.now(); startIntro(); };
@@ -1686,13 +1708,14 @@ $('#doFault').onclick = () => {
 };
 $('#doPwr').onclick = () => {
   st.plugged = !st.plugged;
-  log(st.plugged ? 'USB power' : 'on battery · polling and alerts unchanged');
+  log(st.plugged ? 'plugged in · charging' : 'on battery · polling and alerts unchanged');
   sync();
 };
 document.querySelectorAll('.lv').forEach(el => el.onclick = () => setLevel(el.dataset.l));
 $('#tgReal').onclick = toggleReal;
-$('#tgPx').onclick = e => { panel.classList.toggle('px'); e.target.classList.toggle('on'); };
-$('#tgZn').onclick = e => { panel.classList.toggle('zn'); e.target.classList.toggle('on'); };
+$('#tgCase').onclick = toggleCase;
+$('#tgPx').onclick = e => { panel.classList.toggle('px'); e.currentTarget.classList.toggle('on'); };
+$('#tgZn').onclick = e => { panel.classList.toggle('zn'); e.currentTarget.classList.toggle('on'); };
 $('#diag').addEventListener('input', () => { store.set('pulsar.screenDiag', $('#diag').value); applySize(); });
 addEventListener('resize', applySize);      // another monitor, or a zoom change
 
@@ -1707,6 +1730,9 @@ addEventListener('keydown', e => {
   else if (k === 'p') poll(true);
   else if (k === 'f') $('#doFault').click();
   else if (k === 'z') toggleReal();
+  else if (k === 'v') toggleCase();
+  else if (k === 'g') $('#tgPx').click();
+  else if (k === 't') $('#tgZn').click();
   else if (k === 'b') $('#doIntro').click();
   else if (k === 'l') $('#doLock').click();
   else if (k === 'u') $('#doUnlock').click();
@@ -1739,12 +1765,12 @@ function sync(){
   $('#kDisp').textContent = st.screen ? 'on' : 'off';
   $('#kInt').textContent  = Math.round(pollInterval() / 1000) + ' s';
   $('#kMeas').textContent = new Date(gw.measured_at * 1000).toTimeString().slice(0, 8);
-  $('#doPwr').textContent = st.plugged ? '🔌 on USB' : '🔋 on battery';
+  $('#doPwr').innerHTML = (st.plugged ? '🔌 on charger' : '🔋 on battery') + '<kbd>space</kbd>';
   $('#doPwr').classList.toggle('act', st.plugged);
   $('#doFault').classList.toggle('act', !!gw.fault);
   document.querySelectorAll('.lv').forEach(el =>
     el.classList.toggle('on', !gw.fault && el.dataset.l === gw.alert.level));
-  $('#jName').textContent = gw.gateway;
+  $('#jName').textContent = joinGateways();
   $('#json').innerHTML = jsonView(gw);
 }
 
@@ -1759,6 +1785,9 @@ setInterval(() => {
 /* --- go ----------------------------------------------------------------- */
 $('#diag').value = store.get('pulsar.screenDiag', '14');
 st.real = store.get('pulsar.ws_lcd_154.real', '0') === '1';
+st.caseView = store.get('pulsar.ws_lcd_154.caseView', '1') === '1';
+caseWrap.classList.toggle('device', st.caseView);
+$('#tgCase').classList.toggle('on', st.caseView);
 applySize();
 beginCount();
 st.sweepT0 = Date.now();

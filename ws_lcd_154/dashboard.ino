@@ -167,12 +167,14 @@ static void drawGraph(const struct Row& r, int top, int base, const struct Theme
    (valSize/unitSize/labSize/shareSize) and the Y offsets differ, passed
    in by the caller. A hot tile (0 = not hot) paints the value — and that
    second line, if given — in that colour instead of the theme's.        */
-static void drawTile(int x, int right, int y, uint8_t valSize, int yUnit, uint8_t unitSize,
+static void drawTile(int x, int right, int y, uint8_t valSize, uint8_t unitSize,
                      uint8_t labSize, uint8_t shareSize, int ySub, const char* val,
                      const char* unit, const char* lab, const char* share, uint16_t hot,
                      const struct Theme& th){
   const uint16_t vc = hot ? hot : th.tx;
   const int w = txt(val, x, y, valSize, vc, 'l', true, th.bg);
+  /* the unit sits on the value's baseline, whatever the two sizes are */
+  const int yUnit = y + fontFor(valSize).cap - fontFor(unitSize).cap;
   if (unit) txt(unit, x + w + 3, yUnit, unitSize, th.dim, 'l', false, th.bg);
   txt(lab, right, y, labSize, th.dim, 'r', false, th.bg);
   if (share) txt(share, right, ySub, shareSize, vc, 'r', false, th.bg);
@@ -233,13 +235,13 @@ static void drawBody(const struct Theme& th){
     p[i] = countFromP[i] + (r.tiles[i].value - countFromP[i]) * t;
   char v[16], sh[16];
 
-  /* hero — value size 4, name/span size 2, the graph starts below it. The
+  /* hero — value size 4 (the big face), name/span size 2, the graph starts below it. The
      row's own span ("LAST 30M") sits in the tile's second line.         */
   if (r.ntiles > 0){
     const Tile& hero = r.tiles[0];
     const char* hu = fmtTileValue(p[0], hero.unit, v, sizeof v);
     spanCaption(r.size, r.count, r.unit, sh, sizeof sh);
-    drawTile(X_L, X_R, y + Y_HERO, 4, y + Y_HERO + 18, 2, 2, 2, y + Y_HERO_SHARE,
+    drawTile(X_L, X_R, y + Y_HERO, 4, 2, 2, 2, y + Y_HERO_SHARE,
              v, hu, hero.name, sh, levelColor(hero.level, th), th);
   }
 
@@ -262,10 +264,10 @@ static void drawBody(const struct Theme& th){
        small as it needs to be. There is no second line down here at all —
        that's the hero's span caption alone.                             */
     const int colW = qright[q % 2] - qx[q % 2];
-    const uint8_t valSize = strlen(v) <= 2 ? 4 : strlen(v) <= 3 ? 3 : 2;
-    const int valW = (int)strlen(v) * 6 * valSize;
-    const uint8_t labSize = (valW + (int)strlen(tl.name) * 12 + 3 <= colW) ? 2 : 1;
-    drawTile(qx[q % 2], qright[q % 2], y + qy[q], valSize, y + qy[q] + 9, 1, labSize,
+    const uint8_t valSize = strlen(v) <= 3 ? 3 : 2;
+    const int valW = txtW(v, valSize);
+    const uint8_t labSize = (valW + txtW(tl.name, 2) + 3 <= colW) ? 2 : 1;
+    drawTile(qx[q % 2], qright[q % 2], y + qy[q], valSize, 1, labSize,
              1, y + qy[q] + 9, v, unit, tl.name, nullptr, hot, th);
   }
 }
@@ -309,7 +311,7 @@ static void drawFoot(const struct Theme& th){
 /* a short message in a box over the middle of the screen, gone after 1.2 s */
 void drawToast(){
   if (!toastT0 || millis() - toastT0 > 1200) return;
-  const int w = (int)strlen(toastText) * 12 + 28, x = 120 - w / 2, y = 100;
+  const int w = txtW(toastText, 2) + 28, x = 120 - w / 2, y = 100;
   cv->fillRect(x, y, w, 40, C_BG);
   cv->drawRect(x, y, w, 40, C_LINE2);
   txt(toastText, 120, y + 12, 2, C_TX, 'c', true);

@@ -6,10 +6,10 @@
    silently does nothing.
 
      GLASS  anywhere   tap: next metric screen
-                       double-tap: future use
+                       double-tap: settings screen on / off
                        hold 2 s: force a refresh
-     DOWN   GPIO0      tap: settings screen on / off
-                       double-tap: future use
+     DOWN   GPIO0      tap: future use — off the main screen, back to it
+                       double-tap: settings screen on / off
                        hold 2 s: the setup hotspot — hotspot.ino
      POWER  PWR  GPIO5 tap: future use
                        double-tap: future use
@@ -32,8 +32,7 @@
 
    Tap timing: a key or finger with a double-tap action waits DOUBLE_TAP_MS
    before firing its single tap, so one gesture never fires both. A key with
-   no double-tap action fires its tap the moment it is released — DOWN opens
-   settings with no lag.
+   no double-tap action fires its tap the moment it is released.
 
    While anything is held past a tap, a ring fills toward the 2 s mark with
    the action written inside, so you can see it coming and let go.
@@ -46,7 +45,8 @@
 #define TAP_MS           400     /* released sooner than this, it was a tap */
 #define DEBOUNCE_MS       30
 #define DOUBLE_TAP_MS    450     /* a second tap inside this is a double-tap */
-#define TOUCH_LIFT_MS     60     /* the controller drops the odd sample mid-touch — lifted only after this */
+#define TOUCH_LIFT_MS     60     /* a read that FAILS mid-touch is not a lift — only this long without one is */
+#define TOUCH_LIFT_ZEROS   2     /* the controller answering "no finger" this many reads running IS a lift */
 #define TOUCH_MOVE_PX     24     /* a finger that travels further is not a tap */
 
 enum { K_DOWN, K_POWER, K_UP, K_COUNT };
@@ -58,7 +58,7 @@ struct Key {
   uint32_t    t0, pending;       /* pending: a tap waiting to see if a second follows */
 };
 static Key keys[K_COUNT] = {
-  { KEY_LEFT,  "DOWN",  false, false, false, 0, 0 },
+  { KEY_LEFT,  "DOWN",  true,  false, false, 0, 0 },   /* double-tap opens settings */
   { KEY_POWER, "POWER", false, false, false, 0, 0 },
   { KEY_RIGHT, "UP",    true,  false, false, 0, 0 },   /* double-tap mutes */
 };
@@ -97,15 +97,20 @@ void keysBegin(){
     keys[i].down = keys[i].fired = digitalRead(keys[i].pin) == LOW;
     keys[i].pending = 0;
   }
-  LOG("boot", "keys ready - DOWN settings | POWER future use | UP display, double-tap mute");
+  LOG("boot", "keys ready - DOWN double-tap settings, hold hotspot | POWER hold off | UP display, double-tap mute, hold lock/unlock | glass double-tap settings, hold refresh");
+}
+
+/* settings on, or — from any other screen — back to the main one */
+static void settingsToggle(const char* who){
+  if (view == VIEW_MAIN){ view = VIEW_SETTINGS; LOGF("key", "%s -> settings", who); }
+  else { LOGF("key", "%s -> back to main", who); showMain(); }
 }
 
 static void onTap(int k){
   switch (k){
     case K_DOWN:
-      if (view == VIEW_HOTSPOT) hotspotStop();
-      if (view == VIEW_MAIN){ view = VIEW_SETTINGS; LOG("key", "DOWN tap -> settings"); }
-      else { showMain(); LOG("key", "DOWN tap -> back to main"); }
+      if (view != VIEW_MAIN){ LOG("key", "DOWN tap -> back to main"); showMain(); }
+      else LOG("key", "DOWN tap -> future use (double-tap for settings, hold 2 s for the setup hotspot)");
       break;
     case K_POWER:
       LOG("key", "POWER tap -> future use (hold 2 s to switch off)");
@@ -118,7 +123,7 @@ static void onTap(int k){
 
 static void onDoubleTap(int k){
   switch (k){
-    case K_DOWN:  LOG("key", "DOWN double-tap -> future use");  break;
+    case K_DOWN:  settingsToggle("DOWN double-tap"); break;
     case K_POWER: LOG("key", "POWER double-tap -> future use"); break;
     case K_UP:    LOG("key", "UP double-tap -> mute"); toggleMute(); break;   /* sound.ino */
   }
@@ -183,8 +188,15 @@ void handleKeys(){
 
 /* ------------------------------------------------------------------ touch
    Anywhere on the glass, no zones. A single tap waits DOUBLE_TAP_MS to be
-   sure no second one follows, then moves to the next metric screen.       */
-struct TouchState { bool down, fired; uint32_t t0, seen; int16_t x0, y0, x, y, rawX, rawY; };
+   sure no second one follows, then moves to the next metric screen; a
+   double-tap opens settings.
+
+   The controller is asked every few ms (idleWait in the main sketch). A
+   finger is down while it keeps answering with one; it is up the moment
+   it answers "none" twice running, or — reads failing outright — once
+   TOUCH_LIFT_MS pass without a finger. Waiting the full 60 ms on every
+   lift merged the two taps of a quick double-tap into one long touch.  */
+struct TouchState { bool down, fired; uint32_t t0, seen; int16_t x0, y0, x, y, rawX, rawY; uint8_t zeros; };
 static TouchState tp;
 static uint32_t touchPending = 0;
 
@@ -193,7 +205,7 @@ void handleTouch(){
   const uint32_t now = millis();
   int16_t x[2], y[2];
   if (touch.getPoint(x, y, 1)){
-    tp.seen = now;
+    tp.seen = now; tp.zeros = 0;
     /* CST816 reports raw panel coordinates, not screen coordinates — this
        board's canvas is rotated 90 degrees right (PANEL_ROTATION 1), and
        nothing needed to know that until a tap started meaning a screen
@@ -218,8 +230,8 @@ void handleTouch(){
                                           already-transformed one "down at" used to log alone.       */
     tp.x = y[0];
     tp.y = 239 - x[0];
-  }
-  const bool down = tp.seen && now - tp.seen < TOUCH_LIFT_MS;
+  } else if (tp.zeros < TOUCH_LIFT_ZEROS) tp.zeros++;
+  const bool down = tp.seen && tp.zeros < TOUCH_LIFT_ZEROS && now - tp.seen < TOUCH_LIFT_MS;
 
   if (down && !tp.down){
     tp.down = true; tp.fired = false; tp.t0 = now; tp.x0 = tp.x; tp.y0 = tp.y;
@@ -247,7 +259,8 @@ void handleTouch(){
         touchPending = 0;
       } else if (touchPending && now - touchPending < DOUBLE_TAP_MS){
         touchPending = 0;
-        LOG("touch", "double-tap -> future use");
+        view = VIEW_SETTINGS;
+        LOG("touch", "double-tap -> settings");
       } else touchPending = now;
     }
   }
