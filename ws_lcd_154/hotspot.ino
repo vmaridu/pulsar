@@ -157,7 +157,7 @@ static void apHandleConfigPost(){
     return;
   }
   const bool saved = configSave();
-  if (saved) apSaves++;
+  if (saved){ apSaves++; applyBacklight(); }   /* the new duty, right away — not just on the next charge-state change */
   LOGF("cfg", "hotspot: %s - url now \"%s\", %u network%s (save #%u this session)",
        saved ? "saved to NVS" : "NVS WRITE FAILED", cfg.url, (unsigned)cfg.nnets,
        cfg.nnets == 1 ? "" : "s", (unsigned)apSaves);
@@ -224,6 +224,24 @@ static void apHandleReboot(){
   ESP.restart();
 }
 
+/* The page's own checkbox-plus-confirm() dialog is the only guard — this
+   endpoint itself trusts whoever can reach it, same as every other write
+   here (anyone within radio range of the hotspot can open this page at
+   all). Wipes both NVS namespaces (config.ino) and restarts into a truly
+   unconfigured board, same shape as a fresh-off-the-line one.            */
+static void apHandleFactoryReset(){
+  apLastHit = millis();
+  const bool ok = configFactoryReset();
+  JsonDocument doc;
+  doc["ok"] = ok;
+  apSendJson(ok ? 200 : 500, doc);
+  LOG("view", "hotspot: the page asked for a factory reset - wiping and restarting");
+  apServer->client().flush();
+  delay(300);
+  Serial.flush();
+  ESP.restart();
+}
+
 /* -------------------------------------------------------------- lifecycle */
 
 void hotspotStart(){
@@ -263,6 +281,7 @@ void hotspotStart(){
   apServer->on("/api/config",  HTTP_POST, apHandleConfigPost);
   apServer->on("/api/scan",    HTTP_GET,  apHandleScan);
   apServer->on("/api/reboot",  HTTP_POST, apHandleReboot);
+  apServer->on("/api/factory-reset", HTTP_POST, apHandleFactoryReset);
   apServer->onNotFound(apHandleElsewhere);
   apServer->begin();
   LOG("view", "hotspot: serving http://" AP_IP_STR "/");

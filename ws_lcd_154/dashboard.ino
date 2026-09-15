@@ -100,23 +100,28 @@ static void drawStatus(const struct Theme& th){
 }
 
 /* =================================================================== ALERT
-   The whole band is the level colour at full strength — no tint, no black
-   mixed in — and it holds steady at every level. The flash is the whole
-   screen's job, not this band's; here the colour simply never changes.
+   Plain background at rest, the same ground every other band sits on.
+   Colour lives entirely in the level word: bold, and at full strength —
+   that's the whole identification, no background tint needed beside it.
+   The flash is still the whole screen's job, not this band's own resting
+   look: here the colour changes only because `th` does, exactly like
+   every other band.
 
    When the fetch layer has a fault standing, that is what this band says —
    OFFLINE, NO ACCESS, SETUP — over numbers that are being held from the last
    good poll. The payload's own `alert` is not shown then: "INFO" written
    above held numbers reads as good news, which is the one thing a fault must
    never look like. api.md §6.                                            */
-static void drawAlert(const struct Level& L){
+static void drawAlert(const struct Level& L, const struct Theme& th){
   const int y = BAND_ALERT_Y, h = BAND_ALERT_H;
-  cv->fillRect(0, y, 240, h, L.c);
+  cv->fillRect(0, y, 240, h, th.bg);
 
-  /* heading and subscript: the level word loud, the message small under it */
-  txt(alertWord(L), X_L, y + 6, 2, C_INK, 'l', true);
+  /* heading and subscript: the level word loud and coloured, the message
+     small and plain under it */
+  const uint16_t wordC = th.ink ? th.tx : L.c;
+  txt(alertWord(L), X_L, y + 5, 2, wordC, 'l', true);
   char msg[24]; strlcpy(msg, alertDetail(), sizeof msg);   /* api.md §5: <= 20 */
-  txt(msg, X_L, y + 25, 1, C_INK);
+  txt(msg, X_L, y + 24, 1, th.ink ? th.tx : th.dim);
 }
 
 /* ==================================================================== BODY
@@ -197,7 +202,7 @@ static uint16_t levelColor(const char* level, const struct Theme& th){
 static void drawEmptyBody(const struct Theme& th){
   const int y = BAND_BODY_Y;
   cv->fillRect(0, y, 240, BAND_BODY_H, th.bg);
-  if (th.ink) cv->fillRect(X_L, y, X_R - X_L, 1, th.rule);
+  if (th.ink) hFade(X_L, y, X_R - X_L, th.bg, th.rule);
   txt("NO DATA YET", 120, y + 38, 2, th.dim, 'c', true);
   if (!configHasEndpoint()){
     txt("this board has no endpoint", 120, y + 68, 1, th.dim, 'c');
@@ -218,7 +223,7 @@ static void drawBody(const struct Theme& th){
   const Row& r = snap.rows[curRow];
   cv->fillRect(0, y, 240, BAND_BODY_H, th.bg);
   /* a rule parts the ALERT band from the BODY while the screen is lit */
-  if (th.ink) cv->fillRect(X_L, y, X_R - X_L, 1, th.rule);
+  if (th.ink) hFade(X_L, y, X_R - X_L, th.bg, th.rule);
   drawGraph(r, y + Y_GRAPH_TOP, y + Y_BASE, th);
 
   /* numbers count up from the previous screen's values */
@@ -239,7 +244,7 @@ static void drawBody(const struct Theme& th){
   }
 
   /* a hairline between the two tile columns */
-  cv->fillRect(COL2 - 9, y + Y_TILE1 + 2, 1, Y_TILE2 + 18 - Y_TILE1, th.rule);
+  vFade(COL2 - 9, y + Y_TILE1 + 2, Y_TILE2 + 18 - Y_TILE1, th.bg, th.rule);
 
   static const int qx[2]     = { X_L,       COL2 };
   static const int qright[2] = { COL2 - 14, X_R  };
@@ -318,7 +323,7 @@ void drawDashboard(){
   const Level& L = levelNow();
   const Theme& th = themeFor(L);
   drawStatus(th);
-  drawAlert(L);
+  drawAlert(L, th);
   /* the privacy lock (lock.ino) only ever hides BODY and FOOTER — STATUS and
      ALERT above are drawn exactly the same whether locked or not           */
   if (lockIsLocked()) drawLockedBody(th);

@@ -36,6 +36,7 @@ color:var(--tx);border:1px solid var(--rule);border-radius:7px;font-size:16px;
 font-family:inherit}
 textarea{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--cy)}
+input[type=range]{accent-color:var(--cy);padding:0}
 .hint{margin:8px 0 0;font-size:12px;color:var(--dim2);line-height:1.45}
 .row{display:flex;align-items:center;gap:9px;text-transform:none;letter-spacing:0;
 font-size:13px;color:var(--tx)}
@@ -44,6 +45,10 @@ button{font:inherit;font-size:14px;padding:10px 14px;border-radius:7px;cursor:po
 background:#101b2d;color:var(--tx);border:1px solid var(--rule)}
 button:active{transform:translateY(1px)}
 .primary{background:var(--cy);color:#04060a;border-color:var(--cy);font-weight:700}
+.danger{border-color:#4a1216}
+.danger h2{color:var(--rd)}
+.btnDanger{background:#1f0a0c;color:var(--rd);border-color:#4a1216}
+.btnDanger:disabled{opacity:.45;cursor:not-allowed}
 .net{border:1px solid var(--rule);border-radius:9px;padding:11px;margin:11px 0 0;
 background:#070b14}
 .netHead{display:flex;align-items:center;gap:7px}
@@ -115,6 +120,17 @@ cursor:pointer}
 </section>
 
 <section>
+  <h2>Display</h2>
+  <label>Brightness on battery — <span id="brightBatteryVal">40</span>%
+    <input id="brightBattery" type="range" min="30" max="100" step="5" value="40"></label>
+  <label>Brightness while charging — <span id="brightChargingVal">90</span>%
+    <input id="brightCharging" type="range" min="30" max="100" step="5" value="90"></label>
+  <p class="hint">Two figures, not one — dim to save the cell, bright for free once you're
+     on the charger. Both run 30-100%; the board switches the moment it notices the charger,
+     no restart needed.</p>
+</section>
+
+<section>
   <h2>Clock</h2>
   <label>Time zone
     <select id="tzIndex"></select></label>
@@ -159,6 +175,18 @@ cursor:pointer}
   </div>
   <div class="seen" id="seenList"></div>
   <datalist id="seen"></datalist>
+</section>
+
+<section class="danger">
+  <h2>Factory reset</h2>
+  <p class="hint">Wipes the endpoint, the API key and secret, the lock code, every saved
+     Wi-Fi network — everything this page can set — and restarts. The board comes back up
+     exactly as it left the factory: showing <code>SETUP</code>, nothing configured. There is
+     no undo.</p>
+  <label class="row"><input type="checkbox" id="resetConfirm"> I understand this cannot be undone</label>
+  <div class="tools">
+    <button id="reset" class="btnDanger" disabled>Factory reset</button>
+  </div>
 </section>
 </main>
 
@@ -313,6 +341,10 @@ function load(keep){
     $('ca').placeholder     = c.caSet ? 'saved - leave blank to keep'
                                       : '-----BEGIN CERTIFICATE-----';
     $('muteTimeout').value = String(c.muteTimeoutMin != null ? c.muteTimeoutMin : 30);
+    $('brightBattery').value = String(c.brightnessBattery != null ? c.brightnessBattery : 40);
+    $('brightBatteryVal').textContent = $('brightBattery').value;
+    $('brightCharging').value = String(c.brightnessCharging != null ? c.brightnessCharging : 90);
+    $('brightChargingVal').textContent = $('brightCharging').value;
     /* TZ_TABLE (ws_lcd_154.ino, via configJson()) is the one copy of this
        list — built here each load rather than hardcoded a second time.   */
     var tzSel = $('tzIndex');
@@ -358,6 +390,8 @@ function save(reboot){
     ca: $('ca').value.trim(),
     caClear: $('caClear').checked,
     muteTimeoutMin: parseInt($('muteTimeout').value, 10),
+    brightnessBattery: parseInt($('brightBattery').value, 10),
+    brightnessCharging: parseInt($('brightCharging').value, 10),
     tzIndex: parseInt($('tzIndex').value, 10),
     lockCode: lockCode,
     lockTimeoutMin: parseInt($('lockTimeout').value, 10),
@@ -439,8 +473,21 @@ $('add').addEventListener('click', function(){
   draw();
 });
 $('scan').addEventListener('click', function(){ scanTries = 0; scan(); });
+['brightBattery', 'brightCharging'].forEach(function(id){
+  $(id).addEventListener('input', function(){ $(id + 'Val').textContent = this.value; });
+});
 $('save').addEventListener('click', function(){ save(false); });
 $('saveboot').addEventListener('click', function(){ save(true); });
+
+$('resetConfirm').addEventListener('change', function(){ $('reset').disabled = !this.checked; });
+$('reset').addEventListener('click', function(){
+  const typed = prompt('This wipes every setting and saved network and cannot be undone.\n\nType YES to confirm.');
+  if (typed === null || typed.trim().toLowerCase() !== 'yes'){ say('Factory reset cancelled.'); return; }
+  $('reset').disabled = true;
+  say('Factory resetting…');
+  fetch('/api/factory-reset', { method: 'POST' }).catch(function(){});
+  say('Wiped. Restarting — reconnect to the hotspot to set it up again.', 'good');
+});
 load();
 </script>
 </body></html>

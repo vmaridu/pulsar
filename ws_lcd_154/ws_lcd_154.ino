@@ -144,6 +144,16 @@
 #define PIN_LCD_RST   40
 #define PIN_LCD_BL    46
 
+/* backlight PWM — a dimmable panel, not just on/off. 5 kHz/8-bit is a
+   standard, flicker-free LEDC duty for driving an LED backlight this way.
+   Bounds match the setup page's slider — power.ino/config.ino.           */
+#define LEDC_BL_FREQ            5000
+#define LEDC_BL_RES             8
+#define BRIGHTNESS_MIN          30
+#define BRIGHTNESS_MAX          100
+#define BRIGHTNESS_DEFAULT_BATTERY   40
+#define BRIGHTNESS_DEFAULT_CHARGING  90
+
 #define PIN_I2C_SDA   42
 #define PIN_I2C_SCL   41
 #define PIN_TP_RST    47
@@ -275,6 +285,8 @@ struct Config {
                                           printed to Serial, same rule as the API secret.            */
   uint16_t lockTimeoutMin;             /* minutes until an unlocked screen re-locks itself on its own;
                                           0 = never (only a manual lock or a restart) — lock.ino      */
+  uint8_t  brightnessBattery;          /* backlight %, on the cell — BRIGHTNESS_MIN..MAX, default 40 */
+  uint8_t  brightnessCharging;         /* backlight %, on the charger — BRIGHTNESS_MIN..MAX, default 90 */
 };
 static Config cfg;
 
@@ -378,6 +390,14 @@ static uint8_t mixCh(uint32_t a, uint32_t b, int shift, float t){
 static uint16_t mixHex(uint32_t a, uint32_t b, float t){
   return rgb(((uint32_t)mixCh(a, b, 16, t) << 16) | ((uint32_t)mixCh(a, b, 8, t) << 8) | mixCh(a, b, 0, t));
 }
+/* the same blend as mixHex(), but between two colours already in RGB565 —
+   for blending a divider against whatever it's sitting on, not a fixed
+   hex constant. */
+static uint16_t mix565(uint16_t a, uint16_t b, float t){
+  const int ar = (a >> 11) & 0x1F, ag = (a >> 5) & 0x3F, ab = a & 0x1F;
+  const int br = (b >> 11) & 0x1F, bg = (b >> 5) & 0x3F, bb = b & 0x1F;
+  return (uint16_t)((lround(ar + (br - ar) * t) << 11) | (lround(ag + (bg - ag) * t) << 5) | lround(ab + (bb - ab) * t));
+}
 static void litTheme(struct Theme& t, uint32_t hex){
   t.bg    = rgb(hex);
   t.tx    = C_INK;
@@ -437,6 +457,23 @@ Arduino_GFX* panel = new Arduino_ST7789(bus, PIN_LCD_RST, PANEL_ROTATION, true /
 /* One off-screen frame so a redraw lands in a single push. 240*240*2 = 113 KB,
    which lives in PSRAM. Never draw straight to the panel inside loop().     */
 Arduino_Canvas* cv = new Arduino_Canvas(240, 240, panel);
+
+/* a soft divider instead of a flat rule — fades in from `bg`, peaks at `c`
+   in the middle, fades back to `bg`, one pixel at a time (this canvas has
+   no gradient fill of its own, unlike the mockup's vFade()/hFade()). Must
+   come after `cv` above — these draw directly to it.                    */
+static void hFade(int x, int y, int w, uint16_t bg, uint16_t c){
+  for (int i = 0; i < w; i++){
+    const float t = w > 1 ? (float)i / (w - 1) : 0;
+    cv->drawPixel(x + i, y, mix565(bg, c, t < 0.5f ? t * 2 : (1 - t) * 2));
+  }
+}
+static void vFade(int x, int y, int h, uint16_t bg, uint16_t c){
+  for (int i = 0; i < h; i++){
+    const float t = h > 1 ? (float)i / (h - 1) : 0;
+    cv->drawPixel(x, y + i, mix565(bg, c, t < 0.5f ? t * 2 : (1 - t) * 2));
+  }
+}
 
 TouchDrvCSTXXX touch;
 static bool touchOK = false;
@@ -680,13 +717,25 @@ static float batteryVolts(){
   for (int i = 0; i < 8; i++) mv += analogReadMilliVolts(PIN_BAT_ADC);
   return (mv / 8.0f) / 1000.0f * 3.0f;
 }
+/* The same five voltage calibration points this always had (3.52/3.64/
+   3.76/3.88/4.00 V), now interpolated linearly between them instead of
+   stepped — a slow discharge should read as a slow, smooth decline on
+   screen, not a sudden jump from 100% to 80% the moment it crosses one of
+   these. Below the lowest point there's no calibration data to
+   interpolate against, so it stays flat at the original "critically low"
+   reading rather than guessing further.                                 */
 int batteryPercent(){
-  float v = batteryVolts();
-  if (v < 3.52f) return 1;
-  if (v < 3.64f) return 20;
-  if (v < 3.76f) return 40;
-  if (v < 3.88f) return 60;
-  if (v < 4.00f) return 80;
+  const float v = batteryVolts();
+  static const float VOLTS[] = { 3.52f, 3.64f, 3.76f, 3.88f, 4.00f };
+  static const int   PCT[]   = {    20,    40,    60,    80,   100 };
+  const int n = sizeof(VOLTS) / sizeof(VOLTS[0]);
+  if (v <= VOLTS[0])     return 1;
+  if (v >= VOLTS[n - 1]) return 100;
+  for (int i = 1; i < n; i++){
+    if (v > VOLTS[i]) continue;
+    const float t = (v - VOLTS[i - 1]) / (VOLTS[i] - VOLTS[i - 1]);
+    return (int)lround(PCT[i - 1] + (PCT[i] - PCT[i - 1]) * t);
+  }
   return 100;
 }
 bool charging(){ return digitalRead(PIN_CHARGING) == LOW; }
@@ -715,6 +764,7 @@ bool        configHasEndpoint();
 void        configJson(JsonDocument& doc);
 void        configLoad();
 bool        configSave();
+bool        configFactoryReset();
 bool        configSigned();
 bool        configTlsVerified();
 const char* secName(uint8_t s);
@@ -764,6 +814,9 @@ uint32_t    pollIntervalMs();
 void        refreshNow();
 
 /* power.ino */
+void        applyBacklight();
+void        backlightTick();
+void        batteryTick();
 void        displayToggle();
 void        powerOff();
 void        powerOnHold();
@@ -839,8 +892,8 @@ void setup(){
   Serial.printf("\nPulsar - ESP32-S3-LCD-1.54 - serial %d baud\n", SERIAL_BAUD);
   LOGF("boot", "reset: %s", resetName());          /* a boot loop names itself here */
 
-  pinMode(PIN_LCD_BL, OUTPUT);
-  digitalWrite(PIN_LCD_BL, HIGH);
+  ledcAttach(PIN_LCD_BL, LEDC_BL_FREQ, LEDC_BL_RES);   /* dimmable, not just on/off — power.ino */
+  ledcWrite(PIN_LCD_BL, 255);           /* full brightness until configLoad() below picks the real duty */
 
   if (!panel->begin()){ LOG("boot", "panel begin FAILED"); }
   panel->setTextWrap(false);
@@ -875,6 +928,7 @@ void setup(){
      out of range, is a working board with an honest banner on it. The first
      poll happens the moment wifi.ino gets online.                        */
   configLoad();                    /* config.ino — the endpoint and the saved networks */
+  applyBacklight();                /* the configured duty, now that it's loaded — power.ino */
   lockBegin();                     /* lock.ino — the persisted lockout count, if any */
   /* Display-only: the STATUS band's clock reads through this; net.ino's
      signing clock (time(nullptr)) never does — see the TZ_TABLE comment. */
@@ -902,6 +956,8 @@ void loop(){
   hotspotTick();            /* hotspot.ino — serves the setup page while the AP is up */
   cycleTick();              /* 5 s per screen, refetch when the loop wraps — net.ino */
   alertTick();
+  backlightTick();          /* re-applies the duty only when the charge state actually changes — power.ino */
+  batteryTick();            /* shuts the board down 2 min after the battery hits 10%, unless it recovers — power.ino */
   soundTick();              /* auto-clears a mute once its configured timeout elapses — sound.ino */
   lockTick();               /* auto-relocks an unlocked screen once its timeout elapses — lock.ino */
   render();                 /* ~25 fps; the alert flash and the count-up need it */

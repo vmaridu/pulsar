@@ -184,7 +184,7 @@ void handleKeys(){
 /* ------------------------------------------------------------------ touch
    Anywhere on the glass, no zones. A single tap waits DOUBLE_TAP_MS to be
    sure no second one follows, then moves to the next metric screen.       */
-struct TouchState { bool down, fired; uint32_t t0, seen; int16_t x0, y0, x, y; };
+struct TouchState { bool down, fired; uint32_t t0, seen; int16_t x0, y0, x, y, rawX, rawY; };
 static TouchState tp;
 static uint32_t touchPending = 0;
 
@@ -212,6 +212,10 @@ void handleTouch(){
        the middle and bottom rows specifically (lock.ino has the detail).
        "lock: tap at" (lock.ino) still logs the resolved cell on every tap,
        so if anything is still off, that log is the whole diagnosis.      */
+    tp.rawX = x[0]; tp.rawY = y[0];   /* the chip's own output, before any of the transform below —
+                                          logged alongside the resolved point on every touch-down,
+                                          since that raw pair is what a real fix here needs, not the
+                                          already-transformed one "down at" used to log alone.       */
     tp.x = y[0];
     tp.y = 239 - x[0];
   }
@@ -219,7 +223,7 @@ void handleTouch(){
 
   if (down && !tp.down){
     tp.down = true; tp.fired = false; tp.t0 = now; tp.x0 = tp.x; tp.y0 = tp.y;
-    LOGF("touch", "down at %d,%d", tp.x, tp.y);
+    LOGF("touch", "down at %d,%d (raw %d,%d)", tp.x, tp.y, tp.rawX, tp.rawY);
   } else if (!down && tp.down){
     tp.down = false;
     const bool still = abs(tp.x - tp.x0) < TOUCH_MOVE_PX && abs(tp.y - tp.y0) < TOUCH_MOVE_PX;

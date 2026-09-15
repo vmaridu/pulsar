@@ -175,6 +175,8 @@ footer a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--lin
         <button class="b" id="doNext">▸ next metric<kbd>→</kbd></button>
         <button class="b" id="doHold">⏸ pause cycle<kbd>h</kbd></button>
         <button class="b" id="doIntro">▶ boot intro<kbd>b</kbd></button>
+        <button class="b" id="doLock">🔒 lock<kbd>l</kbd></button>
+        <button class="b" id="doUnlock">🔓 unlock<kbd>u</kbd></button>
       </div>
     </div>
 
@@ -297,6 +299,19 @@ class GFX {
   fillRect(x, y, w, h, c){ this.x.fillStyle = c; this.x.fillRect(x*S, y*S, w*S, h*S); }
   hLine(x, y, w, c){ this.fillRect(x, y, w, 1, c); }
   vLine(x, y, h, c){ this.fillRect(x, 1*y, 1, h, c); }
+  /* a soft divider instead of a flat rule — fades in, peaks at the middle,
+     fades back out, so it reads as a hint of separation rather than a
+     hard drawn line. Same effect as ws_lcd_349/mockup.html's own. */
+  hFade(x, y, w, c){
+    const g = this.x, grad = g.createLinearGradient(x*S, 0, (x+w)*S, 0);
+    grad.addColorStop(0, 'transparent'); grad.addColorStop(0.5, c); grad.addColorStop(1, 'transparent');
+    g.fillStyle = grad; g.fillRect(x*S, y*S, w*S, S);
+  }
+  vFade(x, y, h, c){
+    const g = this.x, grad = g.createLinearGradient(0, y*S, 0, (y+h)*S);
+    grad.addColorStop(0, 'transparent'); grad.addColorStop(0.5, c); grad.addColorStop(1, 'transparent');
+    g.fillStyle = grad; g.fillRect(x*S, y*S, S, h*S);
+  }
   px(x, y, c){ this.fillRect(x, y, 1, 1, c); }
   circle(cx, cy, r, c){
     const g = this.x; g.fillStyle = c; g.beginPath();
@@ -511,7 +526,7 @@ const st = {
   sweepT0: 0,
   flashOn: false, wasFlash: false,
   muted: false, toastT0: 0, toastText: '',
-  locked: true, unlockedAt: 0, lockEntry: '', lockFails: [], lockLastDigitT0: 0,   // the privacy lock — lock.ino
+  locked: false, unlockedAt: Date.now(), lockEntry: '', lockFails: [], lockLastDigitT0: 0,   // the privacy lock — lock.ino; unlocked by default in this mockup for convenience (real hardware always boots locked — AGENTS.md §3). unlockedAt starts now, not 0, or lockTick() below would read the epoch as "long since expired" and re-lock on the very first tick
 };
 const g = new GFX(document.getElementById('screen'));
 const cur  = () => SNAP;
@@ -567,21 +582,23 @@ function drawStatus(th){
   g.hLine(0, y + h - 1, W, th.ink ? th.rule : (busy ? C.cy : C.line));
 }
 
-/* ALERT — the whole band is the level colour at full strength, no tint, no
-   black mixed in, and it holds steady at every level. The flash is the whole
-   screen's job, not this band's: see themeFor().                          */
-function drawAlert(){
+/* ALERT — plain background at rest, the same ground every other band
+   sits on. Colour lives entirely in the level word: bold, and at full
+   strength — that's the whole identification, no background tint needed
+   beside it. The flash is still the whole screen's job, not this band's
+   own resting look: see themeFor().                                     */
+function drawAlert(th){
   const [y, h] = B.alert;
-  const lv = level(), L = LV[lv], fault = !!SNAP.fault;
+  const lv = level(), L = LV[lv], ink = th.ink;
 
-  g.fillRect(0, y, W, h, L.c);
-  const word = C.ink;
+  g.fillRect(0, y, W, h, th.bg);
+  const wordC = ink ? th.tx : L.c;
 
-  /* heading and subscript: the level word loud, the message small under it */
+  const fault = !!SNAP.fault;
   const msg = (fault ? 'no route to host' : SNAP.alert.message).slice(0, 20);
-  g.text(L.w, X_L, y + 6, 2, word, 'l', true);
-  if (fault) g.text('HELD', X_R, y + 6, 2, word, 'r', true);
-  g.text(msg, X_L, y + 25, 1, C.ink);
+  g.text(fault ? 'OFFLINE' : L.w, X_L, y + 5, 2, wordC, 'l', true);
+  if (fault) g.text('HELD', X_R, y + 5, 2, wordC, 'r', true);
+  g.text(msg, X_L, y + 24, 1, ink ? th.tx : th.dim);
 }
 
 /* The graph is a quiet ground under the numbers: a soft fill that fades to
@@ -692,7 +709,7 @@ function drawBody(off){
   const r = curR(), o = y + off, lv = level(), th = themeFor(lv);
   g.fillRect(0, y, W, B.body[1], th.bg);
   /* under an alert a rule parts the ALERT band from the body — during a flash they share one ground */
-  if (FLASHES[lv]) g.hLine(X_L, y, X_R - X_L, th.rule);
+  if (FLASHES[lv]) g.hFade(X_L, y, X_R - X_L, th.rule);
   drawGraph(r, y + Y.graphTop, y + Y.base, off, th);
 
   const tiles = shownAggregates(), H_ = th.bg;
@@ -706,7 +723,7 @@ function drawBody(off){
   }
 
   /* a hairline between the two tile columns */
-  g.vLine(COL2 - 9, o + Y.tile1 + 2, Y.tile2 + 18 - Y.tile1, th.rule);
+  g.vFade(COL2 - 9, o + Y.tile1 + 2, Y.tile2 + 18 - Y.tile1, th.rule);
 
   const qx = [[X_L, COL2 - 14], [COL2, X_R]];
   const qy = [Y.tile1, Y.tile1, Y.tile2, Y.tile2];
@@ -1262,6 +1279,15 @@ function lockSubmit(){
   }
   sync();
 }
+/* a mockup-only shortcut to preview the unlocked view without typing the
+   code — real hardware only ever unlocks through lockSubmit() above */
+function lockForceUnlock(){
+  if (!st.locked) return;
+  st.locked = false; st.unlockedAt = Date.now(); st.view = 'main'; lockClear();
+  st.lockFails = [];
+  log('lock: <b>unlocked</b> (mockup shortcut)');
+  sync();
+}
 function lockDigit(d){
   if (lockRateLimited() || st.lockEntry.length >= 6) return;
   st.lockEntry += d;
@@ -1447,7 +1473,7 @@ function frame(){
       const f = clamp((t - (I_END - I_FADE)) / I_FADE, 0, 1);
       if (f <= 0) drawIntro(st.intro, t);
       else {
-        g.fillScreen(C.bg); drawBody(0); drawStatus(TH.dark); drawAlert(); drawFoot(TH.dark);
+        g.fillScreen(C.bg); drawBody(0); drawStatus(TH.dark); drawAlert(TH.dark); drawFoot(TH.dark);
         drawIntroOver(st.intro, t, f * f * (3 - 2 * f));
       }
       return requestAnimationFrame(frame);
@@ -1479,7 +1505,7 @@ function frame(){
     if (lockIsLocked()) drawLockedBody(th);
     else drawBody(off);      // first, so the fixed bands cover any slide overhang
     drawStatus(th);
-    drawAlert();
+    drawAlert(th);
     if (!lockIsLocked()) drawFoot(th);
   }
   /* The sound rides the flash, and runs whatever is on screen and whether or
@@ -1647,6 +1673,8 @@ document.querySelectorAll('.key[data-k]').forEach(el => {
 });
 $('#doPoll').onclick = () => poll(true);
 $('#doIntro').onclick = () => { st.view = 'main'; st.screenT0 = Date.now(); startIntro(); };
+$('#doLock').onclick = lockEngage;
+$('#doUnlock').onclick = lockForceUnlock;
 $('#doFault').onclick = () => {
   SNAP.fault = SNAP.fault ? null : 'OFFLINE';
   if (SNAP.fault){
@@ -1680,6 +1708,8 @@ addEventListener('keydown', e => {
   else if (k === 'f') $('#doFault').click();
   else if (k === 'z') toggleReal();
   else if (k === 'b') $('#doIntro').click();
+  else if (k === 'l') $('#doLock').click();
+  else if (k === 'u') $('#doUnlock').click();
   else if (k === ' ') { e.preventDefault(); $('#doPwr').click(); }
   else return;
   e.preventDefault();
@@ -1736,6 +1766,5 @@ st.screenT0 = Date.now();
 log('boot · gateway <b>' + joinGateways() + '</b> · ' + SNAP.metrics.length
     + ' metric screens · poll every ' + Math.round(pollInterval() / 1000) + ' s');
 sync();
-startIntro();
-frame();
+frame();   // straight to the dashboard — boot intro <kbd>b</kbd> replays it on demand
 </script>

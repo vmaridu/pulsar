@@ -120,12 +120,22 @@ static void wifiNoteDown(){
    The signed request mode needs a clock the backend will accept — api.md's
    HMAC appendix rejects a timestamp more than 60 s out, and this board has
    no RTC, so it starts in 1970 every time. SNTP is asked once per join and
-   polled for an answer; nothing waits on it. The STATUS band's clock is
-   unaffected either way: that shows the payload's own measured_at, which is
-   the time of the data and not the time now.                              */
+   polled for an answer; nothing waits on it.
+
+   configTime()'s own gmtOffset/daylightOffset args (0, 0 below) are not a
+   no-op: the ESP32 core builds a "UTC0" TZ string from them and calls
+   setenv("TZ",...)/tzset() itself, silently overwriting whatever setup()
+   applied from TZ_TABLE — so the STATUS band's clock (measured_at, via
+   localtime_r()) would read UTC again within seconds of every Wi-Fi join,
+   no matter what was picked on the setup page. Reapplying cfg.tzIndex
+   right after is what actually keeps it. Signed requests are still
+   unaffected either way: those always sign time(nullptr), raw UTC
+   seconds, never localtime_r().                                          */
 static void wifiTimeBegin(){
   net.timeSynced = false;
   configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+  setenv("TZ", TZ_TABLE[cfg.tzIndex < TZ_COUNT ? cfg.tzIndex : TZ_DEFAULT_INDEX].posix, 1);
+  tzset();
 }
 static void wifiTimePoll(){
   if (net.timeSynced) return;

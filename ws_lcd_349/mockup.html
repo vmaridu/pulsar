@@ -1,0 +1,1402 @@
+<title>Pulsar · 640×172</title>
+<style>
+:root{
+  --bg:#05070a; --pane:#0b0f16; --line:#161c27; --line2:#232c3b;
+  --tx:#e6edf7; --dim:#7f8fa8; --dim2:#4d5c76;
+  --cy:#22d3ee; --gr:#5cf22e; --or:#ff7a00; --rd:#ff2626; --gy:#8aa0c0;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:var(--mono);font-size:12px;
+     -webkit-font-smoothing:antialiased}
+.wrap{max-width:860px;margin:0 auto;padding:30px 20px 56px}
+
+header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+header h1{font-size:14px;font-weight:600;margin:0;letter-spacing:.02em}
+header .sub{color:var(--dim2);font-size:10.5px}
+header .dot{color:var(--cy)}
+
+/* ---------- device stage ---------- */
+.deviceStage{position:relative;margin:34px 0 18px;padding:44px 16px;border-radius:22px;
+  display:flex;justify-content:center;
+  background:radial-gradient(ellipse 70% 80% at 50% 50%,rgba(34,211,238,.06),transparent 72%)}
+
+.caseWrap{position:relative;width:min(92vw,760px);aspect-ratio:640/172;transition:aspect-ratio .3s ease}
+.caseWrap.device{aspect-ratio:672/212}
+.panel{position:absolute;inset:0;border-radius:5px;overflow:hidden;background:#000;
+  box-shadow:0 0 0 1px var(--line2),0 26px 60px -22px #000,0 0 44px -22px rgba(34,211,238,.35);
+  transition:left .3s ease,top .3s ease,width .3s ease,height .3s ease,border-radius .3s ease}
+.caseWrap.device .panel{left:2.381%;top:12.2642%;width:95.2381%;height:81.1321%;border-radius:2px}
+.panel canvas{display:block;width:100%;height:100%;image-rendering:pixelated}
+/* actual size: the wrap gets an exact px width computed from a real mm
+   figure, overriding the responsive min(92vw,760px) above; height then
+   just follows from the aspect-ratio already set on .caseWrap */
+.caseWrap.real .panel{border-radius:1px}
+.caseWrap.real .caseBody{stroke-width:1.4}
+
+.caseArt{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity .3s;pointer-events:none}
+.caseWrap.device .caseArt{opacity:1}
+.caseBody{fill:none;stroke:var(--cy);stroke-width:2}
+/* the three case buttons stay clickable even though the rest of the SVG
+   (outline, body) is click-through — each is a <g> with an invisible
+   generous hit area plus the small visible glyph */
+.caseBtn{pointer-events:auto;cursor:pointer}
+.caseBtn .hitArea{fill:transparent}
+.caseKey{fill:none;stroke:var(--cy);stroke-width:1.6;opacity:.85;transition:opacity .15s,filter .15s}
+.caseIcon{fill:var(--cy);opacity:.85;transition:opacity .15s,filter .15s}
+.caseBtn.pressed .caseKey,.caseBtn.pressed .caseIcon{opacity:1;filter:drop-shadow(0 0 4px rgba(34,211,238,.7))}
+
+/* ---------- controls ---------- */
+.controlRow{display:flex;justify-content:center}
+.controls{display:inline-flex;gap:3px;padding:3px;border:1px solid var(--line);border-radius:9px;background:var(--pane)}
+.controls button{border:none;background:transparent;color:var(--dim);border-radius:6px;
+  padding:7px 13px;font-family:var(--mono);font-size:11px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px}
+.controls button:hover{color:var(--tx)}
+.controls button.on{background:#07222a;color:var(--cy)}
+kbd{border:1px solid var(--line);border-radius:3px;padding:0 4px;font-size:9px;color:var(--dim2)}
+
+.note{color:var(--dim2);font-size:10.5px;line-height:1.6;max-width:420px;text-align:center;
+  margin:14px auto 0}
+
+.calib{display:flex;flex-direction:column;gap:9px;align-items:center;
+  border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--pane);
+  margin:14px auto 0;width:min(92vw,420px)}
+.calRow{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;justify-content:center;
+  color:var(--dim);font-size:10.5px}
+.calib input{width:60px;background:#0e131c;border:1px solid var(--line2);color:var(--tx);
+  border-radius:4px;padding:3px 5px;font-family:var(--mono);font-size:11px}
+.calDim{color:var(--dim2)}
+.cardRef{border:1px dashed #3b4a63;display:flex;align-items:center;justify-content:center;
+  color:var(--dim2);font-size:10px;text-align:center;padding:6px}
+.calNote{margin:0;color:var(--dim2);font-size:10px;line-height:1.55;max-width:300px;text-align:center}
+
+/* ---------- rail cards (interact, alert level, log) ---------- */
+.card{border:1px solid var(--line);border-radius:9px;background:var(--pane);padding:12px 14px;
+  width:min(92vw,420px);margin:14px auto 0}
+.card h3{margin:0 0 10px;font-size:10px;font-weight:500;color:var(--dim2);
+  letter-spacing:.14em;text-transform:uppercase}
+.row{display:flex;gap:7px;flex-wrap:wrap}
+.b{border:1px solid var(--line2);background:#0e131c;color:var(--dim);border-radius:6px;
+  padding:7px 11px;font-family:var(--mono);font-size:11px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:7px}
+.b:hover{border-color:#3b4a63;color:var(--tx)}
+.b.act{border-color:#14424e;background:#07222a;color:var(--cy)}
+.lvls{display:flex;gap:6px}
+.lv{flex:1;border:1px solid var(--line2);background:#0e131c;border-radius:6px;padding:7px 0;
+  text-align:center;font-family:var(--mono);font-size:10.5px;cursor:pointer;color:var(--dim);
+  letter-spacing:.06em}
+.lv[data-l=info].on{border-color:#1a6b3d;background:#071c11;color:var(--gr)}
+.lv[data-l=warning].on{border-color:#7a3a0a;background:#1d0e04;color:var(--or)}
+.lv[data-l=critical].on{border-color:#7d2532;background:#1f070c;color:var(--rd)}
+.log{font-size:10.5px;line-height:1.75;color:var(--dim2);max-height:150px;overflow:auto}
+.log b{color:var(--dim);font-weight:400}
+.log .t{color:#3d4a5f;margin-right:7px}
+
+footer{margin-top:36px;color:var(--dim2);font-size:10.5px;line-height:1.8;text-align:center}
+</style>
+
+<div class="wrap">
+
+<header>
+  <h1><span class="dot">⚡</span> Pulsar</h1>
+  <span class="sub">3.49″ IPS · 640 × 172 landscape · AXS15231B</span>
+</header>
+
+<div class="deviceStage">
+  <div class="caseWrap device" id="caseWrap">
+    <div class="panel" id="panel">
+      <canvas id="screen" width="1280" height="344"></canvas>
+    </div>
+    <svg class="caseArt" viewBox="0 0 672 212" preserveAspectRatio="none" aria-hidden="true">
+      <rect x="1" y="1" width="670" height="210" rx="14" ry="14" class="caseBody"/>
+      <g class="caseBtn" data-btn="left" title="tap: settings · hold 2s: setup hotspot">
+        <circle cx="594" cy="13" r="7.7" class="hitArea"/>
+        <circle cx="594" cy="13" r="7" class="caseKey" fill="none"/>
+        <path d="M596.1,8.8 L590.5,13 L596.1,17.2 Z" class="caseIcon"/>
+      </g>
+      <g class="caseBtn" data-btn="power" title="hold 2s: power off / on">
+        <circle cx="616" cy="13" r="7.7" class="hitArea"/>
+        <circle cx="616" cy="13" r="7" class="caseKey" fill="none"/>
+        <circle cx="616" cy="13.7" r="3.5" class="caseKey" fill="none"/>
+        <line x1="616" y1="8.1" x2="616" y2="13" class="caseKey"/>
+      </g>
+      <g class="caseBtn" data-btn="right" title="tap: display on/off · double-tap: mute · hold 2s: lock / unlock">
+        <circle cx="638" cy="13" r="7.7" class="hitArea"/>
+        <circle cx="638" cy="13" r="7" class="caseKey" fill="none"/>
+        <path d="M635.9,8.8 L641.5,13 L635.9,17.2 Z" class="caseIcon"/>
+      </g>
+    </svg>
+  </div>
+</div>
+
+<div class="controlRow">
+  <div class="controls">
+    <button id="doIntro">▶ replay boot<kbd>b</kbd></button>
+    <button id="tgCase" class="on" title="v">device view<kbd>v</kbd></button>
+    <button id="tgReal" title="z">actual size<kbd>z</kbd></button>
+  </div>
+</div>
+<div class="calib" id="calib" hidden>
+  <div class="calRow">
+    <label>your screen <input id="diag" type="number" min="5" max="45" step="0.1" value="14"> in diagonal</label>
+    <span class="calDim" id="calRes"></span>
+  </div>
+  <div class="cardRef" id="cardRef">lay a bank card here —<br>edges should line up</div>
+  <p class="calNote">A browser cannot read a screen's physical size, so enter it once (saved in
+    this browser). If the card is off, nudge the number. Keep page zoom at 100 %.</p>
+</div>
+
+<div class="card">
+  <h3>Interact</h3>
+  <div class="row">
+    <button class="b" id="doNext">▸ next metric<kbd>n</kbd></button>
+    <button class="b" id="doHold">⏸ pause cycle<kbd>h</kbd></button>
+    <button class="b act" id="doPwr">🔌 on charger<kbd>p</kbd></button>
+    <button class="b" id="doLock">🔒 lock<kbd>l</kbd></button>
+    <button class="b" id="doUnlock">🔓 unlock<kbd>u</kbd></button>
+  </div>
+  <p class="hint" style="color:var(--dim2);font-size:10px;margin:9px 0 0">
+    Top-right case buttons: left arrow (tap: settings · hold 2s: setup hotspot), power
+    (hold 2s: off/on), right arrow (tap: display · double-tap: mute · hold 2s: lock/unlock).
+  </p>
+</div>
+
+<div class="card">
+  <h3>alert.level</h3>
+  <div class="lvls">
+    <div class="lv" data-l="info">INFO</div>
+    <div class="lv" data-l="warning">WARNING</div>
+    <div class="lv" data-l="critical">CRITICAL</div>
+  </div>
+  <div class="row" style="margin-top:9px">
+    <button class="b" id="doFault">simulate OFFLINE<kbd>f</kbd></button>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Log</h3>
+  <div class="log" id="log"></div>
+</div>
+
+<footer>
+  Build in ws_lcd_349/device.md · shared behaviour in docs/functional-requirements.md · contract in docs/api.md.
+</footer>
+</div>
+
+<script>
+/* ==========================================================================
+   Pulsar · ESP32-S3-Touch-LCD-3.49 · 640 × 172
+   Device coords are x:0..639, y:0..171. This build's own layout — four
+   fixed VERTICAL strips instead of ws_lcd_154's horizontal ones, because a
+   640x172 letterbox has width to spend and almost no height:
+     STATUS  a narrow strip at the far left  — device internals only
+     ALERT   the first third of what's left  — level + message, its own
+             dedicated third, not a thin bar
+     BODY    the other two thirds            — the current metric's tiles
+             and graph, side by side, cycling every 5 s
+     FOOTER  a narrow strip at the far right — gateway + metric name,
+             read top-to-bottom since there's no width to spare for it
+   Same colour coding, number formatting, tile shape and alert sound as
+   ws_lcd_154/mockup.html — only the arrangement on screen is different.
+   ========================================================================== */
+const W = 640, H = 172;
+const S = 2;   // canvas px per device px — supersampled for crisp text/lines
+const SCREEN_MS = 5000, POLL_MIN_MS = 30000;
+
+/* real-world mm figures for the "actual size" toggle. GLASS is exact — the
+   3.49" diagonal at 640x172 fixes it. CASE is device.md's own "~98.5 mm
+   long" hardware-table figure — the only case dimension it gives, so only
+   the width is real; the height still follows the case sketch's own
+   (illustrative) proportions, same caveat as the case outline itself. */
+const GLASS_MM = [85.616, 23.006], CASE_MM = 98.5;
+
+/* what the radio reports once it's joined a saved network — set over the
+   setup hotspot on real hardware, standing in for an already-set-up board
+   here, same as ws_lcd_154/mockup.html's own NET. Settings screen only. */
+const NET = { ssid: 'Office', rssi: -58, ip: '192.168.1.42' };
+
+const q565 = hex => {
+  const v = parseInt(hex.slice(1), 16);
+  const R = ((v >> 16) & 255) & 0xF8, G = ((v >> 8) & 255) & 0xFC, Bl = (v & 255) & 0xF8;
+  return '#' + [R | (R >> 5), G | (G >> 6), Bl | (Bl >> 5)]
+    .map(x => x.toString(16).padStart(2, '0')).join('');
+};
+const clamp = (v,a,b) => v < a ? a : v > b ? b : v;
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+const sum = a => a.reduce((x,y) => x + y, 0);
+
+/* --- palette, quantised to RGB565 like the panel ------------------------ */
+const C = {};
+for (const [k, v] of Object.entries({
+  bg:'#05070c', pane:'#0c1422', line:'#1c2740', line2:'#28344a',
+  tx:'#e6edf7', dim:'#7f8fa8', dim2:'#4d5c76',
+  cy:'#22d3ee', cyD:'#0a3a47',
+  gr:'#5cf22e', grD:'#12380c',
+  or:'#ff7a00', orD:'#3d1c00',
+  rd:'#ff2626', rdD:'#4a0c0c',
+  gy:'#8aa0c0', gyD:'#18202d',
+  ink:'#04060a',
+})) C[k] = q565(v);
+
+const LV = {
+  info:     { w:'INFO',     c:C.gr, d:C.grD },
+  warning:  { w:'WARNING',  c:C.or, d:C.orD },
+  critical: { w:'CRITICAL', c:C.rd, d:C.rdD },
+  fault:    { w:'OFFLINE',  c:C.gy, d:C.gyD },
+};
+/* warning/critical/fault flash the WHOLE screen for 500 ms every 5 s screen,
+   synced to the cycle. critical gets the full alert sound; warning and a
+   fault get a shorter, quieter notice — never both, info gets neither. */
+const FLASHES = { info:false, warning:true,  critical:true,  fault:true  };
+const SOUNDS  = { info:null,  warning:'notice', critical:'alert', fault:'notice' };
+const ALERT_FLASH_MS = 500;
+
+/* the privacy lock — functional-requirements.md §6. This mockup hardcodes
+   the code and the auto-relock timeout rather than reading them from a
+   setup page that doesn't exist yet for this build; ws_lcd_154's own
+   mockup pulls the same two figures from CFG once it has one. */
+const LOCK_CODE = '123456', LOCK_TIMEOUT_MIN = 30;
+const LOCK_FAIL_WINDOW_MS = 30 * 60000, LOCK_MAX_FAILS = 5, LOCK_REVEAL_MS = 550;
+
+/* ==========================================================================
+   GFX — device pixels in, canvas pixels out.
+   ========================================================================== */
+const MONO = 'ui-monospace,SFMono-Regular,Menlo,Consolas,monospace';
+class GFX {
+  constructor(cv){ this.x = cv.getContext('2d'); this.x.textBaseline = 'middle'; }
+  fillScreen(c){ this.x.fillStyle = c; this.x.fillRect(0, 0, W*S, H*S); }
+  fillRect(x, y, w, h, c){ this.x.fillStyle = c; this.x.fillRect(x*S, y*S, w*S, h*S); }
+  hLine(x, y, w, c){ this.fillRect(x, y, w, 1, c); }
+  vLine(x, y, h, c){ this.fillRect(x, y, 1, h, c); }
+  /* a soft divider instead of a flat rule — fades in from nothing, peaks
+     at the middle, fades back out, so it reads as a hint of separation
+     rather than a hard drawn line. Used for every column/section divider
+     in this build's dashboard. */
+  vFade(x, y, h, c){
+    const g = this.x, grad = g.createLinearGradient(0, y*S, 0, (y+h)*S);
+    grad.addColorStop(0, 'transparent'); grad.addColorStop(0.5, c); grad.addColorStop(1, 'transparent');
+    g.fillStyle = grad; g.fillRect(x*S, y*S, S, h*S);
+  }
+  hFade(x, y, w, c){
+    const g = this.x, grad = g.createLinearGradient(x*S, 0, (x+w)*S, 0);
+    grad.addColorStop(0, 'transparent'); grad.addColorStop(0.5, c); grad.addColorStop(1, 'transparent');
+    g.fillStyle = grad; g.fillRect(x*S, y*S, w*S, S);
+  }
+  px(x, y, c){ this.fillRect(x, y, 1, 1, c); }
+  circle(cx, cy, r, c){
+    const g = this.x; g.fillStyle = c; g.beginPath();
+    g.arc(cx*S + S/2, cy*S + S/2, r*S + S/2, 0, 6.2832); g.fill();
+  }
+  ring(cx, cy, r, c){
+    const g = this.x; g.strokeStyle = c; g.lineWidth = S; g.beginPath();
+    g.arc((cx + 0.5)*S, (cy + 0.5)*S, r*S, 0, 6.2832); g.stroke();
+  }
+  line(x0, y0, x1, y1, c){
+    const g = this.x; g.strokeStyle = c; g.lineWidth = S; g.beginPath();
+    g.moveTo((x0 + 0.5)*S, (y0 + 0.5)*S); g.lineTo((x1 + 0.5)*S, (y1 + 0.5)*S); g.stroke();
+  }
+  tri(x0,y0,x1,y1,x2,y2,c){
+    const g = this.x; g.fillStyle = c; g.beginPath();
+    g.moveTo(x0*S,y0*S); g.lineTo(x1*S,y1*S); g.lineTo(x2*S,y2*S); g.closePath(); g.fill();
+  }
+  text(str, x, y, size, c, align = 'l', bold = false){
+    str = String(str);
+    const cw = 6*size, w = str.length*cw;
+    if (align === 'c') x = Math.round(x - w/2);
+    if (align === 'r') x = x - w;
+    const g = this.x;
+    g.font = `${bold ? 600 : 400} ${Math.round(7.4*size*S)}px ${MONO}`;
+    g.textAlign = 'center';
+    g.fillStyle = c;
+    for (let i = 0; i < str.length; i++){
+      if (str[i] === ' ') continue;
+      const px = (x + i*cw + (6*size)/2)*S, py = (y + 4*size)*S;
+      g.fillText(str[i], px, py);
+      if (bold) g.fillText(str[i], px + S*0.5, py);
+    }
+    return w;
+  }
+}
+const g = new GFX(document.getElementById('screen'));
+
+/* --- number formatting, shared with ws_lcd_154/mockup.html -------------- */
+const UNITS = [[1e3, 'k'], [1e6, 'm'], [1e9, 'b']];
+function count(n){
+  n = Math.max(0, Math.round(n));
+  if (String(n).length <= 5) return String(n);
+  for (const [u, suf] of UNITS){
+    for (const d of [2, 1, 0]){
+      const t = (n / u).toFixed(d);
+      if (+t >= 1000) break;
+      if (t.length + 1 <= 5) return (d ? t.replace(/\.?0+$/, '') : t) + suf;
+    }
+  }
+  return '>999b';
+}
+function latency(ms){
+  ms = Math.max(0, Math.round(ms));
+  if (ms < 1e4) return [String(ms), 'ms'];
+  const sec = ms / 1000;
+  return [sec < 100 ? sec.toFixed(1) : String(Math.min(9999, Math.round(sec))), 's'];
+}
+const share = (p, digits = 2) => p >= 99.995 ? '100%'
+                               : p >= 10 && digits < 2 ? p.toFixed(1) + '%' : p.toFixed(2) + '%';
+function tileValue(v, unit){
+  if (unit === 'ms') return latency(v);
+  if (unit === '%') return [share(v, 1), null];
+  if (unit === 's') return [v.toFixed(1), 's'];
+  return [count(v), null];
+}
+function spanCaption(r){
+  let span = r.bucket_size * r.bucket_count, u = (r.bucket_unit || 'm')[0].toUpperCase();
+  if (u === 'S' && span >= 60){ span = Math.round(span / 60); u = 'M'; }
+  if (u === 'M' && span >= 60){ span = Math.round(span / 60); u = 'H'; }
+  return 'LAST ' + span + u;
+}
+function pct(n, t){ return t ? Math.round((n * 100 / t) * 100) / 100 : 0; }
+
+/* status clock — measured_at's time, never the viewer's own time zone.
+   TZ_NAME mirrors ws_lcd_154.ino's TZ_TABLE default, US Eastern with DST. */
+const TZ_NAME = 'America/New_York';
+const dateFmt = new Intl.DateTimeFormat('en-US', { timeZone: TZ_NAME, month: '2-digit', day: '2-digit' });
+const timeFmt = new Intl.DateTimeFormat('en-US', { timeZone: TZ_NAME, hour: '2-digit', minute: '2-digit', hour12: true });
+function dateText(){ return dateFmt.format(new Date(SNAP.measured_at * 1000)); }
+function timeText(){
+  const parts = timeFmt.formatToParts(new Date(SNAP.measured_at * 1000));
+  const get = t => parts.find(p => p.type === t).value;
+  return `${get('hour')}:${get('minute')} ${get('dayPeriod')}`;
+}
+
+/* ==========================================================================
+   Sample payload — shaped like docs/api.md, same rows ws_lcd_154's own
+   mockup uses, so both boards read as if pointed at the same backend.
+   ========================================================================== */
+function mkTile(name, value, unit, level){
+  const t = { name, value };
+  if (unit) t.unit = unit;
+  if (level) t.level = level;
+  return t;
+}
+function levelFor(name, share){
+  if (name === '5XX') return share >= 1 ? 'critical' : share >= 0.5 ? 'warning' : undefined;
+  if (name === '4XX') return share >= 2 ? 'warning' : undefined;
+  return undefined;
+}
+function row(gateway, name, buckets, c4, c5, avg, p95){
+  const total = sum(buckets);
+  const c2 = total - c4 - c5;
+  return {
+    gateway, name,
+    bucket_unit: 'm', bucket_size: 1, bucket_count: 30,
+    buckets_value_type: 'total_count',
+    buckets,
+    aggregates: [
+      mkTile('2XX', c2),
+      mkTile('4XX', c4, null, levelFor('4XX', pct(c4, total))),
+      mkTile('5XX', c5, null, levelFor('5XX', pct(c5, total))),
+      mkTile('AVG', avg, 'ms'),
+      mkTile('P95', p95, 'ms'),
+    ],
+  };
+}
+function retotal(r){
+  const total = sum(r.buckets);
+  const byName = n => r.aggregates.find(t => t.name === n);
+  const t4 = byName('4XX'), t5 = byName('5XX'), t2 = byName('2XX');
+  t2.value = total - t4.value - t5.value;
+  const l4 = levelFor('4XX', pct(t4.value, total));
+  const l5 = levelFor('5XX', pct(t5.value, total));
+  if (l4) t4.level = l4; else delete t4.level;
+  if (l5) t5.level = l5; else delete t5.level;
+}
+const parts = [
+  row('Orders',   'Created',    [649,625,606,646,647,632,636,610,640,616,607,641,621,633,633,
+                                  613,614,611,607,627,648,609,630,627,632,610,631,618,630,634], 109, 15, 42, 180),
+  row('Orders',   'Dispatched', [304,302,302,291,302,296,313,291,309,302,302,300,285,298,289,
+                                  287,285,306,302,303,314,302,291,313,288,293,303,299,290,292],  40,  5, 55, 230),
+  row('Orders',   'Cancelled',  [ 40, 39, 41, 37, 40, 38, 38, 40, 41, 39, 37, 39, 39, 40, 39,
+                                   38, 41, 38, 39, 40, 37, 38, 40, 39, 40, 37, 38, 40, 39, 38],  11,  2, 61, 240),
+  row('Payments', 'Paid',       [488,490,468,496,484,469,502,489,480,470,484,500,490,481,480,
+                                  495,481,480,476,500,483,470,488,468,494,483,486,487,480,483],  51,  7, 71, 310),
+  row('Payments', 'Declined',   [ 27, 26, 28, 27, 28, 26, 27, 27, 27, 26, 28, 27, 27, 26, 27,
+                                   28, 27, 26, 27, 28, 27, 26, 27, 27, 26, 28, 27, 27, 28, 26],   9,  2, 68, 260),
+];
+const SNAP = {
+  alert: { level: 'info', message: 'error budget healthy' },
+  metrics: parts,
+  measured_at: Math.floor(Date.now() / 1000),
+  polledAt: Date.now(),
+  fault: null,
+};
+
+/* ==========================================================================
+   Layout — three equal vertical columns, 640/3 each:
+     part 1  STATUS (battery, wifi) over ALERT (level, message, clock) —
+             calm and dark at rest; colour lives in the level word only.
+             The whole-screen flash still turns the whole thing solid —
+             that's a screen-wide event, not this column's own resting look.
+     part 2  the current metric's graph alone, its heading tile and span
+             overlaid on top of it
+     part 3  the metric's other aggregates (up to 4), gateway + name, and
+             the position rule — which of the metric screens is current
+   Cycles to the next metric every 5 s, same as before.
+   ========================================================================== */
+const COL_X = [0, Math.round(W/3), Math.round(2*W/3), W];
+const COL_W = [COL_X[1]-COL_X[0], COL_X[2]-COL_X[1], COL_X[3]-COL_X[2]];
+/* part 1's STATUS row and part 3's header are both "the top bar of this
+   column" — one height for both, so they line up across the screen. */
+const TOP_BAR_H = 26;
+
+/* --- theme: one for calm, one lit per level for the whole-screen flash --- */
+const FADE = 12, SWEEP_MS = 900;
+const mix = (a, b, t) => {
+  const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const [x, y] = [p(a), p(b)];
+  return q565('#' + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, '0')).join(''));
+};
+const INK_HEX = '#04060a';
+const litTheme = hex => ({
+  bg: q565(hex), tx: C.ink, dim: mix(hex, INK_HEX, 0.62), rule: mix(hex, INK_HEX, 0.35),
+  gLine: mix(hex, INK_HEX, 0.70),
+  gFill: Array.from({ length: FADE }, (_, i) => mix(hex, INK_HEX, 0.22 - i * 0.016)),
+  ink: true,
+});
+const TH = {
+  dark: { bg: C.bg, tx: C.tx, dim: C.dim, rule: C.line,
+          gLine: mix('#05070c', '#22d3ee', 0.62),
+          gFill: Array.from({ length: FADE }, (_, i) => mix('#05070c', '#22d3ee', 0.15 - i * 0.012)),
+          ink: false },
+  critical: litTheme('#ff2626'),
+  warning:  litTheme('#ff7a00'),
+  fault:    litTheme('#8aa0c0'),
+};
+const themeFor = lv => FLASHES[lv] && st.flashOn ? TH[lv] : TH.dark;
+function levelColor(level, th){
+  if (th.ink) return null;
+  if (level === 'critical') return C.rd;
+  if (level === 'warning')  return C.or;
+  return null;
+}
+
+/* a small lightning bolt — the explicit "charging" tell beside the
+   battery shell, so charging never depends on noticing a colour change */
+function drawChargeIcon(x, y, c){
+  g.tri(x+5, y,     x,     y+4, x+4, y+4, c);
+  g.tri(x+4, y+3,   x+6,   y+3, x+1, y+8, c);
+}
+/* a speaker with a cross — 12 x 7, same shape as ws_lcd_154's own mute icon */
+function drawMuteIcon(x, y, c){
+  g.fillRect(x, y+2, 2, 3, c);
+  g.tri(x+2, y+3, x+5, y, x+5, y+6, c);
+  g.line(x+7, y+1, x+11, y+5, c);
+  g.line(x+7, y+5, x+11, y+1, c);
+}
+/* battery: shell + inset fill, colour-neutral (charge state only, never
+   the alert level) — cyan while plugged, dim on battery */
+function drawBattery(x, y, th){
+  const ink = th.ink, bw = 26, bh = 14, pctv = 0.82;
+  const shell = ink ? th.rule : C.line2;
+  g.fillRect(x, y, bw, bh, shell);
+  g.fillRect(x+2, y+2, bw-4, bh-4, th.bg);
+  g.fillRect(x+2, y+2, Math.max(2, Math.round((bw-4)*pctv)), bh-4,
+             ink ? th.tx : (st.plugged ? C.cy : C.dim));
+  g.fillRect(x+bw, y+bh/2-2, 2, 4, shell);
+  if (st.plugged) drawChargeIcon(x+bw+3, y+3, ink ? th.tx : C.cy);   // vertically centred beside the shell (shell spans y..y+14)
+  g.text(Math.round(pctv*100) + '%', x+bw + (st.plugged ? 21 : 10), y+3, 1, ink ? th.tx : C.dim2, 'l', true);
+}
+/* four ascending bars, bottom-aligned, even width and gap — anchored by
+   their own right edge so the icon can sit flush against a margin */
+function drawWifi(xRight, yBase, c){
+  const n = 4, bw = 3, gap = 2, heights = [5, 8, 11, 14];
+  const left = xRight - (n*bw + (n-1)*gap);
+  for (let i = 0; i < n; i++)
+    g.fillRect(left + i*(bw+gap), yBase - heights[i], bw, heights[i], c);
+}
+
+/* part 1 — STATUS (battery, wifi) over ALERT (level, message, clock).
+   Dark and calm at rest, the same as parts 2 and 3; only the level word
+   itself carries colour. The whole-screen flash (see frame()) still turns
+   this whole column, and every other, solid — that happens through `th`,
+   not a fill this function hardcodes. */
+function drawPart1(th){
+  const x = COL_X[0], w = COL_W[0], ink = th.ink, statusH = TOP_BAR_H, cx = x + w/2;
+  g.fillRect(x, 0, w, H, th.bg);
+
+  drawBattery(x + 12, 6, th);
+  drawWifi(x + w - 12, 20, ink ? th.tx : C.dim);
+  if (st.muted) drawMuteIcon(x + w - 46, 6, ink ? th.tx : C.dim);   // left of the wifi bars, same convention as ws_lcd_154's STATUS band
+  g.hFade(x + 10, statusH, w - 20, ink ? th.rule : C.line);
+
+  /* everything below the divider is centred — level, message and clock
+     all read as one calm block in the middle of a column with room to
+     spare, rather than pinned to the left edge */
+  const lv = level(), fault = !!SNAP.fault;
+  const wordC = ink ? th.tx : (fault ? C.gy : LV[lv].c);
+  g.text(fault ? 'OFFLINE' : LV[lv].w, cx, statusH + 24, 3, wordC, 'c', true);
+  const msg = (fault ? 'no route to host' : SNAP.alert.message).slice(0, 20);
+  g.text(msg, cx, statusH + 68, 1.5, th.tx, 'c', true);
+  if (fault) g.text('HELD', cx, statusH + 92, 1.2, wordC, 'c', true);
+  g.text(dateText() + '   ' + timeText(), cx, H - 30, 1.5, th.dim, 'c');
+
+  g.vFade(x + w - 1, 0, H, ink ? th.rule : C.line);
+}
+
+/* the sparkline, generalised to any x0/width so it can sit inside BODY's
+   own graph column instead of assuming the full screen width */
+function graphCols(r, x0, w, top, base, off, th){
+  const b = r.buckets;
+  if (!b || b.length < 2 || r.buckets_value_type !== 'total_count') return;
+  const PH = base - top, YB = base + off;
+  let hi = 1;
+  for (const v of b) hi = Math.max(hi, v);
+  const sweep = clamp((Date.now() - st.sweepT0) / SWEEP_MS, 0, 1);
+  const cols = Math.round(w * easeOut(sweep));
+  const step = PH / FADE;
+  let prev = -1;
+  for (let px = 0; px < cols; px++){
+    const pos = px * (b.length - 1) * 256 / (w - 1);
+    const i = pos >> 8, fr = pos & 255;
+    const a = b[i], c = b[Math.min(i + 1, b.length - 1)];
+    const ph = Math.round((a + ((c - a) * fr >> 8)) * (PH - 1) / hi);
+    const yTop = YB - ph;
+    for (let k = 0; k < FADE; k++){
+      const s0 = Math.round(YB - PH + k*step), s1 = Math.round(YB - PH + (k + 1)*step);
+      const from = Math.max(s0, yTop + 2), to = Math.min(s1, YB + 1);
+      if (to > from) g.fillRect(x0 + px, from, 1, to - from, th.gFill[k]);
+    }
+    const y0 = prev < 0 ? yTop : Math.min(prev, yTop), y1 = prev < 0 ? yTop : Math.max(prev, yTop);
+    g.fillRect(x0 + px, y0, 1, y1 - y0 + 1, th.gLine);
+    prev = yTop;
+  }
+}
+
+/* part 2 — the graph alone, the heading aggregate and its span overlaid
+   on top of it rather than in a separate row: there's a whole column to
+   itself now, no need to split it further. */
+function drawGraphPart(off, th){
+  const x = COL_X[1], w = COL_W[1], ink = th.ink;
+  g.fillRect(x, 0, w, H, th.bg);
+  const r = curR(), tiles = shownAggregates(), hero = tiles[0];
+
+  graphCols(r, x + 4, w - 8, 54, H - 12, off, th);
+
+  if (hero){
+    const [hv, hu] = tileValue(hero.value, hero.unit);
+    const hot = levelColor(hero.level, th);
+    const wv = g.text(hv, x + 8, off + 8, 3, hot || th.tx, 'l', true);
+    if (hu) g.text(hu, x + 8 + wv + 3, off + 26, 1, th.dim);
+    g.text(hero.name, x + w - 8, off + 8, 2, th.dim, 'r');
+    g.text(spanCaption(r), x + w - 8, off + 26, 1, hot || th.dim, 'r');
+  }
+  g.vFade(x + w - 1, 0, H, ink ? th.rule : C.line);
+}
+
+/* part 3 — the metric's other tiles (up to 4), gateway + name, and the
+   position rule (which of the metric screens is current) that used to
+   live in a separate FOOTER strip. Four full-width rows, name left / big
+   value + unit right, no divider lines between them — the column reads as
+   one continuous list, not a boxed-off grid, and nothing here goes to
+   waste: every row spans the whole width instead of sharing it with a
+   neighbour. */
+function drawTilesPart(off, th){
+  const x = COL_X[2], w = COL_W[2], ink = th.ink;
+  g.fillRect(x, 0, w, H, th.bg);
+  const r = curR(), tiles = shownAggregates();
+
+  /* gateway flush left, metric name flush right — opposite ends of the
+     row, same spread-out header language part 1's own top bar uses. */
+  const gwName = r.gateway.slice(0, 5).trim().toUpperCase();
+  g.text(gwName, x + 10, off + 6, 1.3, th.dim);
+  g.text(r.name, x + w - 10, off + 6, 1.3, th.tx, 'r', true);
+  const headerH = TOP_BAR_H;
+  g.hFade(x + 10, off + headerH, w - 20, ink ? th.rule : C.line2);
+
+  const top = headerH + 8, rowH = (H - top - 10) / 4;
+  for (let i = 1; i < 5; i++){
+    if (!tiles[i]) continue;
+    const rowY = off + top + (i - 1) * rowH;
+    const t = tiles[i];
+    const [val, unit] = tileValue(t.value, t.unit);
+    const hot = levelColor(t.level, th);
+    g.text(t.name, x + 10, rowY + 7, 1.2, th.dim);
+    const uSize = 1.3, uw = unit ? unit.length * 6 * uSize + 3 : 0;
+    if (unit) g.text(unit, x + w - 10, rowY + 10, uSize, th.dim, 'r');
+    g.text(val, x + w - 10 - uw, rowY, 3, hot || th.tx, 'r', true);
+  }
+
+  const rows = SNAP.metrics.length, gap = 4;
+  const segW = (w - 20 - gap*(rows - 1)) / rows;
+  for (let i = 0; i < rows; i++){
+    const xx = x + 10 + i*(segW + gap);
+    g.fillRect(Math.round(xx), H - 6, Math.round(segW), i === st.row ? 2 : 1,
+               i === st.row ? (ink ? th.tx : C.tx) : (ink ? th.rule : C.line2));
+  }
+}
+
+/* locked — parts 2 and 3 combined, replaced by a padlock while the privacy
+   lock is engaged. Part 1 (STATUS/ALERT) is drawn as always. The shackle
+   is a ring with its lower half tucked behind the body rect drawn right
+   after it — the only way to get a "U" shackle out of a filled circle and
+   a punched-out hole, with no stroke-arc primitive to draw one directly. */
+function drawLockedPlaceholder(th){
+  const x = COL_X[1], w = COL_X[3] - COL_X[1], cx = x + w/2;
+  g.fillRect(x, 0, w, H, th.bg);
+  const lc = th.tx;   // the theme's own ink — near-black during a flash, bright text otherwise
+  const shackleR = 17, shackleTh = 7, bodyW = 50, bodyH = 36;
+  const ringCY = H/2 - 26;
+
+  g.circle(cx, ringCY, shackleR, lc);
+  g.circle(cx, ringCY, shackleR - shackleTh, th.bg);
+  g.fillRect(cx - bodyW/2, ringCY, bodyW, bodyH, lc);
+  g.circle(cx, ringCY + bodyH*0.4, 4, th.bg);
+  g.fillRect(cx - 2, ringCY + bodyH*0.4, 4, bodyH*0.3, th.bg);
+
+  g.text('LOCKED', cx, ringCY + bodyH + 18, 2.2, lc, 'c', true);
+  g.text('HOLD RIGHT ARROW TO UNLOCK', cx, ringCY + bodyH + 42, 1, th.dim, 'c');
+}
+
+/* the unlock keypad — six columns: the leftmost shows the 6-digit entry
+   so far (one slot per digit, the most recent briefly shown before it
+   masks to a dot); the other five each split top/bottom into two digits,
+   0-9 across the ten cells. functional-requirements.md §6. */
+const KEYPAD_DIGITS = [[1,2,3,4,5],[6,7,8,9,0]];
+/* seven parts: the first two hold the entry readout, the other five each
+   split top/bottom into a digit — 5 columns x 2 rows = 0-9. */
+function keypadCols(){ return Array.from({ length: 8 }, (_, i) => Math.round(i * W / 7)); }
+function keypadDigitAt(dx, dy){
+  const KX = keypadCols();
+  if (dx < KX[2]) return null;              // the entry area — not clickable
+  let col = 0;
+  for (let i = 2; i < 7; i++) if (dx >= KX[i]) col = i - 2;
+  return KEYPAD_DIGITS[dy < H/2 ? 0 : 1][col];
+}
+function drawKeypadScreen(th){
+  const ink = th.ink;
+  g.fillRect(0, 0, W, H, th.bg);
+  const KX = keypadCols();
+
+  /* entry readout — six dots in a row, centred in the middle of the
+     screen, not stacked boxes: hollow for a digit not yet entered, filled
+     once it is. The one just typed shows as the actual digit right in the
+     dot's own spot, then turns into that same plain filled dot once its
+     reveal window passes — never a separate floating number above it. */
+  const ex = KX[0], ew = KX[2] - KX[0], ecx = ex + ew/2;
+  const n = 6, r = 7, gap = 13, dotY = H/2;
+  const startX = ecx - (n*2*r + (n-1)*gap)/2 + r;
+  g.text('ENTER CODE', ecx, dotY - 34, 1.4, th.dim, 'c', true);
+  for (let i = 0; i < n; i++){
+    const dx = startX + i*(2*r + gap);
+    const filled = i < st.lockEntry.length;
+    const isLast = i === st.lockEntry.length - 1;
+    if (isLast && Date.now() - st.lockLastDigitT0 < LOCK_REVEAL_MS){
+      g.text(st.lockEntry[i], dx, dotY - 12, 3, th.tx, 'c', true);   // the digit, right where its dot sits — bigger, still clear of its neighbours
+    } else if (filled){
+      g.circle(dx, dotY, r, th.tx);
+    } else {
+      g.circle(dx, dotY, r, ink ? th.rule : C.line2);
+      g.circle(dx, dotY, r - 2, th.bg);
+    }
+  }
+  if (lockRateLimited())
+    g.text('TOO MANY TRIES · WAIT ' + lockWaitMinutes() + ' MIN', ecx, dotY + 30, 1, C.rd, 'c', true);
+  g.vFade(KX[2], 0, H, ink ? th.rule : C.line);
+
+  /* the ten digit cells */
+  for (let c = 0; c < 5; c++){
+    const cx = (KX[c+2] + KX[c+3]) / 2;
+    if (c > 0) g.vFade(KX[c+2], 0, H, ink ? th.rule : C.line2);
+    for (let rw = 0; rw < 2; rw++){
+      const cyCenter = rw === 0 ? H/4 : H*3/4;
+      g.text(String(KEYPAD_DIGITS[rw][c]), cx, cyCenter - 12, 3, th.tx, 'c', true);
+    }
+  }
+  g.hFade(KX[2], H/2, W - KX[2], ink ? th.rule : C.line2);
+
+  g.text('TAP A DIGIT · HOLD RIGHT ARROW TO CANCEL', (KX[2] + W)/2, H - 14, 1, th.dim, 'c');
+}
+
+/* ==========================================================================
+   Boot intro — once per power-on, 5 s total, two screens, then a hand-off
+   to the dashboard. Same timeline as ws_lcd_154/intro.ino: screen 1
+   (0.0-3.0 s) the pulsar, firing a torpedo burst every beam pass; screen 2
+   (3.0-5.0 s) the stencil-cut PULSAR word with a travelling light-blue ->
+   red gradient.
+   ========================================================================== */
+const I_ANIM_END = 3.0, I_END = 5.0, SPIN_HZ = 1.3;
+/* the beams reach almost the full width of the wide panel — not capped by
+   the short 172 px height the way a beam pointing straight up/down would
+   need. They run off the top/bottom edge at those angles; the canvas clips
+   it for free, and on a letterbox-shaped screen that reads as the beam
+   racing past the edge, not a bug. */
+const LOGO_X = W/2, LOGO_Y = H/2, BEAM_LEN = 300, STARS = 36;
+const WORD_SIZE = 8, WORD_W = 6*6*WORD_SIZE, WORD_X = (W - WORD_W)/2, WORD_Y = (H - 8*WORD_SIZE)/2;
+const INTRO_BLUE = q565('#8fd6ff'), INTRO_RED = q565('#ff3b3b');
+
+function lerpHex(h1, h2, m){
+  m = clamp(m, 0, 1);
+  const v1 = parseInt(h1.slice(1), 16), v2 = parseInt(h2.slice(1), 16);
+  const r1 = (v1 >> 16) & 255, g1 = (v1 >> 8) & 255, b1 = v1 & 255;
+  const r2 = (v2 >> 16) & 255, g2 = (v2 >> 8) & 255, b2 = v2 & 255;
+  const r = Math.round(r1 + (r2 - r1) * m), gg = Math.round(g1 + (g2 - g1) * m), b = Math.round(b1 + (b2 - b1) * m);
+  return '#' + [r, gg, b].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+function introGradient(x, w, tt){
+  const grad = g.x.createLinearGradient(x * S, 0, (x + w) * S, 0);
+  const N = 8;
+  for (let i = 0; i <= N; i++){
+    const u = i / N;
+    let mix = 0.5 + 0.5 * Math.sin(2 * Math.PI * (u - 0.35 * tt));
+    mix += 0.06 * Math.sin(tt * 23 + (x + u * w) * 0.25);
+    grad.addColorStop(u, lerpHex(INTRO_BLUE, INTRO_RED, clamp(mix, 0, 1)));
+  }
+  return grad;
+}
+const grey = v => { const c = Math.round(clamp(v, 0, 1) * 255).toString(16).padStart(2, '0'); return q565('#' + c + c + c); };
+
+function drawIntroFrame(I, t){
+  g.fillScreen('#000000');
+  const inn = easeOut(clamp(t / 0.6, 0, 1));
+  for (const s of I.stars) g.px(s.x, s.y, grey(s.b * inn * (0.7 + 0.3 * Math.sin(t * 1.7 + s.ph))));
+  const theta = 2 * Math.PI * SPIN_HZ * t - Math.PI / 2, len = BEAM_LEN * inn;
+  for (let b = 0; b < 2; b++){
+    const a = theta + b * Math.PI, ca = Math.cos(a), sa = Math.sin(a);
+    g.tri(LOGO_X, LOGO_Y, LOGO_X + len * Math.cos(a - 0.035), LOGO_Y + len * Math.sin(a - 0.035),
+          LOGO_X + len * Math.cos(a + 0.035), LOGO_Y + len * Math.sin(a + 0.035), grey(0.12 * inn));
+    const steps = Math.round(len);
+    for (let sN = 1; sN <= steps; sN++){
+      const band = Math.min(3, Math.floor(sN * 4 / Math.max(1, steps)));
+      g.px(Math.round(LOGO_X + sN * ca), Math.round(LOGO_Y + sN * sa), grey((1 - band * 0.22) * inn));
+    }
+  }
+  const up = Math.cos(4 * Math.PI * SPIN_HZ * t), pulse = up > 0 ? Math.pow(up, 6) : 0;
+  g.circle(LOGO_X, LOGO_Y, 13 + 2 * pulse, grey((0.07 + 0.05 * pulse) * inn));
+  g.circle(LOGO_X, LOGO_Y, 9 + pulse,      grey((0.16 + 0.08 * pulse) * inn));
+  g.circle(LOGO_X, LOGO_Y, 6,              grey(0.45 * inn));
+  g.circle(LOGO_X, LOGO_Y, 3,              grey(inn));
+}
+function drawIntroText(tt){
+  g.fillScreen('#000000');
+  const black = grey(0);
+  const grad = introGradient(WORD_X, WORD_W, tt);
+  g.text('PULSAR', WORD_X, WORD_Y,     WORD_SIZE, grad, 'l', true);
+  g.text('PULSAR', WORD_X, WORD_Y + 1, WORD_SIZE, grad, 'l', true);
+  const bandH = WORD_SIZE > 4 ? 3 : 2;
+  g.fillRect(WORD_X, WORD_Y + Math.floor(0.34375 * 8 * WORD_SIZE), WORD_W, bandH, black);
+  g.fillRect(WORD_X, WORD_Y + Math.floor(0.65625 * 8 * WORD_SIZE), WORD_W, bandH, black);
+}
+
+/* ==========================================================================
+   Sound — the same synth as ws_lcd_154/sound.ino: critical gets the full
+   500 ms alert, warning/a fault get a shorter quieter notice, the boot
+   intro gets its own torpedo-launch burst. All three are rendered once
+   into a buffer and streamed, never synthesised live.
+   ========================================================================== */
+const AUDIO_RATE = 16000, SOUND_PEAK = 0.85, INTRO_PEAK = 0.32, INTRO_HIT_MS = 260,
+      NOTICE_MS = 220, NOTICE_PEAK = 0.35, NOTICE_HZ = 660, HIGHPASS_HZ = 250;
+function kick(tau, fEnd, fSweep, k, decay){
+  if (tau < 0 || tau > decay * 7) return 0;
+  return Math.sin(2 * Math.PI * (fEnd * tau + fSweep * k * (1 - Math.exp(-tau / k)))) * Math.exp(-tau / decay);
+}
+function alertSample(t){
+  const T = ALERT_FLASH_MS / 1000;
+  if (t < 0 || t >= T) return 0;
+  const k = 0.12, ph = 2 * Math.PI * (560 * t + (920 - 560) * k * (1 - Math.exp(-t / k)));
+  const body   = Math.sin(ph) + 0.35 * Math.sin(2 * ph) + 0.2 * Math.sin(3 * ph);
+  const shiver = 1 - 0.2 * (0.5 + 0.5 * Math.sin(2 * Math.PI * 14 * t));
+  const knock  = kick(t, 180, 220, 0.02, 0.04);
+  const glint  = Math.sin(2 * Math.PI * 1760 * t) * Math.exp(-t / 0.08);
+  const attack  = t < 0.006 ? t / 0.006 : 1;
+  const release = t > 0.38 ? 0.5 + 0.5 * Math.cos(Math.PI * (t - 0.38) / (T - 0.38)) : 1;
+  const s = attack * release * (0.42 * body * shiver + 0.35 * knock + 0.08 * glint);
+  return Math.tanh(1.6 * s) / Math.tanh(1.6);
+}
+function noticeSample(t){
+  const T = NOTICE_MS / 1000;
+  if (t < 0 || t >= T) return 0;
+  const ph = 2 * Math.PI * NOTICE_HZ * t;
+  const tone = Math.sin(ph) + 0.15 * Math.sin(2 * ph);
+  const attack  = t < 0.02 ? t / 0.02 : 1;
+  const release = t > T - 0.08 ? (T - t) / 0.08 : 1;
+  return attack * release * tone;
+}
+function torpedoHit(tau){
+  const T = INTRO_HIT_MS / 1000;
+  if (tau < 0 || tau > T) return 0;
+  const whoosh = kick(tau, 420, 260, 0.045, 0.13);
+  const thump  = kick(tau, 130, 60,  0.020, 0.10);
+  const A = 0.03, p = tau < A ? tau / A : 1;
+  const attack = p * p * (3 - 2 * p);
+  const R = 0.04;
+  const release = tau > T - R ? (T - tau) / R : 1;
+  return attack * release * (0.38 * whoosh + 0.20 * thump);
+}
+function introSample(t){
+  const T = I_ANIM_END;
+  if (t < 0 || t >= T) return 0;
+  const period = 1 / (2 * SPIN_HZ);
+  const tau = t % period;
+  const attack  = t < 0.15 ? t / 0.15 : 1;
+  const release = t > T - 0.3 ? (T - t) / 0.3 : 1;
+  return attack * release * torpedoHit(tau);
+}
+function renderSound(sample, lenMs, peak){
+  const n = Math.floor(AUDIO_RATE * lenMs / 1000), out = new Float32Array(n);
+  const rc = 1 / (2 * Math.PI * HIGHPASS_HZ), dt = 1 / AUDIO_RATE, a = rc / (rc + dt);
+  let x1 = 0, y1 = 0, y2 = 0, pk = 1e-6;
+  for (let i = 0; i < n; i++){
+    const x = sample(i / AUDIO_RATE), h1 = a * (y1 + x - x1), h2 = a * (y2 + h1 - y1);
+    x1 = x; y1 = h1; y2 = h2; out[i] = h2; pk = Math.max(pk, Math.abs(h2));
+  }
+  for (let i = 0; i < n; i++) out[i] *= peak / pk;
+  return out;
+}
+let actx = null, alertBuf = null, introBuf = null, noticeBuf = null, audioNoted = false;
+function playPCM(getBuf, setBuf){
+  if (st.muted) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended'){
+      actx.resume();
+      if (!audioNoted){ audioNoted = true; log('sound is waiting for a click anywhere on the page'); }
+    }
+    let buf = getBuf();
+    if (!buf) buf = setBuf();
+    const src = actx.createBufferSource();
+    src.buffer = buf; src.connect(actx.destination); src.start();
+  } catch {}
+}
+function alertSound(){
+  playPCM(() => alertBuf, () => {
+    const pcm = renderSound(alertSample, ALERT_FLASH_MS, SOUND_PEAK);
+    alertBuf = actx.createBuffer(1, pcm.length, AUDIO_RATE);
+    alertBuf.getChannelData(0).set(pcm);
+    return alertBuf;
+  });
+}
+function noticeSound(){
+  playPCM(() => noticeBuf, () => {
+    const pcm = renderSound(noticeSample, NOTICE_MS, NOTICE_PEAK);
+    noticeBuf = actx.createBuffer(1, pcm.length, AUDIO_RATE);
+    noticeBuf.getChannelData(0).set(pcm);
+    return noticeBuf;
+  });
+}
+function introSound(){
+  playPCM(() => introBuf, () => {
+    const pcm = renderSound(introSample, I_ANIM_END * 1000, INTRO_PEAK);
+    introBuf = actx.createBuffer(1, pcm.length, AUDIO_RATE);
+    introBuf.getChannelData(0).set(pcm);
+    return introBuf;
+  });
+}
+document.addEventListener('click', () => { if (actx && actx.state === 'suspended') actx.resume(); }, { passive: true });
+
+/* ==========================================================================
+   State, cycle and poll — same shape as ws_lcd_154/mockup.html: each metric
+   screen is up for 5 s, the wrap refetches (never faster than
+   max(30, metrics x 5) seconds), and numbers count up from the previous
+   screen's values instead of snapping.
+   ========================================================================== */
+let st = {
+  intro: null, caseView: true, real: false,
+  row: 0, paused: false, muted: false, plugged: true,
+  screenT0: Date.now(), sweepT0: Date.now(), countT0: Date.now(), from: null,
+  lastPoll: Date.now(), nextPoll: Date.now() + POLL_MIN_MS,
+  flashOn: false, wasFlash: false,
+  view: 'main', screen: true, off: false, offT0: 0,
+  /* the privacy lock — unlocked by default in this mockup for convenience
+     (real hardware always boots locked — AGENTS.md §3). unlockedAt starts
+     now, not 0, or lockTick() below would read the epoch as "long since
+     expired" and re-lock on the very first tick. */
+  locked: false, unlockedAt: Date.now(), lockEntry: '', lockFails: [], lockLastDigitT0: 0,
+};
+const curR = () => SNAP.metrics[st.row];
+const level = () => SNAP.fault ? 'fault' : SNAP.alert.level;
+const pollInterval = () => Math.max(POLL_MIN_MS, SNAP.metrics.length * SCREEN_MS);
+
+function beginCount(){ st.from = curR().aggregates.map(t => t.value); st.countT0 = Date.now(); }
+function shownAggregates(){
+  const t = easeOut(clamp((Date.now() - st.countT0) / 520, 0, 1));
+  return curR().aggregates.map((tile, i) => {
+    const from = st.from[i] ?? 0;
+    return { ...tile, value: from + (tile.value - from) * t };
+  });
+}
+function nextPanel(){
+  beginCount();
+  st.row = (st.row + 1) % SNAP.metrics.length;
+  st.sweepT0 = Date.now(); st.screenT0 = Date.now();
+}
+function cycleTick(){
+  if (st.intro || st.paused) return;
+  const now = Date.now();
+  if (now - st.screenT0 < SCREEN_MS) return;
+  const wrapped = st.row + 1 >= SNAP.metrics.length;
+  nextPanel();
+  log('auto → <b>' + curR().name + '</b> ' + (st.row + 1) + '/' + SNAP.metrics.length);
+  if (!wrapped) return;
+  const due = pollInterval();
+  if (now - st.lastPoll >= due) poll(false, 'cycle complete');
+}
+function poll(force, why){
+  st.lastPoll = Date.now();
+  st.nextPoll = Date.now() + pollInterval();
+  SNAP.measured_at = Math.floor(Date.now() / 1000);
+  SNAP.polledAt = Date.now();
+  SNAP.metrics.forEach(r => {
+    const b = r.buckets, last = b[b.length - 1];
+    b.shift(); b.push(Math.max(0, Math.round(last * (0.94 + Math.random()*0.12))));
+    retotal(r);
+  });
+  st.sweepT0 = Date.now(); beginCount();
+  log((why ? why + ' → ' : force ? 'forced refresh → ' : '') + 'GET /v1/gateway_health <b>200</b>');
+}
+function nextManual(){ nextPanel(); log('▸ next metric → <b>' + curR().name + '</b>'); }
+function toggleHold(){ st.paused = !st.paused; log(st.paused ? 'cycle paused' : 'cycle resumed'); sync(); }
+function setLevel(l){
+  SNAP.fault = null;
+  SNAP.alert.level = l;
+  SNAP.alert.message = l === 'info' ? 'error budget healthy'
+                      : l === 'warning' ? '5xx 0.68% max 0.50%' : '5xx 2.14% max 0.50%';
+  log('alert.level → <b>' + l + '</b>'); sync();
+}
+function toggleFault(){
+  SNAP.fault = SNAP.fault ? null : 'offline';
+  log(SNAP.fault ? 'simulated fault · <b>OFFLINE</b>' : 'fault cleared'); sync();
+}
+
+/* ==========================================================================
+   Privacy lock — functional-requirements.md §6. Locking needs no code,
+   only unlocking does; five wrong tries in 30 minutes blocks further
+   attempts; it re-arms on its own after LOCK_TIMEOUT_MIN. Only STATUS and
+   ALERT (part 1) stay visible while locked — the metric data (parts 2/3)
+   is what's hidden, same as BODY/FOOTER on the square build.
+   ========================================================================== */
+const lockIsLocked = () => st.locked;
+function lockRecentFails(){
+  const now = Date.now();
+  st.lockFails = st.lockFails.filter(t => now - t < LOCK_FAIL_WINDOW_MS);
+  return st.lockFails.length;
+}
+const lockRateLimited = () => lockRecentFails() >= LOCK_MAX_FAILS;
+function lockWaitMinutes(){
+  if (!st.lockFails.length) return 0;
+  return Math.ceil((LOCK_FAIL_WINDOW_MS - (Date.now() - Math.min(...st.lockFails))) / 60000);
+}
+function lockClear(){ st.lockEntry = ''; }
+/* RIGHT arrow held 2 s while unlocked — no code needed to take the data out of view */
+function lockEngage(){
+  if (st.locked) return;
+  st.locked = true;
+  if (st.view === 'lock') st.view = 'main';
+  log('lock: <b>locked</b>'); sync();
+}
+/* RIGHT arrow held 2 s while already locked — raises the keypad */
+function lockOpenKeypad(){
+  if (!st.locked) return;
+  lockClear(); st.view = 'lock';
+  log('lock: keypad opened'); sync();
+}
+function lockSubmit(){
+  if (lockRateLimited()){ lockClear(); return; }
+  if (st.lockEntry === LOCK_CODE){
+    st.locked = false; st.unlockedAt = Date.now(); st.view = 'main'; lockClear();
+    st.lockFails = [];
+    log('lock: <b>unlocked</b>');
+  } else {
+    st.lockFails.push(Date.now()); lockClear();
+    log('lock: attempt rejected - wrong code');
+  }
+  sync();
+}
+function lockDigit(d){
+  if (st.view !== 'lock' || lockRateLimited() || st.lockEntry.length >= 6) return;
+  st.lockEntry += String(d);
+  st.lockLastDigitT0 = Date.now();
+  log('lock: entry now ' + st.lockEntry.length + '/6 digits');
+}
+/* a mockup-only shortcut to preview the unlocked view without typing the
+   code — real hardware only ever unlocks through lockSubmit() above */
+function lockForceUnlock(){
+  if (!st.locked) return;
+  st.locked = false; st.unlockedAt = Date.now(); st.view = 'main'; lockClear();
+  st.lockFails = [];
+  log('lock: <b>unlocked</b> (mockup shortcut)'); sync();
+}
+/* checked every frame: the completed 6th digit submits once its own
+   reveal has had a moment on screen, and an idle unlock auto-relocks
+   after LOCK_TIMEOUT_MIN minutes. */
+function lockTick(){
+  if (st.view === 'lock' && st.lockEntry.length === 6
+      && Date.now() - st.lockLastDigitT0 >= LOCK_REVEAL_MS) lockSubmit();
+  if (st.locked || !LOCK_TIMEOUT_MIN) return;
+  if (Date.now() - st.unlockedAt < LOCK_TIMEOUT_MIN * 60000) return;
+  st.locked = true;
+  if (st.view === 'lock') st.view = 'main';
+  log('lock: auto-relocked after ' + LOCK_TIMEOUT_MIN + ' minutes'); sync();
+}
+
+/* ==========================================================================
+   Settings and setup-hotspot — minimal stand-in screens, full width.
+   Whatever view is up, a LEFT-arrow tap always returns to the dashboard.
+   ========================================================================== */
+/* settings — the same three vertical parts the dashboard itself uses
+   (COL_X/COL_W), each a themed group of label/value pairs: label small
+   and dim above, value bright and bold below, left-aligned with a
+   consistent indent — not one centred column of run-together text. */
+function drawSettingsScreen(th){
+  g.fillRect(0, 0, W, H, th.bg);
+  g.text('SETTINGS', W/2, 8, 1.6, th.tx, 'c', true);
+  g.hFade(W/2 - 80, 24, 160, th.rule);
+
+  /* same information ws_lcd_154's own settings screen shows — device and
+     battery, wi-fi, and the backend/gateways — just grouped into three
+     columns instead of one long scroll, since there's width to spend. */
+  const cols = [
+    { title: 'DEVICE', rows: [
+        ['BATTERY', '82% · ' + (st.plugged ? 'CHARGING' : 'ON BATTERY')],
+        ['DISPLAY', st.screen ? 'ON' : 'OFF'],
+        ['SOUND',   st.muted ? 'MUTED' : 'ON'],
+        ['LOCK',    st.locked ? 'LOCKED' : 'UNLOCKED'],
+      ] },
+    { title: 'WI-FI', rows: [
+        ['NETWORK', NET.ssid],
+        ['SIGNAL',  NET.rssi + ' dBm'],
+        ['IP',      NET.ip],
+      ] },
+    { title: 'GATEWAY', rows: [
+        ['MEASURED', dateText() + ' ' + timeText()],
+        ['METRICS',  SNAP.metrics.length + ' screens'],
+        ['POLL EVERY', Math.round(pollInterval() / 1000) + ' s'],
+      ] },
+  ];
+
+  cols.forEach((col, i) => {
+    const x = COL_X[i] + 14, w = COL_W[i];
+    g.text(col.title, x, 28, 1.1, th.dim, 'l', true);
+    g.hFade(x, 42, w - 24, th.rule);
+    col.rows.forEach((row, j) => {
+      const ry = 52 + j*24;
+      g.text(row[0], x, ry, 1, th.dim);
+      g.text(row[1], x, ry + 11, 1.3, th.tx, 'l', true);
+    });
+    if (i > 0) g.vFade(COL_X[i], 26, H - 52, th.rule);
+  });
+
+  g.text('TAP LEFT ARROW · BACK', W/2, H - 14, 1, th.dim, 'c');
+}
+function drawHotspotScreen(th){
+  g.fillRect(0, 0, W, H, th.bg);
+  const cx = W/2;
+  g.text('SETUP HOTSPOT', cx, 20, 2, th.tx, 'c', true);
+  g.text('join', cx, 62, 1.3, th.dim, 'c');
+  g.text('pulsar-3fa2c1', cx, 82, 2, C.cy, 'c', true);
+  g.text('then open the page it offers', cx, 108, 1.3, th.dim, 'c');
+  g.text('TAP LEFT ARROW - BACK', cx, H - 14, 1, th.dim, 'c');
+}
+
+/* ==========================================================================
+   Gestures — the three case buttons, same tap/double-tap/hold-2s map as
+   ws_lcd_154's own DOWN/PWR/UP keys, renamed for a landscape strip with no
+   physical DOWN key: LEFT ARROW stands in for DOWN, RIGHT ARROW for UP.
+   ========================================================================== */
+function settingsToggle(){
+  if (st.view !== 'main'){ st.view = 'main'; log('LEFT tap → back to dashboard'); return; }
+  st.view = 'settings'; log('LEFT tap → settings');
+}
+/* held again while already up, this exits instead of re-opening — same
+   as ws_lcd_154's own DOWN-hold toggling the hotspot screen on and off. */
+function hotspotToggle(){
+  if (st.view === 'hotspot'){ st.view = 'main'; log('LEFT hold 2s → exit setup hotspot'); }
+  else { st.view = 'hotspot'; log('LEFT hold 2s → setup hotspot'); }
+}
+function screenToggle(){
+  st.screen = !st.screen;
+  log(st.screen ? 'RIGHT tap → display on' : 'RIGHT tap → display off (still polling, a critical still sounds)');
+}
+function muteToggle(){
+  st.muted = !st.muted;
+  log('RIGHT double-tap → sound ' + (st.muted ? 'off' : 'on'));
+}
+function rightHold(){
+  if (lockIsLocked()) lockOpenKeypad(); else lockEngage();
+}
+function powerToggle(){
+  st.off = !st.off;
+  if (st.off){ st.offT0 = Date.now(); log('POWER hold 2s → off'); }
+  else log('POWER hold 2s → on');
+}
+
+/* ==========================================================================
+   Hold — every hold is 2 s and shows a filling ring with the action named
+   inside, on the SCREEN itself (not just a glow on the physical button),
+   so it can be watched and abandoned. AGENTS.md §3. BTNS tracks each case
+   button's own press so the ring's fill and the actual firing share one
+   clock instead of a separate setTimeout per button.
+   ========================================================================== */
+const HOLD_MS = 2000, HOLD_SHOW_MS = 150;   // a brief delay before the ring shows, so a plain tap never flickers one
+const BTNS = { left: { down:false, t0:0, fired:false }, power: { down:false, t0:0, fired:false },
+                right:{ down:false, t0:0, fired:false } };
+function gestureTick(){
+  const now = Date.now();
+  for (const k of Object.keys(BTNS)){
+    const b = BTNS[k];
+    if (!b.down || b.fired || now - b.t0 < HOLD_MS) continue;
+    b.fired = true;
+    if (k === 'left') hotspotToggle();
+    else if (k === 'power') powerToggle();
+    else rightHold();
+  }
+}
+function holdLabel(k){
+  if (k === 'left')  return st.view === 'hotspot' ? 'EXIT' : 'SETUP';
+  if (k === 'power') return st.off ? 'ON' : 'OFF';
+  return lockIsLocked() ? 'UNLOCK' : 'LOCK';
+}
+/* the ring: 48 ticks round the centre filling clockwise, the action inside */
+function holdRing(p, label){
+  const cx = W/2, cy = H/2, R = 44;
+  g.circle(cx, cy, R, C.bg);
+  g.ring(cx, cy, R, C.line);
+  const lit = Math.floor(clamp(p, 0, 1) * 48);
+  for (let i = 0; i < 48; i++){
+    const a = -Math.PI/2 + i * 2*Math.PI/48;
+    g.fillRect(cx + Math.round(Math.cos(a)*36) - 1, cy + Math.round(Math.sin(a)*36) - 1, 2, 2, i < lit ? C.tx : C.line2);
+  }
+  g.text(label, cx, cy - 10, 2, C.tx, 'c', true);
+  g.text('HOLD', cx, cy + 8, 1, C.dim, 'c');
+}
+/* drawn on top of whatever view is up — only one button can be down at a
+   time, so at most one ring ever shows */
+function drawHoldOverlay(){
+  const now = Date.now();
+  for (const k of Object.keys(BTNS)){
+    const b = BTNS[k];
+    if (!b.down || b.fired || now - b.t0 < HOLD_SHOW_MS) continue;
+    if (st.off && k !== 'power') continue;         // powered off — only the power button still answers
+    holdRing((now - b.t0) / HOLD_MS, holdLabel(k));
+    return;
+  }
+}
+
+/* ==========================================================================
+   Drive
+   ========================================================================== */
+const $ = s => document.querySelector(s);
+
+function log(msg){
+  const el = $('#log');
+  const t = new Date().toTimeString().slice(0, 8);
+  el.insertAdjacentHTML('afterbegin', `<div><span class="t">${t}</span>${msg}</div>`);
+  while (el.children.length > 40) el.lastChild.remove();
+}
+function sync(){
+  document.querySelectorAll('.lv').forEach(el =>
+    el.classList.toggle('on', !SNAP.fault && el.dataset.l === SNAP.alert.level));
+  $('#doFault').classList.toggle('act', !!SNAP.fault);
+  $('#doHold').classList.toggle('act', st.paused);
+  $('#doHold').textContent = st.paused ? '▶ resume cycle' : '⏸ pause cycle';
+}
+
+function startIntro(){
+  let seed = 0x1234567;
+  const rnd = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0, ((seed >>> 8) & 0xFFFF) / 65535);
+  const stars = Array.from({ length: STARS }, () => ({ x: rnd() * (W-1) | 0, y: rnd() * (H-1) | 0, b: 0.10 + rnd() * 0.25, ph: rnd() * 2 * Math.PI }));
+  st.intro = { t0: Date.now(), stars };
+  introSound();
+  log('boot intro · 5 s');
+}
+
+/* the timers a fresh dashboard needs — called once at load (no boot intro
+   by default in this mockup, unlike real hardware) and again whenever the
+   intro finishes playing, on the rare occasion it's replayed on demand. */
+function enterDashboard(){
+  st.screenT0 = Date.now(); st.sweepT0 = Date.now(); st.lastPoll = Date.now();
+  st.nextPoll = Date.now() + pollInterval();
+  beginCount();
+  log('dashboard live · ' + SNAP.metrics.length + ' metric screens · poll every '
+      + Math.round(pollInterval() / 1000) + ' s');
+}
+
+function frame(){
+  if (st.intro){
+    const t = (Date.now() - st.intro.t0) / 1000;
+    if (t < I_END){
+      if (t < I_ANIM_END) drawIntroFrame(st.intro, t);
+      else drawIntroText(t - I_ANIM_END);
+      return requestAnimationFrame(frame);
+    }
+    st.intro = null;
+    enterDashboard();
+  }
+
+  /* polling, the cycle, the lock's own timers and the alert flash all run
+     whether or not anything is currently drawn — the screen being off or
+     asleep never stops them, same as ws_lcd_154. */
+  lockTick();
+  cycleTick();
+  gestureTick();
+  st.flashOn = FLASHES[level()] && Date.now() - st.screenT0 < ALERT_FLASH_MS;
+  if (st.flashOn && !st.wasFlash){
+    const snd = SOUNDS[level()];
+    if (snd === 'alert') alertSound();
+    else if (snd === 'notice') noticeSound();
+  }
+  st.wasFlash = st.flashOn;
+
+  if (st.off){
+    g.fillScreen('#000000');
+    if (Date.now() - st.offT0 < 400) g.text('OFF', W/2, H/2 - 8, 2, C.dim, 'c', true);
+    drawHoldOverlay();
+    return requestAnimationFrame(frame);
+  }
+  if (!st.screen){
+    g.fillScreen('#000000');
+    g.text('DISPLAY OFF · HOLD RIGHT ARROW OR TAP IT TO WAKE', W/2, H/2, 1, '#101722', 'c');
+    return requestAnimationFrame(frame);
+  }
+
+  const th = themeFor(level());
+  if (st.view === 'settings') drawSettingsScreen(th);
+  else if (st.view === 'hotspot') drawHotspotScreen(th);
+  else if (st.view === 'lock') drawKeypadScreen(th);
+  else {
+    drawPart1(th);
+    if (lockIsLocked()) drawLockedPlaceholder(th);
+    else { drawGraphPart(0, th); drawTilesPart(0, th); }
+  }
+  drawHoldOverlay();
+
+  requestAnimationFrame(frame);
+}
+
+function storeGet(k, d){ try { return localStorage.getItem(k) ?? d; } catch { return d; } }
+function storeSet(k, v){ try { localStorage.setItem(k, v); } catch {} }
+
+/* --- actual size ---------------------------------------------------------
+   A browser cannot read a screen's physical size, so the scale comes from
+   the viewer's own reported resolution and an entered diagonal, same as
+   ws_lcd_154/mockup.html's own "actual size". Width goes to an exact px
+   figure on the wrap; height still follows from its aspect-ratio. */
+function applySize(){
+  if (st.real){
+    const diag = parseFloat($('#diag').value) || 14;
+    const k = Math.hypot(screen.width, screen.height) / (diag * 25.4);
+    const mmW = st.caseView ? CASE_MM : GLASS_MM[0];
+    caseWrap.style.width = Math.round(mmW * k) + 'px';
+    $('#cardRef').style.width  = Math.round(85.6 * k) + 'px';
+    $('#cardRef').style.height = Math.round(53.98 * k) + 'px';
+    $('#calRes').textContent = screen.width + '×' + screen.height + ' px reported';
+  } else {
+    caseWrap.style.width = '';
+  }
+  caseWrap.classList.toggle('real', st.real);
+  $('#calib').hidden = !st.real;
+  $('#tgReal').classList.toggle('on', st.real);
+}
+
+const caseWrap = $('#caseWrap');
+st.caseView = storeGet('pulsar.ws_lcd_349.caseView', '1') === '1';
+caseWrap.classList.toggle('device', st.caseView);
+caseWrap.classList.toggle('screen', !st.caseView);
+$('#tgCase').classList.toggle('on', st.caseView);
+
+$('#tgCase').addEventListener('click', () => {
+  st.caseView = !st.caseView;
+  storeSet('pulsar.ws_lcd_349.caseView', st.caseView ? '1' : '0');
+  caseWrap.classList.toggle('device', st.caseView);
+  caseWrap.classList.toggle('screen', !st.caseView);
+  $('#tgCase').classList.toggle('on', st.caseView);
+  log(st.caseView ? 'device view · case outline' : 'device view · screen only');
+  applySize();
+});
+$('#tgReal').addEventListener('click', () => {
+  st.real = !st.real;
+  storeSet('pulsar.ws_lcd_349.real', st.real ? '1' : '0');
+  log(st.real ? 'actual size · ' + (st.caseView ? '~98.5 mm case' : '85.6 mm glass') : 'zoomed');
+  applySize();
+});
+$('#diag').addEventListener('input', () => { storeSet('pulsar.screenDiag', $('#diag').value); applySize(); });
+$('#doIntro').addEventListener('click', startIntro);
+$('#doNext').addEventListener('click', nextManual);
+$('#doHold').addEventListener('click', toggleHold);
+$('#doFault').addEventListener('click', toggleFault);
+$('#doLock').addEventListener('click', lockEngage);
+$('#doUnlock').addEventListener('click', lockForceUnlock);
+$('#doPwr').addEventListener('click', () => {
+  st.plugged = !st.plugged;
+  $('#doPwr').textContent = st.plugged ? '🔌 on charger' : '🔋 on battery';
+  $('#doPwr').classList.toggle('act', st.plugged);
+  log(st.plugged ? 'plugged in · charging' : 'unplugged · on battery');
+});
+document.querySelectorAll('.lv').forEach(el => el.addEventListener('click', () => setLevel(el.dataset.l)));
+
+/* --- the three case buttons: tap / double-tap / hold 2 s -----------------
+   The hold itself fires from gestureTick()/BTNS above, on the shared frame
+   clock the on-screen ring also reads — this only tracks press/release and
+   tells tap from double-tap. */
+function wireGesture(key, { tap, dbl } = {}){
+  const DBL_MS = 320;
+  const el = document.querySelector('.caseBtn[data-btn="' + key + '"]');
+  const b = BTNS[key];
+  let tapTimer = null;    // the pending single-tap, armed by the first tap and cancelled by a second
+  el.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    b.down = true; b.t0 = Date.now(); b.fired = false;
+    el.classList.add('pressed');
+  });
+  const release = () => {
+    el.classList.remove('pressed');
+    if (!b.down) return;
+    const wasFired = b.fired;
+    b.down = false;
+    if (wasFired) return;                    // the hold already fired and handled it
+    if (tapTimer){                            // a second tap landed inside the window — a double-tap,
+      clearTimeout(tapTimer); tapTimer = null; // not a stray single-tap plus a double-tap both firing
+      if (dbl) dbl();
+      return;
+    }
+    tapTimer = setTimeout(() => { tapTimer = null; if (tap) tap(); }, DBL_MS);
+  };
+  el.addEventListener('pointerup', release);
+  el.addEventListener('pointerleave', () => { el.classList.remove('pressed'); b.down = false; });
+}
+wireGesture('left',  { tap: settingsToggle });
+wireGesture('power', {});
+wireGesture('right', { tap: screenToggle, dbl: muteToggle });
+
+/* the unlock keypad lives on the canvas itself, not a DOM button — map
+   the click back to device coordinates the same way "actual size" scales
+   the panel, so it still lands right at any zoom level. */
+$('#screen').addEventListener('click', e => {
+  if (st.view !== 'lock') return;
+  const rect = e.target.getBoundingClientRect();
+  const dx = (e.clientX - rect.left) / rect.width * W, dy = (e.clientY - rect.top) / rect.height * H;
+  const d = keypadDigitAt(dx, dy);
+  if (d !== null) lockDigit(d);
+});
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'b') startIntro();
+  if (e.key === 'v') $('#tgCase').click();
+  if (e.key === 'z') $('#tgReal').click();
+  if (e.key === 'n') nextManual();
+  if (e.key === 'h') toggleHold();
+  if (e.key === 'f') toggleFault();
+  if (e.key === 'l') lockEngage();
+  if (e.key === 'u') lockForceUnlock();
+  if (e.key === 'p') $('#doPwr').click();
+  if (st.view === 'lock' && e.key >= '0' && e.key <= '9') lockDigit(Number(e.key));
+});
+
+$('#diag').value = storeGet('pulsar.screenDiag', '14');
+st.real = storeGet('pulsar.ws_lcd_349.real', '0') === '1';
+applySize();
+sync();
+log('boot');
+enterDashboard();   // straight to the dashboard — replay boot <kbd>b</kbd> plays the intro on demand
+frame();
+</script>

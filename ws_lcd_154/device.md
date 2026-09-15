@@ -53,8 +53,20 @@ and **UP** everywhere else, in code, on screen and in this doc.
 Everything except battery comes from the backend, over the configured URL. The battery
 is read off the ADC pin, behind a 1/3 divider (`analogReadMilliVolts() × 3.0`), gated by
 a divider-enable pin; a separate pull-up pin reads **LOW = charging** — also what lights
-the STATUS band's bolt icon. Percent comes from Waveshare's own voltage bands: <3.52 V →
-1 %, then 20/40/60/80/100.
+the STATUS band's bolt icon. Percent is interpolated between five voltage calibration
+points (<3.52 V → 1 %, then 3.64/3.76/3.88/4.00 V → 20/40/60/80 %, ≥4.00 V → 100 %)
+rather than stepped, so a slow discharge reads as a slow decline, not a jump between
+fixed values.
+
+🔋 **Backlight brightness has two figures, one for on-battery and one for on-charger** —
+each 30-100 %, defaulting to 40 % on battery and 90 % on the charger, set on the setup
+page → [§4](#4--settings-and-hotspot). The board switches between them the moment it
+notices the charge state change, no restart needed.
+
+🪫 **Below 10 % and not on the charger, the board shuts itself down after a 2-minute
+grace period** rather than run the cell past a safe restart point — a toast and a soft
+notice sound mark the moment the timer starts, and plugging in during those 2 minutes
+cancels it.
 
 ⏰ **The STATUS band's clock is the data's, not the wall's.** There is no RTC, and the
 time shown is the payload's own `measured_at`, formatted `MM/DD hh:mm AM` — the time the
@@ -157,21 +169,20 @@ choose differently; only the position matters to this build.
 
 Same y, same height, every frame. What changes is loudness, not position.
 
-| `alert.level`  | ALERT band                             | Flash                | Sound                             |
+| `alert.level`  | ALERT band at rest                     | Flash                | Sound                             |
 | -------------- | -------------------------------------- | -------------------- | ---------------------------------- |
-| 🟢 `info`       | Solid lime `#5cf22e`, near-black words  | none                 | none                               |
-| 🟠 `warning`    | Solid orange `#ff7a00`                  | **500 ms every 5 s** | short, quiet notice, every flash   |
-| 🔴 `critical`   | Solid red `#ff2626`                     | **500 ms every 5 s** | **full alert, every flash**       |
-| 🩶 fetch fault  | Solid grey `#8aa0c0`                    | **500 ms every 5 s** | short, quiet notice, every flash   |
+| 🟢 `info`       | Plain background, bold lime word       | none                 | none                               |
+| 🟠 `warning`    | Plain background, bold orange word     | **500 ms every 5 s** | short, quiet notice, every flash   |
+| 🔴 `critical`   | Plain background, bold red word        | **500 ms every 5 s** | **full alert, every flash**       |
+| 🩶 fetch fault  | Plain background, bold grey word       | **500 ms every 5 s** | short, quiet notice, every flash   |
 
-- 💡 **Full-strength colour, nothing mixed in, held steady.** The band never blinks — the level is always readable at a glance
-- 🚨 **The flash is the entire screen, and it is synced to the cycle, not a clock of its own.** Under `warning`, `critical` or a lost connection **all four bands** flash the level colour for the **first 500 ms of every new 5 s screen** — right at the 5 s mark, every time, whatever else is happening. `info` never flashes. `critical` gets the full alert; `warning` and a fetch fault get a shorter, quieter notice instead — in the same frame either way → [§5](#5--alert-sound-and-mute)
+- 💡 **The level word is always full-strength colour, bold, held steady** — that is the whole identification at rest, not a coloured background. The band never blinks — the level is always readable at a glance
+- 🚨 **The flash is the entire screen, and it is synced to the cycle, not a clock of its own.** Under `warning`, `critical` or a lost connection **all four bands** — including this one's own background — flash the level colour for the **first 500 ms of every new 5 s screen** — right at the 5 s mark, every time, whatever else is happening. `info` never flashes. `critical` gets the full alert; `warning` and a fetch fault get a shorter, quieter notice instead — in the same frame either way → [§5](#5--alert-sound-and-mute)
 - 🕰️ **One fetch fault borrows this table's `warning` row instead of `fetch fault`'s:** `NO CLOCK` (a signed board waiting on its own SNTP) is a local hold-up, not "can't reach the backend," so it reads as orange, same as a real `warning` — still a held-data fault underneath
 - 🎯 **The alert belongs to the response, not to the metric on screen.** It follows you through every screen; tap through and look at whichever one you want
 - 🖋️ **During the flash every foreground turns to near-black ink** — numbers, labels, hairlines, the graph, the battery. No one colour reads on black, red, orange and grey alike (white on orange is under 3:1), so the ink follows the ground. The rest of the 5 s it is the normal screen, thresholds and all
 - ➖ Under an alert a rule parts the ALERT band from the BODY
 - 🔤 **Heading and subscript.** The level word at size 2, the message small under it at size 1
-- 🎨 These level colours are brighter than the shared palette's — this build paints them as whole bands, so they go to full strength
 - ✅ `alert` is required in every response, so this band always has something to draw — there is no empty state to design
 - 🔤 Levels spelled out, never abbreviated. `CRITICAL` is eight characters and there is room
 - 🚫 No glyph. The word and the colour say it
@@ -242,6 +253,14 @@ Hold **DOWN** 2 s. The board raises a WPA2 access point named after itself, answ
 - 🔴 If the access point will not come up, the screen says `HOTSPOT FAILED` rather than showing a password that would not work
 - 🔙 Tap DOWN, hold DOWN 2 s again, or tap the glass to leave — **the AP goes down the moment you do**
 - 📻 The station side stays enabled but unassociated while it is up, so the page can scan for networks; it never joins one, because one radio cannot follow your network's channel and hold this AP still at the same time
+- 🔆 **Two backlight brightness figures, one for on-battery and one for on-charger** — each
+  30-100 %, defaulting to 40 % on battery and 90 % on the charger → [§1](#1--hardware). The
+  board switches between them the moment it notices the charge state change, no restart
+  needed
+- 🗑️ **A factory reset**, behind its own confirmation on the page — a checkbox plus typing
+  the word **YES**, not just a click. Wipes the endpoint, every credential, the lock code
+  and every saved network, then restarts into the same state as a fresh board: `SETUP`,
+  nothing configured, no undo
 
 ---
 
@@ -399,10 +418,14 @@ The sketch is modular — one concern per file, all flat in `ws_lcd_154/` (Ardui
 - [ ] DOWN backs out of the keypad without submitting anything, still locked
 - [ ] Restarting the board while unlocked comes back locked
 - [ ] Changing the code and the auto-relock timeout on the setup page survives a restart
-- [ ] ALERT band occupies the same pixels at every level, in solid colour
+- [ ] ALERT band's word is bold and full-strength colour at every level; the band's own background matches the rest of the screen at rest and only goes solid during the whole-screen flash
 - [ ] `critical` plays its 500 ms sound with every flash, in step with it; `warning` and no connection stay silent
 - [ ] The battery icon shows an explicit bolt while charging, not just a colour change
 - [ ] Sending a metric with no `gateway`, no `aggregates`, or a null field logs the problem on Serial and still renders — never a crash
 - [ ] A one-metric payload shows one full-width position segment and polls every 30 s
 - [ ] A sixth `metrics` entry is ignored rather than crashing, and Serial says so
+- [ ] Backlight brightness matches the setup page's two figures — dim on battery, bright on the charger — and switches within moments of plugging in or unplugging, no restart needed
+- [ ] Factory reset on the setup page does nothing until the checkbox is ticked and **YES** is typed; once confirmed, the board restarts with no endpoint, no saved networks, and the lock code back to `123456`
+- [ ] At 10 % battery and not charging, a `LOW BATTERY` toast and notice sound appear, and the board powers off on its own 2 minutes later unless it's plugged in first
+- [ ] The STATUS band's clock still reads the configured zone (not UTC) a few seconds after joining Wi-Fi, not just right at boot
 - [ ] Critical alert sound on battery with no brown-out reboot, and no rattle or distortion from the speaker

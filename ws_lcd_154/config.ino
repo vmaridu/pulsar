@@ -130,6 +130,15 @@ void configLoad(){
     if (p.isKey("lk")) p.getString("lk", cfg.lockCode, sizeof cfg.lockCode);
     else                strlcpy(cfg.lockCode, "123456", sizeof cfg.lockCode);
     cfg.lockTimeoutMin = p.getUShort("lt", 30);
+    /* a stale/foreign value here (someone hand-editing NVS, or a namespace
+       reused from something else) gets clamped rather than trusted — this
+       drives a live PWM duty, not just a display number.                 */
+    cfg.brightnessBattery  = (uint8_t)p.getUChar("bb", BRIGHTNESS_DEFAULT_BATTERY);
+    cfg.brightnessCharging = (uint8_t)p.getUChar("bc", BRIGHTNESS_DEFAULT_CHARGING);
+    if (cfg.brightnessBattery  < BRIGHTNESS_MIN || cfg.brightnessBattery  > BRIGHTNESS_MAX)
+      cfg.brightnessBattery  = BRIGHTNESS_DEFAULT_BATTERY;
+    if (cfg.brightnessCharging < BRIGHTNESS_MIN || cfg.brightnessCharging > BRIGHTNESS_MAX)
+      cfg.brightnessCharging = BRIGHTNESS_DEFAULT_CHARGING;
     p.end();
   } else {
     LOG("cfg", "no \"gw\" namespace yet - first boot, nothing configured");
@@ -166,6 +175,8 @@ void configLoad(){
        TZ_TABLE[cfg.tzIndex].label);
   if (cfg.lockTimeoutMin) LOGF("cfg", "lock auto-relocks after %u minutes", (unsigned)cfg.lockTimeoutMin);
   else                    LOG("cfg", "lock auto-relock: never (only a manual lock or a restart re-locks it)");
+  LOGF("cfg", "backlight: %u%% on battery, %u%% charging",
+       (unsigned)cfg.brightnessBattery, (unsigned)cfg.brightnessCharging);
   for (int i = 0; i < cfg.nnets; i++){
     const WifiNet& w = cfg.nets[i];
     LOGF("cfg", "  %d. \"%s\" %s%s", i + 1, w.ssid, secName(w.security),
@@ -185,6 +196,8 @@ bool configSave(){
     ok &= p.putUChar("tz", cfg.tzIndex) > 0;
     ok &= p.putString("lk", cfg.lockCode) > 0;
     ok &= p.putUShort("lt", cfg.lockTimeoutMin) > 0;
+    ok &= p.putUChar("bb", cfg.brightnessBattery) > 0;
+    ok &= p.putUChar("bc", cfg.brightnessCharging) > 0;
     p.end();
   } else { ok = false; }
 
@@ -199,6 +212,22 @@ bool configSave(){
   LOGF("cfg", "saved - url %s, %u network%s%s",
        cfg.url[0] ? cfg.url : "NOT SET", (unsigned)cfg.nnets, cfg.nnets == 1 ? "" : "s",
        ok ? "" : " (SOME WRITES FAILED - is the nvs partition full?)");
+  return ok;
+}
+
+/* Wipes every stored setting and every saved network — both NVS namespaces
+   entirely, not just cfg's own fields in RAM, which the restart right
+   after this (hotspot.ino) makes moot anyway. Only ever reached from the
+   setup page's own factory-reset button, itself gated behind a checkbox
+   and a confirm() dialog on that page — there is no undo once this
+   returns, and nothing here asks a second time.                         */
+bool configFactoryReset(){
+  bool ok = true;
+  Preferences p;
+  if (p.begin("gw", false))   { ok &= p.clear(); p.end(); } else ok = false;
+  if (p.begin("wifi", false)) { ok &= p.clear(); p.end(); } else ok = false;
+  LOGF("cfg", "FACTORY RESET - every setting and saved network wiped%s",
+       ok ? "" : " (SOME WIPES FAILED)");
   return ok;
 }
 
@@ -219,6 +248,8 @@ void configJson(JsonDocument& doc){
   doc["tzIndex"]        = cfg.tzIndex;
   doc["lockCodeSet"]    = cfg.lockCode[0] != 0;   /* never the code itself — same rule as every secret here */
   doc["lockTimeoutMin"] = cfg.lockTimeoutMin;
+  doc["brightnessBattery"]  = cfg.brightnessBattery;
+  doc["brightnessCharging"] = cfg.brightnessCharging;
 
   /* TZ_TABLE (ws_lcd_154.ino) is the one copy of this list — sent here so
      the setup page never hardcodes its own second copy to drift out of
@@ -344,6 +375,26 @@ bool configApplyJson(JsonObjectConst in, char* err, size_t errcap){
       return false;
     }
     next.lockTimeoutMin = (uint16_t)lt;
+  }
+
+  /* ---- backlight brightness, one figure for on-battery and one for
+     charging — both rejected outright outside the slider's own 30-100
+     range, the same "the page could not actually have sent this" rule
+     as the timeouts above. */
+  {
+    const long bb = in["brightnessBattery"] | BRIGHTNESS_DEFAULT_BATTERY;
+    if (bb < BRIGHTNESS_MIN || bb > BRIGHTNESS_MAX){
+      snprintf(err, errcap, "battery brightness must be %d-%d%%", BRIGHTNESS_MIN, BRIGHTNESS_MAX);
+      return false;
+    }
+    next.brightnessBattery = (uint8_t)bb;
+
+    const long bc = in["brightnessCharging"] | BRIGHTNESS_DEFAULT_CHARGING;
+    if (bc < BRIGHTNESS_MIN || bc > BRIGHTNESS_MAX){
+      snprintf(err, errcap, "charging brightness must be %d-%d%%", BRIGHTNESS_MIN, BRIGHTNESS_MAX);
+      return false;
+    }
+    next.brightnessCharging = (uint8_t)bc;
   }
 
   /* ---- networks, in the order the page listed them: that order IS the

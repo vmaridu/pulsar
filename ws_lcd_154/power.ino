@@ -25,17 +25,74 @@
 
 /* ---------------------------------------------------------------- display */
 
+/* The backlight's own duty, from the setup page's two brightness figures —
+   one for the cell, one for the charger, so the board can run dimmer to
+   save the battery and still be readable for free once it's plugged in.
+   Asleep is duty 0 regardless of either figure — see displayToggle().    */
+void applyBacklight(){
+  if (!displayAwake){ ledcWrite(PIN_LCD_BL, 0); return; }
+  const uint8_t pct = charging() ? cfg.brightnessCharging : cfg.brightnessBattery;
+  ledcWrite(PIN_LCD_BL, (uint32_t)pct * 255 / 100);
+}
+/* Called every loop() tick, but only actually re-applies the duty when the
+   charge state changes — a PWM write is cheap, but there's no reason to
+   repeat it ~35 times a second regardless. */
+void backlightTick(){
+  static bool wasCharging = charging();
+  const bool nowCharging = charging();
+  if (nowCharging == wasCharging) return;
+  wasCharging = nowCharging;
+  applyBacklight();
+  LOGF("power", "backlight -> %u%% (%s)", nowCharging ? cfg.brightnessCharging : cfg.brightnessBattery,
+       nowCharging ? "charging" : "on battery");
+}
+
 /* UP tap. The panel only — see the header. */
 void displayToggle(){
   displayAwake = !displayAwake;
   if (displayAwake){
     panel->displayOn();
-    digitalWrite(PIN_LCD_BL, HIGH);
+    applyBacklight();
     LOG("key", "UP tap -> display on (polling and alerts never stopped)");
   } else {
-    digitalWrite(PIN_LCD_BL, LOW);
+    applyBacklight();          // duty 0, now that displayAwake is false
     panel->displayOff();
     LOG("key", "UP tap -> display off (still polling, a critical still sounds)");
+  }
+}
+
+/* -------------------------------------------------------------- low battery
+   A safety net, not a warning system: at 10% and not on the charger, the
+   board shuts itself down after a 2-minute grace period rather than run
+   the cell down to where it can't safely restart. Plugging in during the
+   grace period cancels it — the danger was running flat, not the number
+   itself. Checked once a second, not every loop tick: a battery reading
+   this doesn't need to be sampled 35 times a second for a decision with a
+   2-minute fuse.                                                         */
+#define LOW_BATT_PCT       10
+#define LOW_BATT_GRACE_MS  (2UL * 60000UL)
+static uint32_t lowBattT0 = 0;     /* 0 = the shutdown timer isn't running */
+void batteryTick(){
+  static uint32_t lastCheck = 0;
+  if (millis() - lastCheck < 1000) return;
+  lastCheck = millis();
+
+  const int pc = batteryPercent();
+  if (charging() || pc > LOW_BATT_PCT){
+    if (lowBattT0) LOG("power", "battery recovered - shutdown cancelled");
+    lowBattT0 = 0;
+    return;
+  }
+  if (!lowBattT0){
+    lowBattT0 = millis();
+    LOGF("power", "battery at %d%% - shutting down in 2 min unless it recovers", pc);
+    showToast("LOW BATTERY");
+    noticeSound();
+    return;
+  }
+  if (millis() - lowBattT0 >= LOW_BATT_GRACE_MS){
+    LOG("power", "battery still low after 2 min - shutting down to protect the cell");
+    powerOff();
   }
 }
 
@@ -44,7 +101,7 @@ void displayToggle(){
 /* Cut power. On the cell the board is gone after the latch drops; on USB it
    carries on into deep sleep, woken by the power key.                     */
 static void powerDown(){
-  digitalWrite(PIN_LCD_BL, LOW);
+  ledcWrite(PIN_LCD_BL, 0);
   panel->displayOff();
   pinMode(PIN_PA_CTRL, OUTPUT);
   digitalWrite(PIN_PA_CTRL, LOW);
