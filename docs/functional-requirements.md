@@ -10,14 +10,14 @@ Behaviour every build shares — the pixels are each build's own.
 
 One metric per screen, shown for **5 s**, then the next. Wrapping back to the
 first screen fetches fresh data, never faster than `max(30, metric_count × 5)`
-seconds. A 2 s hold on the touch input forces a poll now, wherever the cycle is.
+seconds. A 2 s hold forces a poll now, wherever the cycle is.
 
 Every screen lays out as four fixed bands:
 
 | Band       | Owns                                                                            |
 | ---------- | -------------------------------------------------------------------------------- |
 | **STATUS** | Device internals only — battery, the reading's timestamp, Wi-Fi, poll hairline   |
-| **ALERT**  | `info` / `warning` / `critical` and its one-line message. Nothing else           |
+| **ALERT**  | `info` / `warn` / `crit` and its one-line message. Nothing else                  |
 | **BODY**   | The stats and the graph for the current metric, combined                        |
 | **FOOTER** | Gateway name + metric name, and the position in the cycle                       |
 
@@ -25,7 +25,7 @@ A band never moves, never resizes, and never borrows another band's job.
 
 ### 🚨 The alert is the whole screen
 
-`warning`, `critical` and a fetch fault flash **every band** the level colour
+`warn`, `crit` and a fetch fault flash **every band** the level colour
 for **500 ms**, right at the start of every 5 s screen — the whole device,
 not a stripe of it. Every foreground turns near-black ink during the flash,
 since no one colour reads on black, red, orange and grey alike. The verdict
@@ -35,7 +35,7 @@ want, the alert follows.
 ### 🌑 Display off is not power off
 
 Turning the panel off stops nothing else — the cycle keeps turning, the poll
-keeps polling, and a `critical` still sounds in the dark.
+keeps polling, and a `crit` still sounds in the dark.
 
 ---
 
@@ -49,33 +49,36 @@ whole story**.
 | Baud    | **115200**, 8-N-1              |
 | Format  | `[  1234ms] category: message` |
 
-Categories: `boot` · `key` · `touch` · `view` · `net` · `wifi` · `cfg` ·
+Categories: `boot` · `key` · `touch` · `imu` · `view` · `net` · `wifi` · `cfg` ·
 `data` · `power` · `sound`
 
 Logged, one line each: every button press and touch with the action it
-caused; every poll with its URL, outcome and real error text; every payload
-received, with any contract violation found — logged **before** anything is
-drawn from it; power, display, mute and view changes; and boot's reset reason
-first of all, so a looping board names its own cause. Never logged: frames.
+caused; every shake gesture counted and whether it reached three; every poll
+with its URL, outcome and real error text; every payload received, with any
+contract violation found — logged **before** anything is drawn from it;
+power, display, mute and view changes; and boot's reset reason first of all,
+so a looping board names its own cause. Never logged: frames.
 
 ---
 
 ## 3. 🔔 What it speaks
 
 Every non-`info` level has a sound, and it rides the same clock as the flash
-— they start and end together. `critical` gets a stronger alert; `warning`
+— they start and end together. `crit` gets a stronger alert; `warn`
 and any connection fault get a shorter, quieter notice instead, so the two
 are never mistaken for each other by ear alone.
 
 | Level          | Screen  | Sound                                                       |
 | -------------- | ------- | -------------------------------------------------------------- |
 | 🟢 `info`      | steady  | none                                                            |
-| 🟠 `warning`   | flashes | a short, quiet notice, every flash                              |
-| 🔴 `critical`  | flashes | a stronger alert, every flash                                   |
-| 🩶 fetch fault | flashes | the same quiet notice as `warning`                               |
+| 🟠 `warn`      | flashes | a short, quiet notice, every flash                              |
+| 🔴 `crit`      | flashes | a stronger alert, every flash                                   |
+| 🩶 fetch fault | flashes | the same quiet notice as `warn`                                  |
 
-A double-tap on the mute control silences every sound and brings it back with
-the same gesture. Mute also clears itself two other ways: a restart (RAM
+A person can mute every sound with one gesture and bring it back with the
+same one — which gesture, on which control, is that build's own fact, never
+assumed to be the same gesture across builds. Mute also clears itself two
+other ways: a restart (RAM
 only — always back after one, except straight after a brown-out reset,
 which starts muted so a sagging supply can't loop the sound that caused it),
 or a configured timeout elapsing on its own, set on the setup page →
@@ -106,7 +109,7 @@ succeeds.
 | `BAD DATA`     | A success whose body could not be read or parsed                          |
 | `NO CLOCK`     | Signed mode, and the clock is not yet trustworthy — waits rather than sign wrongly |
 
-`NO CLOCK` reads as `warning` rather than the grey fault colour: a board
+`NO CLOCK` reads as `warn` rather than the grey fault colour: a board
 waiting on its own clock is waiting on itself, not on the network.
 
 ---
@@ -124,7 +127,7 @@ only on its screen — and opens the page it serves at `192.168.4.1`:
   WPA2-Enterprise and captive-portal sign-in
 - An optional pasted **CA root**, for a backend behind a private certificate
 - **How long a mute lasts** — 5 m / 10 m / 30 m / 1 h / 6 h / 12 h / 24 h, or
-  never — before it clears itself on top of the usual double-tap and restart
+  never — before it clears itself on top of the usual mute gesture and restart
   → [§3](#3--what-it-speaks). Defaults to 30 minutes
 - **The clock's own time zone**, picked from a list of real zones rather than
   a raw offset — daylight saving is then handled automatically, for the life
@@ -169,7 +172,7 @@ This is strictly about who can read the numbers.
 - **The code's digits are only ever ones the keypad can actually enter** —
   a build with no way to type a given digit back in must never accept a
   code containing it, checked at the same time the code is saved
-- **Five wrong codes inside a rolling 30 minutes** blocks the keypad until
+- **Five wrong codes inside a rolling 5 minutes** blocks the keypad until
   enough of that window has passed. This survives a restart — the count
   and when it last grew are stored, not just held in memory — and a
   correct code clears it outright, on the theory that proving you know it
@@ -195,10 +198,12 @@ This is strictly about who can read the numbers.
 
 ## 7. 🔍 Settings screen
 
-A read-only view of everything the device knows about itself — opened with a
-double-tap, closed with a tap, holding the screen cycle still while it is up. It
-answers, in order: what am I holding, what did it join, where is it
-pointing, and what came back.
+A view of everything the device knows about itself — opened and closed with
+that build's own gesture (never assumed to be the same one across builds),
+holding the screen cycle still while it is up. Read-only is the default; a
+build may add a few safe, low-risk controls of its own on top, documented in
+its own device.md. It answers, in order: what am I holding, what did it
+join, where is it pointing, and what came back.
 
 | Group        | Lines                                                                          |
 | ------------ | ------------------------------------------------------------------------------ |

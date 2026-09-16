@@ -43,7 +43,7 @@ comments, docs and conversation; the user does.
 | Name       | Owns                                                                         |
 | ---------- | ---------------------------------------------------------------------------- |
 | **STATUS** | Device internals only — battery, the metric's timestamp, Wi-Fi, poll hairline |
-| **ALERT**  | `info` / `warning` / `critical` + its one-line message. Nothing else          |
+| **ALERT**  | `info` / `warn` / `crit` + its one-line message. Nothing else                 |
 | **BODY**   | The stats and the graph for the current metric, combined                     |
 | **FOOTER** | Gateway name + metric label, and the position rule                           |
 
@@ -53,43 +53,41 @@ comments, docs and conversation; the user does.
   free-running clock), and every foreground turns to near-black ink
 - 🏷️ In code they are `BAND_STATUS_*`, `BAND_ALERT_*`, `BAND_BODY_*`, `BAND_FOOT_*`
 
-## 3. 🎛️ Input — the standard map
+## 3. 🎛️ Input — requested actions, not gestures
 
-**This is the whole input contract.** Every build implements exactly this. Anything not
-listed is **future use** and must be documented as "future use", never silently absent.
+**Every build must give a person a way to request each of these.** Nothing else is
+prescribed here: which physical control does it — a key, the touch glass, or a mix
+— and whether that's a tap, a double-tap or a hold, is each device's own fact, never
+generalized across builds. The two boards don't share a button layout, and pinning
+one shared "standard map" onto both used to be exactly what this section did —
+don't reintroduce that mistake.
 
-| Input             | Tap                        | Double-tap              | Hold 2 s                 |
-| ----------------- | -------------------------- | ----------------------- | ------------------------ |
-| **Glass** (touch) | Next metric screen         | **Settings screen** on/off | **Force refresh**     |
-| **DOWN** (PLUS)   | *future use*               | **Settings screen** on/off | **Setup hotspot**     |
-| **POWER** (PWR)   | *future use*               | *future use*            | **Power off / on**       |
-| **UP** (BOOT)     | **Display on/off**         | **Sound mute / unmute** | **Lock the screen**, or open the unlock keypad → [functional-requirements.md §6](docs/functional-requirements.md#6--privacy-lock) |
+- Go to the next metric screen
+- Toggle the display on/off
+- Mute / unmute sound
+- Toggle the settings screen
+- Turn the setup hotspot on/off
+- Force an immediate poll
+- Lock the screen
+- Unlock — enter the lock code
+- Power the device off, and back on
 
-- ⏱️ **Every hold is 2 s**, keys and glass alike, and shows a filling ring with the
-  action named inside so it can be abandoned
-- 🔕 **Mute never survives a restart** — RAM only. (One exception: a brown-out reset
-  starts muted, so a sagging supply cannot loop the sound.) It also clears itself on
-  its own after a configurable timeout (5 m–24 h, or never; default 30 m), set on the
-  setup page → [functional-requirements.md §5](docs/functional-requirements.md#5--configuration)
-- 🔔 **`warning` and any connection fault get a short, quiet notice sound**, not the
-  full `critical` alert — the two are never mistaken for each other by ear alone
-- 🌑 **Display off is the panel only.** Polling, alerts and the speaker keep running —
-  a critical still sounds with the screen dark
-- 🔒 **The privacy lock hides BODY and FOOTER behind a 6-digit code** — STATUS and
-  ALERT, sound and every other key are untouched. No code is needed to lock, only
-  to unlock; it re-arms on its own after a configurable timeout (same set as mute's,
-  default 30 m) and always boots locked → [functional-requirements.md §6](docs/functional-requirements.md#6--privacy-lock)
-- 🔙 Off the main screen, a glass tap returns to it — and so does a DOWN tap
-- 👆 **Settings is a double-tap**, on the glass or on DOWN, so a stray brush never opens it. The wide board has no DOWN key: there, the glass's left part (STATUS / ALERT) carries the DOWN roles — double-tap for settings, hold for the hotspot → [ws_lcd_349/device.md §2](ws_lcd_349/device.md#2--input)
-- 📝 When you change this table, change it **here first**, then in the code and in every
-  readme in the same commit
+- 📖 The full behavioural contract for each action — what it must do, never how
+  it's triggered — is owned by [product-requirements.md §4](docs/product-requirements.md#4-interaction-requirements) onward
+- 🖥️ Which control performs which action, and its exact gesture, is owned by that
+  board's own `<device>/device.md` — never restated here, in `docs/`, or in the
+  root README
+- 📝 A control with nothing assigned to it must still be documented as "future
+  use" on that device, never silently absent
+- 📝 Adding, removing or renaming an action here means updating every device's
+  own gesture map in the same commit
 
 ## 4. 🔁 Screen rotation and polling
 
 - ⏱️ Each metric screen is shown for **5 s**, then the next one
 - 🔄 When the loop returns to the first screen, **fetch fresh data**
 - 🧮 Poll interval = `max(30, metric_count × 5)` seconds — never faster than 30 s
-- 👆 A 2 s hold on the glass forces a refresh regardless of where the cycle is
+- 👆 A 2 s hold forces a refresh regardless of where the cycle is
 - 🌐 **Nothing about the endpoint is compiled in.** The full URL, the API key and the
   API secret come out of NVS, set over the setup hotspot → [functional-requirements.md §5](docs/functional-requirements.md#5--configuration).
   A board with no URL shows `SETUP` and **no numbers at all** — there is no sample
@@ -106,14 +104,16 @@ This board has no screen for us to debug on, so **Serial out is the whole story*
 - 🔌 **115200 baud**, always. Print it in every readme next to the Serial instructions
 - 📋 Log **every** one of these, one line each, with a category prefix:
   - every button press and touch, and the **action it caused**
+  - every shake gesture counted, and whether it reached three and forced a poll
   - every poll: the URL, the status, the parse result — success *and* every failure,
     with the actual error text
   - power, display, mute, view changes
   - boot: reset reason, device name, hardware probe results, payload summary
 - 🏷️ Format: `[  1234ms] category: message` — category is one lowercase word
-  (`key`, `touch`, `net`, `wifi`, `cfg`, `power`, `view`, `sound`, `boot`, `data`).
+  (`key`, `touch`, `imu`, `net`, `wifi`, `cfg`, `power`, `view`, `sound`, `boot`, `data`).
   `wifi` is the radio — scanning, joining, portals; `net` is the poll on top of it;
-  `cfg` is the stored configuration being read or written
+  `cfg` is the stored configuration being read or written; `imu` is the motion sensor —
+  shake detection, nothing else lives there yet
 - 🤫 Never log in a tight render loop; log state *changes* and actions, not frames
 
 ## 6. 📁 Module layout — keep it modular
@@ -130,6 +130,7 @@ untouched by the compiler.
 | `intro.ino`         | The welcome screen (boot intro)                          |
 | `dashboard.ino`     | The four bands                                           |
 | `input.ino`         | Keys and touch — taps, double-taps, holds                |
+| `imu.ino`           | The motion sensor — shake detection                      |
 | `power.ino`         | Power latch, off/on, display on/off                      |
 | `config.ino`        | The stored endpoint and saved networks (NVS)             |
 | `wifi.ino`          | Joining saved networks — priority, enterprise, portals   |
@@ -173,8 +174,8 @@ Authored in hex, quantised to RGB565.
 | Use        | Colour    | Use            | Colour    |
 | ---------- | --------- | -------------- | --------- |
 | Background | `#05070c` | 🟢 `info`       | `#5cf22e` |
-| Text       | `#e6edf7` | 🟠 `warning`    | `#ff7a00` |
-| Dim        | `#7f8fa8` | 🔴 `critical`   | `#ff2626` |
+| Text       | `#e6edf7` | 🟠 `warn`       | `#ff7a00` |
+| Dim        | `#7f8fa8` | 🔴 `crit`       | `#ff2626` |
 | Rule       | `#1c2740` | 🩶 fetch fault  | `#8aa0c0` |
 | Accent     | `#22d3ee` |                |           |
 
@@ -187,7 +188,7 @@ Authored in hex, quantised to RGB565.
 - 🚫 Nothing derived on the wire — no error rate, no throughput, no `window_minutes`
 - 🚫 Never `fillScreen()` inside `loop()`
 - 🚫 Never synthesise audio continuously on-chip — render once, stream
-- ✅ Clients truncate; they never wrap and never scroll
+- ✅ Clients truncate; they never wrap. (A label that scrolls instead of truncating is a rare, deliberate exception — that build's own `device.md` owns the fact of which one and why)
 - 🔑 **A stored secret never leaves the device.** The setup page is told *that* a password
   exists, never what it is — it comes back as `""` with a `…Set` flag beside it, and an
   empty field posted back means "keep the one you have". Anyone within radio range of the
@@ -244,12 +245,12 @@ from `sum(buckets)` locally, never store or send it.
 - 🚫 **No second value on a tile, ever.** A tile is `name` + `value` + optional `unit`
   — one number, one job. A tile that needs a second number is a second tile, never
   a second field bolted onto the first
-- 🚦 **`level` colours a tile: `info` (default) · `warning` orange · `critical` red**
+- 🚦 **`level` colours a tile: `info` (default) · `warn` orange · `crit` red**
   — the same three words as `alert.level`, but scoped to one tile, not the whole
   screen. It never sounds or flashes anything; it only changes that tile's colour.
   The device never computes it — no baked-in "`4XX` past 2% is orange" any more.
-  A backend that wants a tile to read as trouble sends `"level": "warning"` (or
-  `"critical"`) itself → [api.md §4](docs/api.md#-level--a-tiles-own-severity)
+  A backend that wants a tile to read as trouble sends `"level": "warn"` (or
+  `"crit"`) itself → [api.md §4](docs/api.md#-level--a-tiles-own-severity)
 
 ## 11. 🛡️ Render defensively — always
 

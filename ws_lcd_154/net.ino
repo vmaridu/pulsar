@@ -32,7 +32,7 @@
    A FAILED POLL NEVER CLEARS THE SCREEN. The last good payload stays exactly
    where it was, and the fault is said out loud over it — api.md §6. Stale
    numbers shown calmly read as good news, so every fault flashes on the same
-   5 s pattern as a warning, and none of them sound: a Wi-Fi roam must not
+   5 s pattern as `warn`, and none of them sound: a Wi-Fi roam must not
    sound like an outage.
 
    The cycle, and why the poll is tied to it:
@@ -600,12 +600,13 @@ uint32_t pollIntervalMs(){
   return lap > min ? lap : min;
 }
 
-/* A poll the person asked for — the glass held 2 s. Ignores the schedule,
-   lights the status hairline and sweeps the graph back in. A forced refresh
-   also clears a Retry-After hold: a person asking by hand outranks a backend
-   that asked us to wait.                                                  */
-void refreshNow(){
-  LOG("net", "forced refresh - glass held 2 s");
+/* A poll the person asked for — the glass held 2 s, or three shakes
+   (imu.ino). Ignores the schedule, lights the status hairline and sweeps
+   the graph back in. A forced refresh also clears a Retry-After hold: a
+   person asking by hand outranks a backend that asked us to wait. `why`
+   is just what goes in the log line — every caller names its own gesture. */
+void refreshNow(const char* why){
+  LOGF("net", "forced refresh - %s", why);
   pollHoldUntil = 0;
   beginCount();
   netFetch();

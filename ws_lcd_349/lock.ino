@@ -22,7 +22,7 @@
    Locked is the default the moment it does arm — every restart starts
    locked, on purpose, whether or not it was unlocked before the reset.
 
-   Five wrong codes inside a rolling 30 minutes blocks further tries until
+   Five wrong codes inside a rolling 5 minutes blocks further tries until
    enough of that window has passed — a count plus the epoch time of the
    most recent failure, both kept in NVS ("lock" namespace) so a restart
    cannot be used to dodge the lockout. Epoch, not millis(): the device has
@@ -44,12 +44,22 @@
    ws_lcd_349/mockup.html: the first two hold the entry readout (six dots),
    the other five each split top / bottom into a digit — 1-5 across the
    top, 6-0 across the bottom. Ten big cells, every digit typeable.
+
+   A real finger-down can read back from the touch controller as two or
+   three separate releases in a row — the same contact chatter input.ino's
+   key debounce now filters, but the touch driver reports presence as a
+   value, not a raw pin, so it needs its own guard: lockHandleTap() ignores
+   any tap within LOCK_TAP_COOLDOWN_MS of the last one it accepted, so one
+   press can never enter more than one digit.
    =========================================================================== */
 
 #define LOCK_DIGITS       6
 #define LOCK_MAX_FAILS    5
-#define LOCK_FAIL_WINDOW_S  (30UL * 60UL)   /* the rolling 30 minutes, in epoch seconds */
+#define LOCK_FAIL_WINDOW_S  (5UL * 60UL)    /* the rolling 5 minutes, in epoch seconds */
 #define LOCK_REVEAL_MS     550    /* how long the just-pressed digit shows before it masks */
+#define LOCK_TAP_COOLDOWN_MS 200  /* a flickery touch reading can report one finger-down as
+                                      two or three releases; ignore a repeat this soon after
+                                      the last accepted tap — see lockHandleTap()          */
 
 static bool     locked        = true;    /* the default the moment the feature arms */
 static uint32_t unlockedAt    = 0;       /* millis() of the last successful code — lockTick() */
@@ -189,7 +199,15 @@ void lockTick(){
    PANEL_ROTATION). The readout owns columns 0-1, the digits columns 2-6,
    the top row 1-5, the bottom row 6-0. Every tap logs its point and the
    cell it resolved to.                                                   */
+static uint32_t lockLastTapT0 = 0;   /* millis() of the last tap this actually acted on */
+
 void lockHandleTap(int16_t x, int16_t y){
+  const uint32_t now = millis();
+  if (lockLastTapT0 && now - lockLastTapT0 < LOCK_TAP_COOLDOWN_MS){
+    LOG("touch", "lock: tap ignored - too soon after the last one (debounce)");
+    return;
+  }
+  lockLastTapT0 = now;
   if (lockRateLimited()){ LOG("touch", "lock: tap ignored - rate limited"); return; }
   if (x < lockColX(2)){
     LOGF("touch", "lock: tap at %d,%d - on the readout, closing the keypad", x, y);

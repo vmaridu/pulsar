@@ -86,9 +86,11 @@ PORT=8080 node server.js
 ## Point a device at it
 
 The device needs to reach this machine's LAN IP, not `localhost` — find it with
-`ipconfig` (Windows) or `ifconfig` / `ip addr` (macOS/Linux). Then hold **DOWN** on the
-device for 2 s, join the hotspot it raises, and put this in as the **URL** — the device
-polls exactly what you paste, nothing appended:
+`ipconfig` (Windows) or `ifconfig` / `ip addr` (macOS/Linux). Then raise the device's
+setup hotspot — which control and gesture does that is board-specific, see
+[ws_lcd_154 §4](../ws_lcd_154/device.md#4--settings-and-hotspot) or
+[ws_lcd_349 §2](../ws_lcd_349/device.md#2--input) — join it, and put this in as the
+**URL**: the device polls exactly what you paste, nothing appended:
 
 ```
 http://<this-machine's-IP>:4180/v1/gateway_health
@@ -113,7 +115,7 @@ the control page](#using-the-control-page).
 | ----------- | --------------------------------------------------------------------------------------- |
 | **Devices** | Every device that has polled this session, by `X-Device-Mac` — a green dot while it's polled in the last 2 minutes, poll count, last outcome. In memory only: last 10 devices, last 500 polls each, gone when the process stops |
 | **Auth**    | Off by default (no headers are checked at all). Switch it on and every poll must carry a valid [HMAC signature](../docs/api.md#8--hmac) — set both the API key and secret shown here on the device's setup page and it starts signing on its own. Acts instantly, same as Faults |
-| **Alert**   | Sets `alert.level` and `alert.message` for the next poll. `warning`/`critical` are what make a device's whole screen flash; `critical` sounds a full alert, `warning` a shorter, quieter notice. The message box is pre-filled with a sensible default per level — edit it if you want something else, 20 characters max |
+| **Alert**   | Sets `alert.level` and `alert.message` for the next poll. `warn`/`crit` are what make a device's whole screen flash; `crit` sounds a full alert, `warn` a shorter, quieter notice. The message box is pre-filled with a sensible default per level — edit it if you want something else, 20 characters max |
 | **Metrics** | One card per screen. Each has a live sparkline of its current `buckets` and a pattern dropdown — pick one and hit **Apply** to reshape that row's graph. the aggregate tiles' shares recompute to match automatically |
 | **Faults**  | Makes the **next** poll misbehave instead of succeeding — a slow response, a non-200 status, broken JSON, or a payload missing something the contract requires. Stays armed until you clear it, so you can watch a device retry against the same problem more than once |
 | **Log**     | Every hit on `/v1/gateway_health`, and every change made on this page, newest first |
@@ -131,7 +133,7 @@ its API, only the one real endpoint.
 | **falling** | Tails off across the window                                      |
 | **dip**     | Sags in the middle, recovers by the end                          |
 | **spike**   | A short burst near the newest end                                |
-| **cliff**   | Falls off a ledge at the newest end, with elevated 4xx/5xx — pairs well with `critical` |
+| **cliff**   | Falls off a ledge at the newest end, with elevated 4xx/5xx — pairs well with `crit` |
 | **noisy**   | Wide random scatter, no shape                                    |
 
 ### Faults

@@ -48,10 +48,10 @@ paths:
                         value: 18659
                       - name: 4XX
                         value: 109
-                        level: warning
+                        level: warn
                       - name: 5XX
                         value: 15
-                        level: critical
+                        level: crit
                       - name: AVG
                         value: 42
                         unit: ms
@@ -70,7 +70,7 @@ paths:
                         value: 14467
                       - name: 4XX
                         value: 51
-                        level: warning
+                        level: warn
                       - name: 5XX
                         value: 7
                       - name: AVG
@@ -136,7 +136,7 @@ components:
       properties:
         level:
           type: string
-          enum: [info, warning, critical]
+          enum: [info, warn, crit]
         message:
           type: string
           maxLength: 20
@@ -213,10 +213,10 @@ components:
           description: Omit for a plain count.
         level:
           type: string
-          enum: [info, warning, critical]
+          enum: [info, warn, crit]
           default: info
           description: >
             Colours this tile's value — info the normal theme colour (default),
-            warning orange, critical red. Same three words as alert.level, but
+            warn orange, crit red. Same three words as alert.level, but
             scoped to one tile; never sounds or flashes anything. The backend's
             own judgement call, never computed by the client.

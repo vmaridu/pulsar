@@ -1,16 +1,20 @@
 /* ===========================================================================
-   Sound — the boot-intro torpedo fire, the critical alert, and the subtler
-   notice. The same three waveforms as the square build, on this board's
-   ES8311 codec and speaker.
+   Sound — the boot-intro torpedo fire, the crit alert, the subtler notice,
+   and the shake-accepted chirp. The same four waveforms as the square
+   build, on this board's ES8311 codec and speaker. The chirp is the
+   quietest and shortest of the four, sweeps UP instead of down like the
+   alert's own dip, and plays only from imu.ino once a shake gesture is
+   confirmed — never for the 2 s hold or the automatic poll, both of which
+   also force a refresh but stay silent about it.
 
-   All three are rendered once at boot, in float maths only, then high-
+   All four are rendered once at boot, in float maths only, then high-
    passed at 250 Hz — the speaker cannot move lower — and streamed from a
    buffer by a task on core 0. Never synthesised live.
 
    There is no separate amplifier-enable pin on this board; the audio path
    is switched on through the expander's NS_MODE line at boot (main sketch)
-   and left on. RIGHT double-tap mutes; a restart or the timeout set on the
-   setup page clears it again.
+   and left on. The sound icon on the settings screen mutes; a restart or
+   the timeout set on the setup page clears it again.
    =========================================================================== */
 #include <esp_system.h>
 
@@ -24,6 +28,10 @@ static I2SClass i2s;
 #define NOTICE_MS       220
 #define NOTICE_PEAK    0.35f
 #define NOTICE_HZ      660.0f
+#define SHAKE_MS        120     /* the shortest of the four — a UI tick, not a banner */
+#define SHAKE_PEAK     0.30f    /* the quietest too — this one just says "got it" */
+#define SHAKE_HZ_LO    650.0f   /* sweeps UP, the opposite direction of the alert's dip, so it */
+#define SHAKE_HZ_HI   1100.0f   /* never reads as trouble even heard on its own */
 #define HIGHPASS_HZ     250
 
 static const float TAU_F = 6.2831853f;
@@ -34,6 +42,8 @@ static int16_t*     introBuf  = NULL;
 static int           introLen = 0;
 static int16_t*     noticeBuf = NULL;
 static int           noticeLen = 0;
+static int16_t*     shakeBuf  = NULL;
+static int           shakeLen  = 0;
 static int16_t*     playBuf   = NULL;
 static int           playLen  = 0;
 static uint32_t      muteT0   = 0;      /* millis() mute was last engaged — soundTick() below */
@@ -69,6 +79,18 @@ static float noticeSample(float t){
   const float tone = sinf(ph) + 0.15f * sinf(2 * ph);
   const float attack  = t < 0.02f ? t / 0.02f : 1;
   const float release = t > T - 0.08f ? (T - t) / 0.08f : 1;
+  return attack * release * tone;
+}
+
+/* the shake-accepted chirp: a quick upward sweep, the opposite direction
+   of the alert's downward dip, so it reads as "got it" even by itself */
+static float shakeSample(float t){
+  const float T = SHAKE_MS / 1000.0f;
+  if (t < 0 || t >= T) return 0;
+  const float hz = SHAKE_HZ_LO + (SHAKE_HZ_HI - SHAKE_HZ_LO) * (t / T);
+  const float tone = sinf(TAU_F * hz * t);
+  const float attack  = t < 0.01f ? t / 0.01f : 1;
+  const float release = t > T - 0.03f ? (T - t) / 0.03f : 1;
   return attack * release * tone;
 }
 
@@ -180,21 +202,27 @@ void soundBegin(){
   if (esp_reset_reason() == ESP_RST_BROWNOUT){
     soundMuted = true;
     muteT0 = millis();                 /* counts as engaged now, so it still auto-expires */
-    LOG("sound", "muted - the last reset was a brown-out (weak supply). Double-tap RIGHT to unmute");
+    LOG("sound", "muted - the last reset was a brown-out (weak supply). Tap the sound icon on the settings screen to unmute");
   }
 
   introBuf = renderSound(introSample, (int)(I_ANIM_END * 1000), INTRO_PEAK, &introLen);
   if (!introBuf) LOG("boot", "audio: intro sound alloc FAILED - boot intro will be silent");
   noticeBuf = renderSound(noticeSample, NOTICE_MS, NOTICE_PEAK, &noticeLen);
-  if (!noticeBuf) LOG("boot", "audio: notice buffer alloc FAILED - warning sound disabled");
+  if (!noticeBuf) LOG("boot", "audio: notice buffer alloc FAILED - warn sound disabled");
+  shakeBuf = renderSound(shakeSample, SHAKE_MS, SHAKE_PEAK, &shakeLen);
+  if (!shakeBuf) LOG("boot", "audio: shake-chirp buffer alloc FAILED - shake still refreshes, silently");
 }
 
 void alertSound(){ requestSound(alertBuf, alertLen); }
 void introSound(){ requestSound(introBuf, introLen); }
 void noticeSound(){ requestSound(noticeBuf, noticeLen); }
+/* called only by imu.ino, only once a shake gesture is confirmed — see
+   the file header above for why nothing else may call this one */
+void shakeSound(){ requestSound(shakeBuf, shakeLen); }
 
-/* RIGHT double-tap. Also cleared by a restart, or by cfg.muteTimeoutMin
-   elapsing on its own — soundTick() below. */
+/* The settings screen's sound icon — see settings.ino's own CONTROLS
+   comment. Also cleared by a restart, or by cfg.muteTimeoutMin elapsing
+   on its own — soundTick() below. */
 void toggleMute(){
   soundMuted = !soundMuted;
   if (soundMuted) muteT0 = millis();

@@ -2,7 +2,7 @@
 
 Nothing about the backend is compiled in. Once it's flashed, hold the **left part of the glass** for 2 s to
 configure it → [docs/functional-requirements.md §5](../docs/functional-requirements.md#5--configuration).
-What this build does and what is still a placeholder → [`device.md`](device.md).
+What this build does → [`device.md`](device.md).
 
 - 📄 Sketch → this same folder — keep **every** `.ino`/`.cpp`/`.h` file here, flat, the IDE opens them all as tabs. The mockup and the build's own docs live right beside them, since Arduino ignores extensions it doesn't compile:
 
@@ -11,7 +11,8 @@ What this build does and what is still a placeholder → [`device.md`](device.md
   | `ws_lcd_349.ino`                     | Pins, model, palette, logging, `setup()` / `loop()`               |
   | `intro.ino`                          | The welcome screen — the pulsar animation and the PULSAR label     |
   | `dashboard.ino`                      | The three parts of the screen                                     |
-  | `input.ino`                          | Keys and touch — taps, double-taps, holds                         |
+  | `input.ino`                          | Keys and touch — taps and holds                                    |
+  | `imu.ino`                             | The motion sensor — shake-to-refresh                               |
   | `power.ino`                          | Power latch, off / on, display on / off, the backlight            |
   | `config.ino`                         | The stored endpoint and saved networks (NVS)                      |
   | `wifi.ino`                           | Joining saved networks — priority, enterprise, captive portals    |
@@ -49,7 +50,7 @@ What this build does and what is still a placeholder → [`device.md`](device.md
    ```
 3. **OK**, then **Tools → Board → Boards Manager**, search `esp32`, install **esp32 by Espressif Systems** (v3.x)
 
-## 3. 📚 Install the two libraries
+## 3. 📚 Install the three libraries
 
 **Tools → Manage Libraries**, search and install each:
 
@@ -57,10 +58,12 @@ What this build does and what is still a placeholder → [`device.md`](device.md
 | --------------------------- | ------------------ | ----------------------------------------- |
 | **GFX Library for Arduino** | Moon On Our Nation | the AXS15231B panel over QSPI + the canvas |
 | **ArduinoJson**             | Benoit Blanchon    | parsing the payload                       |
+| **SensorLib**               | lewisxhe           | QMI8658 shake detection (imu.ino) only    |
 
 > Install **GFX Library for Arduino 1.5 or newer** — that is where the AXS15231B driver and the QSPI bus arrived. If the compile stops on `Arduino_AXS15231B` or `Arduino_ESP32QSPI`, the library is older than that; update it.
+> If SensorLib asks to install dependencies, say yes.
 
-👆 **No touch library.** This panel's touch controller is part of the display driver chip and the sketch talks to it directly — nothing to install.
+👆 **No touch library.** This panel's touch controller is part of the display driver chip and the sketch talks to it directly — nothing to install. The IMU is a separate chip, and that one does need SensorLib, above.
 
 🔊 **Nothing extra for sound.** `ESP_I2S` is part of the ESP32 board package from step 2, and the codec driver ships in the sketch folder.
 
@@ -110,7 +113,7 @@ Other things that bite:
 | Uploads fine, screen stays black, Serial says `panel begin FAILED` | Check **PSRAM = OPI PSRAM**                                                                                     |
 | Backlight on, glass stays blank                 | Look for `touch: NOT FOUND` in the boot log: the display chip is hung, and the firmware cuts its power to recover it — on the cell the board switches itself off, so hold LEFT 2 s to boot it again. Still blank on an original (V1) board: set `BOARD_REV` to `1` at the top of `ws_lcd_349.ino` — V1 wires the backlight and the panel reset differently |
 | Stray bright dots along the top edge            | The glass mangles the last pixel of every write. The frame goes out in ten strips, each with its first two pixels repeated after it so the real last pixel is never last — `panelFlush()` in `ws_lcd_349.ino`. Dots back means that tail is gone; dots at the bottom-left corner instead means the glass wraps the tail to the start of the frame — send the frame's own first two pixels there |
-| Pressing LEFT restarts the board                | Expected: that key is on the power circuit, and a press pulses the rail. Setup is a 2 s hold on the left part of the glass, and settings a double-tap there, for exactly that reason |
+| Pressing LEFT restarts the board                | Expected: that key is on the power circuit, and a press pulses the rail. Setup is a 2 s hold on the left part of the glass, and settings a tap there, for exactly that reason |
 | The picture is upside-down on the desk         | Change `PANEL_ROTATION` from `1` to `3` in `ws_lcd_349.ino`. Touch follows automatically                                      |
 | Colours look inverted (white ground, dark text) | Flip the `false /* not inverted */` argument on the `Arduino_AXS15231B` line in `ws_lcd_349.ino` to `true`                  |
 | Screen draws, a tap does nothing               | Serial says `touch: NOT FOUND` — screens still turn on their own every 5 s. A tap that lands far from where you pressed is the other rotation: see the row above |

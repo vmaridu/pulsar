@@ -69,8 +69,8 @@ kbd{border:1px solid var(--line);border-radius:3px;padding:0 4px;font-size:9px;c
   text-align:center;font-family:var(--mono);font-size:10.5px;cursor:pointer;color:var(--dim);
   letter-spacing:.06em}
 .lv[data-l=info].on{border-color:#1a6b3d;background:#071c11;color:var(--gr)}
-.lv[data-l=warning].on{border-color:#7a3a0a;background:#1d0e04;color:var(--or)}
-.lv[data-l=critical].on{border-color:#7d2532;background:#1f070c;color:var(--rd)}
+.lv[data-l=warn].on{border-color:#7a3a0a;background:#1d0e04;color:var(--or)}
+.lv[data-l=crit].on{border-color:#7d2532;background:#1f070c;color:var(--rd)}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:11px;margin-top:11px}
 .kv b{font-weight:400;color:var(--dim2)}
 .kv span{color:var(--tx);text-align:right}
@@ -187,6 +187,7 @@ footer{margin-top:24px;color:var(--dim2);font-size:10.5px;text-align:center}
     <button class="b" id="doNext">▸ next metric<kbd>→</kbd></button>
     <button class="b" id="doHold">⏸ pause cycle<kbd>h</kbd></button>
     <button class="b" id="doPoll">poll now<kbd>p</kbd></button>
+    <button class="b" id="doShake">📳 shake x3<kbd>s</kbd></button>
     <button class="b act" id="doPwr">🔌 on charger<kbd>space</kbd></button>
     <button class="b" id="doLock">🔒 lock<kbd>l</kbd></button>
     <button class="b" id="doUnlock">🔓 unlock<kbd>u</kbd></button>
@@ -197,8 +198,8 @@ footer{margin-top:24px;color:var(--dim2);font-size:10.5px;text-align:center}
   <h3>alert.level</h3>
   <div class="lvls">
     <div class="lv" data-l="info">INFO</div>
-    <div class="lv" data-l="warning">WARNING</div>
-    <div class="lv" data-l="critical">CRITICAL</div>
+    <div class="lv" data-l="warn">WARN</div>
+    <div class="lv" data-l="crit">CRIT</div>
   </div>
   <div class="row" style="margin-top:9px">
     <button class="b" id="doFault">simulate OFFLINE<kbd>f</kbd></button>
@@ -274,17 +275,17 @@ for (const [k, v] of Object.entries({
 
 /* level → word, solid colour, dark graph body */
 const LV = {
-  info:     { w:'INFO',     c:C.gr, d:C.grD },
-  warning:  { w:'WARNING',  c:C.or, d:C.orD },
-  critical: { w:'CRITICAL', c:C.rd, d:C.rdD },
-  fault:    { w:'OFFLINE',  c:C.gy, d:C.gyD },
+  info:  { w:'INFO',    c:C.gr, d:C.grD },
+  warn:  { w:'WARN',    c:C.or, d:C.orD },
+  crit:  { w:'CRIT',    c:C.rd, d:C.rdD },
+  fault: { w:'OFFLINE', c:C.gy, d:C.gyD },
 };
-/* One alert pattern for warning, critical and no connection alike: the WHOLE
+/* One alert pattern for warn, crit and no connection alike: the WHOLE
    SCREEN flashes the level colour for 500 ms, once every 5 s — every band, not
-   a stripe. `critical` gets the full alert; `warning` and `fault` get a
+   a stripe. `crit` gets the full alert; `warn` and `fault` get a
    shorter, quieter notice instead — never both, and `info` gets neither.  */
-const FLASHES = { info:false, warning:true,  critical:true,  fault:true  };
-const SOUNDS  = { info:null,  warning:'notice', critical:'alert', fault:'notice' };
+const FLASHES = { info:false, warn:true,  crit:true,  fault:true  };
+const SOUNDS  = { info:null,  warn:'notice', crit:'alert', fault:'notice' };
 const ALERT_FLASH_MS = 500;   // synced to st.screenT0, not a free-running clock — see frame()
 
 /* ==========================================================================
@@ -449,8 +450,8 @@ function mkTile(name, value, unit, level){
 /* Same thresholds simulator/server.js's levelFor() uses, so this standalone
    mockup's own sample backend reads the same way a real one would.      */
 function levelFor(name, share){
-  if (name === '5XX') return share >= 1 ? 'critical' : share >= 0.5 ? 'warning' : undefined;
-  if (name === '4XX') return share >= 2 ? 'warning' : undefined;
+  if (name === '5XX') return share >= 1 ? 'crit' : share >= 0.5 ? 'warn' : undefined;
+  if (name === '4XX') return share >= 2 ? 'warn' : undefined;
   return undefined;
 }
 /* No root `gateway` — api.md only carries the word per row. This backend
@@ -556,37 +557,67 @@ function drawStatus(th){
   g.fillRect(0, y, W, h, th.bg);
 
   /* battery: 13×7 shell with a nub, filled by charge, plus an explicit bolt
-     glyph so charging never depends on noticing a colour change          */
-  const bx = 9, by = y + 7, pctv = 0.82;
+     glyph so charging never depends on noticing a colour change. No number
+     beside it — the fill is quantised to 10 % steps, same as the firmware,
+     so the shell alone reads as the rounded tier it actually is.        */
+  const bx = 9, by = y + 7, pct = 82, lvl = Math.round(pct / 10) * 10;
   const shell = th.ink ? th.rule : C.line2;
   g.fillRect(bx, by, 13, 7, shell);
   g.fillRect(bx + 1, by + 1, 11, 5, th.bg);
-  g.fillRect(bx + 1, by + 1, Math.round(11*pctv), 5, th.ink ? th.tx : (st.plugged ? C.cy : C.dim));
+  g.fillRect(bx + 1, by + 1, Math.round(11 * lvl / 100), 5, th.ink ? th.tx : (st.plugged ? C.cy : C.dim));
   g.fillRect(bx + 13, by + 2, 1, 3, shell);
   if (st.plugged) drawChargeIcon(bx + 16, by - 1, th.ink ? th.tx : C.cy);
-  g.text('82%', bx + 24, y + 6, 1, th.ink ? th.tx : C.dim2);   // fixed slot — no jitter either way
 
   /* clock, centred — MM/DD hh:mm AM of measured_at */
   g.text(clockText(), W/2, y + 6, 1, th.dim, 'c');
 
-  /* wi-fi: three ascending bars, right */
-  const wx = W - 11;
-  for (let i = 0; i < 3; i++)
-    g.fillRect(wx + i*4 - 8, y + 12 - i*3, 2, 3 + i*3, th.ink ? th.tx : C.dim);
+  /* wi-fi: a dot and three arcs, lit by signal — same shape as ws_lcd_349's.
+     cy sits at y+12 so the fan's visual centre lines up with the speaker
+     icon and the battery/clock row beside it. */
+  drawWifiIcon(229, y + 12, th);
 
-  /* muted: a small speaker with a cross, left of the wi-fi */
-  if (st.muted) drawMuteIcon(200, y + 6, th.ink ? th.tx : C.dim);
+  /* sound: a speaker always shown, left of the wi-fi, dim at rest; a
+     brighter cross overlays it while muted, same dim-vs-lit convention the
+     wi-fi fan uses for its own bars. */
+  drawSpeakerIcon(200, y + 6, th.ink ? th.tx : C.dim2);
+  if (st.muted) drawMuteCross(200, y + 6, th.ink ? th.tx : C.dim);
 
   /* poll-in-flight hairline */
   const busy = Date.now() - st.lastPoll < 420;
   g.hLine(0, y + h - 1, W, th.ink ? th.rule : (busy ? C.cy : C.line));
 }
 
+/* A whole-character marquee — the one exception to "clients truncate, never
+   scroll": the ALERT band's detail, when it's too long for the width left
+   beside the level word. Steps one character every SCROLL_STEP_MS rather
+   than scrolling pixel-smooth, same as dashboard.ino's drawScrolling(). */
+const SCROLL_STEP_MS = 260;
+function drawScrolling(msg, x, w, y, size, c){
+  const maxChars = Math.floor(w / (6 * size));
+  if (maxChars <= 0) return;
+  if (msg.length <= maxChars){ g.text(msg, x, y, size, c); return; }
+
+  const loopStr = msg + '    ';                  // gap before it repeats
+  const loopLen = loopStr.length;
+  const pos = Math.floor(Date.now() / SCROLL_STEP_MS) % loopLen;
+
+  let win = '';
+  for (let i = 0; i < maxChars; i++) win += loopStr[(pos + i) % loopLen];
+  g.text(win, x, y, size, c);
+}
+
 /* ALERT — plain background at rest, the same ground every other band
    sits on. Colour lives entirely in the level word: bold, and at full
    strength — that's the whole identification, no background tint needed
    beside it. The flash is still the whole screen's job, not this band's
-   own resting look: see themeFor().                                     */
+   own resting look: see themeFor().
+
+   Word and detail sit side by side, not stacked — a bare word alone left
+   most of the band's width empty. The word is left-aligned, bold, and a
+   size up from before to fill the vertical room stacking used to need;
+   the detail starts right after it, baseline-matched, and takes whatever
+   width is left — never wrapped; a detail too long for that width scrolls
+   slowly instead of truncating. Mirrors dashboard.ino's drawAlert() exactly. */
 function drawAlert(th){
   const [y, h] = B.alert;
   const lv = level(), L = LV[lv], ink = th.ink;
@@ -595,10 +626,15 @@ function drawAlert(th){
   const wordC = ink ? th.tx : L.c;
 
   const fault = !!SNAP.fault;
-  const msg = (fault ? 'no route to host' : SNAP.alert.message).slice(0, 20);
-  g.text(fault ? 'OFFLINE' : L.w, X_L, y + 5, 2, wordC, 'l', true);
-  if (fault) g.text('HELD', X_R, y + 5, 2, wordC, 'r', true);
-  g.text(msg, X_L, y + 24, 1, ink ? th.tx : th.dim);
+  const word = fault ? 'OFFLINE' : L.w;
+  g.text(word, X_L, y + 7, 3, wordC, 'l', true);
+
+  const msgX = X_L + word.length * 6 * 3 + 10;
+  const avail = X_R - msgX;
+  if (avail >= 12){                              // room for at least one glyph
+    const msg = (fault ? 'no route to host' : SNAP.alert.message).slice(0, 20);
+    drawScrolling(msg, msgX, avail, y + 12, 2, ink ? th.tx : th.dim);
+  }
 }
 
 /* The graph is a quiet ground under the numbers: a soft fill that fades to
@@ -629,9 +665,9 @@ const TH = {
           gLine: mix('#05070c', '#22d3ee', 0.62),
           gFill: Array.from({ length: FADE }, (_, i) => mix('#05070c', '#22d3ee', 0.15 - i * 0.012)),
           ink: false },
-  critical: litTheme('#ff2626'),
-  warning:  litTheme('#ff7a00'),
-  fault:    litTheme('#8aa0c0'),
+  crit:  litTheme('#ff2626'),
+  warn:  litTheme('#ff7a00'),
+  fault: litTheme('#8aa0c0'),
 };
 /* inside the 500 ms flash of the 3 s alert cycle — one clock for every level */
 const themeFor = lv => FLASHES[lv] && st.flashOn ? TH[lv] : TH.dark;
@@ -692,13 +728,13 @@ function drawTile(o, x, right, y, valSize, yUnit, unitSize, labSize, shareSize, 
   if (side) g.text(side, right, o + ySub, shareSize, vc, 'r', false, 0, H_);
 }
 
-/* A tile's `level` — "critical" red, "warning" orange, "info" (or
+/* A tile's `level` — "crit" red, "warn" orange, "info" (or
    omitted) the theme's own colour. Under a level flash every foreground
    is already near-black ink, so a tile's own colour never fights it.    */
 function levelColor(level, th){
   if (th.ink) return null;
-  if (level === 'critical') return C.rd;
-  if (level === 'warning')  return C.or;
+  if (level === 'crit') return C.rd;
+  if (level === 'warn') return C.or;
   return null;
 }
 
@@ -708,8 +744,7 @@ function drawBody(off){
   const [y] = B.body;
   const r = curR(), o = y + off, lv = level(), th = themeFor(lv);
   g.fillRect(0, y, W, B.body[1], th.bg);
-  /* under an alert a rule parts the ALERT band from the body — during a flash they share one ground */
-  if (FLASHES[lv]) g.hFade(X_L, y, X_R - X_L, th.rule);
+  g.hFade(X_L, y, X_R - X_L, th.rule);   // soft rule, ALERT from BODY, always on
   drawGraph(r, y + Y.graphTop, y + Y.base, off, th);
 
   const tiles = shownAggregates(), H_ = th.bg;
@@ -772,8 +807,8 @@ function drawFoot(th){
     const sp = nm.lastIndexOf(' ');                  // "Disburse P" → "Disburse"
     if (sp > 0 && nm.length - sp - 1 < 3) nm = nm.slice(0, sp);
   }
-  const wg = g.text(gwName, X_L, y + 6, 2, th.dim);
-  if (nm) g.text(nm, X_L + wg + 12, y + 6, 2, th.tx, 'l', true);
+  g.text(gwName, X_L, y + 6, 2, th.dim);
+  if (nm) g.text(nm, X_R, y + 6, 2, th.tx, 'r', true);
 }
 
 /* What the radio reports once it has joined one of the saved networks, and
@@ -1018,14 +1053,15 @@ function drawIntroOver(I, t, f){
    stops with the animation. Audible but soft-edged on purpose — well under
    the alert's own volume — a launch, not a siren, so it never reads as
    trouble. Once running, one of two sounds rides each flash, ending as it
-   ends: `critical` gets the full 500 ms alert; `warning` and `fault` get a
+   ends: `crit` gets the full 500 ms alert; `warn` and `fault` get a
    shorter, quieter notice. Double-tap UP to mute any of them; a restart
    (power off, then on) brings sound back — real hardware also clears a
    mute on its own after a configured timeout, set on the setup page, not
    simulated here.
    ========================================================================== */
 const AUDIO_RATE = 16000, SOUND_PEAK = 0.85, INTRO_PEAK = 0.32, INTRO_HIT_MS = 260,
-      NOTICE_MS = 220, NOTICE_PEAK = 0.35, NOTICE_HZ = 660, HIGHPASS_HZ = 250;
+      NOTICE_MS = 220, NOTICE_PEAK = 0.35, NOTICE_HZ = 660, HIGHPASS_HZ = 250,
+      SHAKE_MS = 120, SHAKE_PEAK = 0.30, SHAKE_HZ_LO = 650, SHAKE_HZ_HI = 1100;
 /* a drum kick: a sine sweeping down from fEnd+fSweep to fEnd, decaying */
 function kick(tau, fEnd, fSweep, k, decay){
   if (tau < 0 || tau > decay * 7) return 0;
@@ -1045,7 +1081,7 @@ function alertSample(t){
   return Math.tanh(1.6 * s) / Math.tanh(1.6);
 }
 /* one soft tone, quick in and quicker out — a nudge, not an alarm. Rides
-   `warning` and any connection fault; `critical` keeps the alert instead. */
+   `warn` and any connection fault; `crit` keeps the alert instead. */
 function noticeSample(t){
   const T = NOTICE_MS / 1000;
   if (t < 0 || t >= T) return 0;
@@ -1053,6 +1089,18 @@ function noticeSample(t){
   const tone = Math.sin(ph) + 0.15 * Math.sin(2 * ph);
   const attack  = t < 0.02 ? t / 0.02 : 1;
   const release = t > T - 0.08 ? (T - t) / 0.08 : 1;
+  return attack * release * tone;
+}
+/* the shake-accepted chirp: a quick upward sweep, the opposite direction
+   of the alert's downward dip, so it reads as "got it" even by itself.
+   Mirrors sound.ino's shakeSample() exactly. */
+function shakeSample(t){
+  const T = SHAKE_MS / 1000;
+  if (t < 0 || t >= T) return 0;
+  const hz = SHAKE_HZ_LO + (SHAKE_HZ_HI - SHAKE_HZ_LO) * (t / T);
+  const tone = Math.sin(2 * Math.PI * hz * t);
+  const attack  = t < 0.01 ? t / 0.01 : 1;
+  const release = t > T - 0.03 ? (T - t) / 0.03 : 1;
   return attack * release * tone;
 }
 /* one torpedo-fire burst, tau seconds since THIS hit's own launch instant —
@@ -1100,7 +1148,7 @@ function renderSound(sample, lenMs, peak){
   for (let i = 0; i < n; i++) out[i] *= peak / pk;
   return out;
 }
-let actx = null, alertBuf = null, introBuf = null, noticeBuf = null, audioNoted = false;
+let actx = null, alertBuf = null, introBuf = null, noticeBuf = null, shakeBuf = null, audioNoted = false;
 function playPCM(getBuf, setBuf){
   if (st.muted) return;
   try {
@@ -1123,13 +1171,24 @@ function alertSound(){
     return alertBuf;
   });
 }
-/* rides a warning or fault flash — never the same flash as alertSound() */
+/* rides a warn or fault flash — never the same flash as alertSound() */
 function noticeSound(){
   playPCM(() => noticeBuf, () => {
     const pcm = renderSound(noticeSample, NOTICE_MS, NOTICE_PEAK);
     noticeBuf = actx.createBuffer(1, pcm.length, AUDIO_RATE);
     noticeBuf.getChannelData(0).set(pcm);
     return noticeBuf;
+  });
+}
+/* called only once a simulated shake gesture reaches three — never for
+   poll(true, ...) on its own, so the same rule the firmware keeps holds
+   here too: this sound means one specific thing */
+function shakeSound(){
+  playPCM(() => shakeBuf, () => {
+    const pcm = renderSound(shakeSample, SHAKE_MS, SHAKE_PEAK);
+    shakeBuf = actx.createBuffer(1, pcm.length, AUDIO_RATE);
+    shakeBuf.getChannelData(0).set(pcm);
+    return shakeBuf;
   });
 }
 /* called once, right as startIntro() begins screen 1 */
@@ -1155,10 +1214,13 @@ function drawToast(){
   g.vLine(x, y, 40, C.line2); g.vLine(x + w - 1, y, 40, C.line2);
   g.text(st.toastText, 120, y + 12, 2, C.tx, 'c', true);
 }
-/* a speaker with a cross — 12 × 7 */
-function drawMuteIcon(x, y, c){
+/* a small speaker — 12 × 7. Always shown; drawMuteCross() overlays the
+   cross on top of it only while muted. */
+function drawSpeakerIcon(x, y, c){
   g.fillRect(x, y + 2, 2, 3, c);
   g.tri(x + 2, y + 3, x + 5, y, x + 5, y + 6, c);
+}
+function drawMuteCross(x, y, c){
   g.line(x + 7, y + 1, x + 11, y + 5, c);
   g.line(x + 7, y + 5, x + 11, y + 1, c);
 }
@@ -1166,6 +1228,28 @@ function drawMuteIcon(x, y, c){
 function drawChargeIcon(x, y, c){
   g.tri(x + 5, y,     x,     y + 4, x + 4, y + 4, c);
   g.tri(x + 4, y + 3, x + 6, y + 3, x + 1, y + 8, c);
+}
+/* a Wi-Fi fan: a dot and three arcs, lit by signal — ~10 x 8, anchored by
+   its bottom-centre. Mirrors dashboard.ino's own drawWifiIcon() exactly,
+   scaled down from ws_lcd_349's version. Replaces the old three ascending
+   bars, which read as a phone's signal icon, not Wi-Fi's. */
+const WIFI_RADII = [2, 4, 6];
+const WIFI_CS = [], WIFI_SN = [];
+for (let i = 0; i < 31; i++){ const a = (-135 + i*3) * Math.PI/180; WIFI_CS.push(Math.cos(a)); WIFI_SN.push(Math.sin(a)); }
+function drawWifiIcon(cx, cy, th){
+  const ink = th.ink;
+  const lit = NET.connected ? (NET.rssi > -55 ? 3 : NET.rssi > -65 ? 2 : NET.rssi > -75 ? 1 : 0) : 0;
+  const on = ink ? th.tx : C.dim, off = ink ? th.rule : C.dim2;
+  for (let k = 0; k < 3; k++){
+    const c = k < lit ? on : off;
+    for (let i = 0; i < 31; i++) g.px(cx + Math.round(WIFI_RADII[k]*WIFI_CS[i]), cy + Math.round(WIFI_RADII[k]*WIFI_SN[i]), c);
+  }
+  g.circle(cx, cy, 1, ink ? th.tx : (NET.connected ? (NET.portalBlocked ? C.or : C.dim) : C.dim2));
+  if (!NET.connected){
+    const sc = ink ? th.tx : C.or;
+    g.line(cx - 5, cy + 1, cx + 5, cy - 7, sc);
+    g.line(cx - 4, cy + 1, cx + 6, cy - 7, sc);
+  }
 }
 
 /* ==========================================================================
@@ -1229,12 +1313,12 @@ function settingsToggle(who){
   else { st.view = 'main'; st.screenT0 = Date.now(); log(who + ' → main screen'); }
   sync();
 }
-/* UP tap — the panel only. The cycle turns, the poll polls, a critical
+/* UP tap — the panel only. The cycle turns, the poll polls, a crit
    still sounds in the dark.                                                */
 function displayToggle(){
   st.screen = !st.screen;
   log('UP tap → display <b>' + (st.screen ? 'on' : 'off') + '</b>'
-      + (st.screen ? '' : ' · still polling, a critical still sounds'));
+      + (st.screen ? '' : ' · still polling, a crit still sounds'));
   sync();
 }
 /* ---- privacy lock — mirrors ws_lcd_154/lock.ino exactly: BODY and FOOTER
@@ -1246,7 +1330,7 @@ function displayToggle(){
    Real hardware also keeps that count (and when it last grew) in NVS, so
    restarting the board can't be used to dodge the lockout — not simulated
    here, since reloading this page is already a harder reset than that.  */
-const LOCK_FAIL_WINDOW_MS = 30 * 60000, LOCK_MAX_FAILS = 5, LOCK_REVEAL_MS = 550;
+const LOCK_FAIL_WINDOW_MS = 5 * 60000, LOCK_MAX_FAILS = 5, LOCK_REVEAL_MS = 550;
 const lockArmed     = () => SNAP.metrics.length > 0;
 const lockIsLocked  = () => lockArmed() && st.locked;
 function lockRecentFails(){
@@ -1325,9 +1409,21 @@ function lockTick(){
    re-opening the keypad (lockOpenKeypad()) always starts blank anyway.    */
 const LOCK_KEYS = [['1','2','3'], ['4','5','6'], ['7','8','9']];
 const LOCK_GRID_Y = 64, LOCK_CELL_W = 80, LOCK_CELL_H = 58;
+/* Row 1/2 boundary read a bit early on real hardware — taps near the top of
+   row 2 (4/5/6) were landing as row 3 (7/8/9). Nudging the row1/row2 line
+   down mirrors the firmware's LOCK_ROW12_NUDGE fix in lock.ino — see that
+   file's comment for the reasoning. */
+const LOCK_ROW12_NUDGE = 14;
+const LOCK_ROW_Y = [
+  LOCK_GRID_Y,
+  LOCK_GRID_Y + LOCK_CELL_H,
+  LOCK_GRID_Y + 2 * LOCK_CELL_H + LOCK_ROW12_NUDGE,
+  LOCK_GRID_Y + 3 * LOCK_CELL_H,
+];
 function lockHandleTap(x, y){
-  if (lockRateLimited() || y < LOCK_GRID_Y) return;
-  const row = Math.max(0, Math.min(2, Math.floor((y - LOCK_GRID_Y) / LOCK_CELL_H)));
+  if (lockRateLimited() || y < LOCK_ROW_Y[0]) return;
+  let row = 2;
+  for (let r = 0; r < 2; r++) if (y < LOCK_ROW_Y[r + 1]){ row = r; break; }
   const col = Math.max(0, Math.min(2, Math.floor(x / LOCK_CELL_W)));
   lockDigit(LOCK_KEYS[row][col]);
 }
@@ -1352,14 +1448,16 @@ function drawLock(){
     return;
   }
 
-  for (let r = 0; r < 3; r++)
+  for (let r = 0; r < 3; r++){
+    const y0r = LOCK_ROW_Y[r], rh = LOCK_ROW_Y[r + 1] - y0r;
     for (let c = 0; c < 3; c++){
-      const x0 = c * LOCK_CELL_W + 2, y0 = LOCK_GRID_Y + r * LOCK_CELL_H + 2;
-      const cw = LOCK_CELL_W - 4, ch = LOCK_CELL_H - 4;
+      const x0 = c * LOCK_CELL_W + 2, y0 = y0r + 2;
+      const cw = LOCK_CELL_W - 4, ch = rh - 4;
       g.hLine(x0, y0, cw, C.line); g.hLine(x0, y0 + ch - 1, cw, C.line);
       g.vLine(x0, y0, ch, C.line); g.vLine(x0 + cw - 1, y0, ch, C.line);
-      g.text(LOCK_KEYS[r][c], c * LOCK_CELL_W + LOCK_CELL_W / 2, LOCK_GRID_Y + r * LOCK_CELL_H + ch / 2 - 5, 2, C.tx, 'c', true);
+      g.text(LOCK_KEYS[r][c], c * LOCK_CELL_W + LOCK_CELL_W / 2, y0r + ch / 2 - 5, 2, C.tx, 'c', true);
     }
+  }
 }
 /* replaces BODY and FOOTER together — STATUS and ALERT above are untouched */
 function drawLockedBody(th){
@@ -1410,7 +1508,8 @@ function keyHoldTick(){
   }
   if (TOUCH.pendingT && !TOUCH.down && now - TOUCH.pendingT >= DOUBLE_TAP_MS){
     TOUCH.pendingT = 0;
-    nextPanel(); log('glass tap → <b>' + curR().name + '</b>');
+    if (lockIsLocked()){ log('glass tap → opening the <b>unlock keypad</b>'); lockOpenKeypad(); }
+    else { nextPanel(); log('glass tap → <b>' + curR().name + '</b>'); }
   }
 }
 function powerOff(){
@@ -1489,7 +1588,7 @@ function frame(){
   }
   if (!st.screen){
     /* UP tap blanked the panel. Nothing else stopped — the cycle turned and
-       the poll polled the whole time, and a critical still sounded.        */
+       the poll polled the whole time, and a crit still sounded.            */
     g.fillScreen('#000000');
     g.text('DISPLAY OFF - TAP UP', W/2, 116, 1, '#101722', 'c');
   } else if (st.view === 'settings'){
@@ -1593,9 +1692,9 @@ function poll(force, why){
 function setLevel(l){
   SNAP.fault = null;
   SNAP.alert.level = l;
-  SNAP.alert.message = l === 'info'     ? 'error budget healthy'
-                       : l === 'warning'  ? '5xx 0.68% max 0.50%'
-                                          : '5xx 2.14% max 0.50%';
+  SNAP.alert.message = l === 'info'  ? 'error budget healthy'
+                       : l === 'warn'  ? '5xx 0.68% max 0.50%'
+                                       : '5xx 2.14% max 0.50%';
   if (l !== 'info'){ panel.classList.remove('beep'); void panel.offsetWidth;
                      panel.classList.add('beep');
                      log('speaker · ' + (SOUNDS[l] || 'no') + ' sound on the next flash'); }
@@ -1694,6 +1793,11 @@ document.querySelectorAll('.caseBtn[data-btn]').forEach(el => {
   el.addEventListener('pointerleave', () => { el.classList.remove('pressed'); KEYS[k].down = false; });
 });
 $('#doPoll').onclick = () => poll(true);
+/* simulates three counted shakes at once — imu.ino's own debounce/window
+   logic has no browser equivalent to fake, but the result is the same
+   forced refresh, and the chirp is exactly as exclusive to this button as
+   it is to the real gesture on the board: doPoll above never calls it */
+$('#doShake').onclick = () => { shakeSound(); poll(true, 'shake x3'); };
 $('#doIntro').onclick = () => { st.view = 'main'; st.screenT0 = Date.now(); startIntro(); };
 $('#doLock').onclick = lockEngage;
 $('#doUnlock').onclick = lockForceUnlock;
@@ -1728,6 +1832,7 @@ addEventListener('keydown', e => {
   if (k === 'arrowright') $('#doNext').click();
   else if (k === 'h') $('#doHold').click();
   else if (k === 'p') poll(true);
+  else if (k === 's') $('#doShake').click();
   else if (k === 'f') $('#doFault').click();
   else if (k === 'z') toggleReal();
   else if (k === 'v') toggleCase();

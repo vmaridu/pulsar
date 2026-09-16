@@ -1,7 +1,8 @@
-# 🔌 Flashing Pulsar onto the board — from Windows
+# 🔌 Flashing Pulsar onto the square board — from Windows
 
 Nothing about the backend is compiled in. Once it's flashed, hold **DOWN** for 2 s to
 configure it → [docs/functional-requirements.md §5](../docs/functional-requirements.md#5--configuration).
+What this build does → [`device.md`](device.md).
 
 - 📄 Sketch → this same folder — keep **every** `.ino`/`.cpp`/`.h` file here, flat, the IDE opens them all as tabs. The mockup and the build's own docs live right beside them, since Arduino ignores extensions it doesn't compile:
 
@@ -11,6 +12,7 @@ configure it → [docs/functional-requirements.md §5](../docs/functional-requir
   | `intro.ino`                          | The welcome screen — the pulsar animation and the PULSAR label     |
   | `dashboard.ino`                      | The four bands: STATUS · ALERT · BODY · FOOTER                    |
   | `input.ino`                          | Keys and touch — taps, double-taps, holds                         |
+  | `imu.ino`                             | The motion sensor — shake-to-refresh                               |
   | `power.ino`                          | Power latch, off / on, display on / off                           |
   | `config.ino`                         | The stored endpoint and saved networks (NVS)                      |
   | `wifi.ino`                           | Joining saved networks — priority, enterprise, captive portals    |
@@ -18,7 +20,7 @@ configure it → [docs/functional-requirements.md §5](../docs/functional-requir
   | `settings.ino`                       | The settings screen                                               |
   | `lock.ino`                           | The privacy lock — code, keypad, auto-relock                      |
   | `fonts.h`                            | ProFont at four sizes, Adafruit GFX format — the screen's one font |
-  | `sound.ino`                          | The boot-intro torpedo fire, the critical alert sound, and mute    |
+  | `sound.ino`                          | The boot-intro torpedo fire, the crit alert sound, and mute        |
   | `net.ino`                            | Poll scheduling and the HTTPS `GET`                               |
   | `es8311.cpp` / `.h` / `es8311_reg.h` | Speaker codec driver (Espressif, Apache-2.0), from Waveshare's demo |
   | `README.md`                          | This file — flashing and troubleshooting                          |
@@ -54,12 +56,12 @@ configure it → [docs/functional-requirements.md §5](../docs/functional-requir
 | Library                     | Author             | Used for              |
 | --------------------------- | ------------------ | --------------------- |
 | **GFX Library for Arduino** | Moon On Our Nation | ST7789 panel + canvas |
-| **SensorLib**               | lewisxhe           | CST816 touch          |
+| **SensorLib**               | lewisxhe           | CST816 touch, QMI8658 shake detection |
 | **ArduinoJson**             | Benoit Blanchon    | parsing the payload   |
 
 > If SensorLib asks to install dependencies, say yes.
 
-🔊 **Nothing extra for the boot-intro torpedo fire or the critical alert sound.** `ESP_I2S` is part of the ESP32 board package from step 2, and the codec driver ships in the sketch folder.
+🔊 **Nothing extra for the boot-intro torpedo fire or the crit alert sound.** `ESP_I2S` is part of the ESP32 board package from step 2, and the codec driver ships in the sketch folder.
 
 📶 **Nothing extra for the radio or the setup page either.** `WiFi`, `HTTPClient`, `WebServer`, `DNSServer`, `Preferences` and mbedtls all come with the ESP32 core. WPA2-Enterprise needs **core 3.x** — that is where `WiFi.begin(ssid, WPA2_AUTH_PEAP, …)` lives.
 
@@ -118,21 +120,14 @@ Other things that bite:
 real data over a real network, plus buttons to fake every fault.
 
 Everything about what the device does once it's running — the setup flow, the dashboard,
-controls, banners, serial log format — is in **[docs/functional-requirements.md](../docs/functional-requirements.md)**, not
-here.
+controls, banners, serial log format — is in **[`device.md`](device.md)** and
+**[docs/functional-requirements.md](../docs/functional-requirements.md)**, not here.
 
 ## 7. 📦 Producing a flashable binary
 
 Everything above uploads straight from the IDE. To hand someone a file instead — flash a
 second board without installing anything, or flash from a machine with no IDE at all —
 export a `.bin` once and reuse it.
-
-### Skipping Arduino entirely
-
-Don't want to install any of §1–4 at all? Grab a ready-made [`ws_lcd_154.merged.bin`](#)
-from the project's releases — someone else already ran the export below — and jump
-straight to **flashing that file with `esptool`** further down. `esptool` (a small
-Python tool) is the only thing this needs: no IDE, no board package, no libraries.
 
 ### From the IDE (no new tools)
 

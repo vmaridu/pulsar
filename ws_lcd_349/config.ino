@@ -181,7 +181,7 @@ void configLoad(){
        configTlsVerified() ? ", TLS root pinned" : ", TLS NOT VERIFIED (no CA pasted)");
   LOGF("cfg", "%u saved network%s", (unsigned)cfg.nnets, cfg.nnets == 1 ? "" : "s");
   if (cfg.muteTimeoutMin) LOGF("cfg", "mute auto-clears after %u minutes", (unsigned)cfg.muteTimeoutMin);
-  else                    LOG("cfg", "mute auto-clear: never (only a double-tap or a restart clears it)");
+  else                    LOG("cfg", "mute auto-clear: never (only the sound icon or a restart clears it)");
   LOGF("cfg", "display clock: %s (signed requests still sign raw UTC seconds, always)",
        TZ_TABLE[cfg.tzIndex].label);
   if (cfg.lockTimeoutMin) LOGF("cfg", "lock auto-relocks after %u minutes", (unsigned)cfg.lockTimeoutMin);
@@ -324,9 +324,10 @@ bool configApplyJson(JsonObjectConst in, char* err, size_t errcap){
   else keepOrSet(next.ca, sizeof next.ca, in["ca"], cfg.ca);
 
   /* ---- how long a mute lasts on its own. The setup page only ever offers
-     this fixed set (sound.ino's mute, cleared by a double-tap, a restart,
-     or this many minutes — 0 meaning never); reject anything else outright
-     rather than store a number the page could never have actually sent.  */
+     this fixed set (sound.ino's mute, cleared by the settings screen's own
+     sound icon, a restart, or this many minutes — 0 meaning never); reject
+     anything else outright rather than store a number the page could never
+     have actually sent.                                                  */
   {
     const long mt = in["muteTimeoutMin"] | 30;
     static const long ALLOWED[] = { 0, 5, 10, 30, 60, 360, 720, 1440 };

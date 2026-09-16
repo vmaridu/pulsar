@@ -145,8 +145,9 @@ Requirements on these regions:
 - Every visible number is bounded to a small, fixed number of characters
   regardless of magnitude (compacted with a thousand/million/billion-style
   suffix once it would otherwise overflow that budget) and to a small,
-  fixed number of decimal places for any percentage. Text never wraps and
-  never scrolls; it truncates.
+  fixed number of decimal places for any percentage. Text never wraps; it
+  truncates, except for the rare label a build chose to scroll instead —
+  that build's own device.md says which.
 - **A severity change is communicated with the whole display, not a corner
   of it.** Under a non-nominal severity (including a live connection
   problem), every region flashes to that severity's colour together, on a
@@ -197,6 +198,14 @@ Requirements:
   display.
 - A gesture that would move between metric rows must not fire from a
   passing touch that traveled — only a stationary press counts.
+- A build with a motion sensor may offer shaking the device as a second way
+  to force an immediate refetch, on top of the long press, not instead of
+  it. Counted as a small, fixed number of distinct motions in quick
+  succession — not one continuous motion — so it isn't triggered by being
+  picked up or set down. A confirmation sound marks a counted shake as
+  accepted; that sound belongs to the shake gesture alone and must never
+  play for the long-press refresh or for the automatic poll on wrap, so it
+  keeps meaning one specific thing.
 
 ---
 

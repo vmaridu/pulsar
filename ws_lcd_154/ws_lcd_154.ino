@@ -34,6 +34,7 @@
        intro.ino          the welcome screen — pulsar, then the PULSAR label
        dashboard.ino      the four bands
        input.ino          keys and touch — taps, double-taps, holds
+       imu.ino            the motion sensor — shake-to-refresh
        power.ino          power latch, off/on, display on/off
        config.ino         the stored endpoint and saved networks (NVS)
        wifi.ino           joining saved networks — priority, enterprise, portals
@@ -45,7 +46,7 @@
        es8311.*           vendor codec driver, do not edit
        fonts.h            ProFont in four sizes, generated — do not edit
 
-   Input — the standard map, the whole contract. Anything not here is FUTURE USE:
+   Input — this build's own map, the whole contract. Anything not here is FUTURE USE:
        GLASS  tap: next metric screen · double-tap: settings on/off · hold 2 s: refresh
        DOWN   tap: future             · double-tap: settings on/off · hold 2 s: setup hotspot
        POWER  tap: future             · double-tap: future · hold 2 s: off / on
@@ -119,6 +120,7 @@
 #else
 #include "TouchDrvCSTXXX.hpp"       /* older SensorLib — deprecation warning is harmless */
 #endif
+#include "SensorQMI8658.hpp"        /* SensorLib again — the shake gesture, imu.ino */
 
 #if ARDUINOJSON_VERSION_MAJOR < 7
 #error "Install ArduinoJson 7.x - v6 uses a different document API"
@@ -304,8 +306,8 @@ static Config cfg;
    drawn — no separate label, truncated here if a backend sent more than
    5 chars. `unit` is one of "ms" / "s" / "%" / "" (a plain count) —
    AGENTS.md's aggregate tile guideline says what each does to
-   fmtTileValue()'s output. `level` colours the value — "critical" red,
-   "warning" orange, "info" (the default) the theme's own colour — the
+   fmtTileValue()'s output. `level` colours the value — "crit" red,
+   "warn" orange, "info" (the default) the theme's own colour — the
    backend's own judgement call, never computed here — api.md §4.        */
 struct Tile {
   char   name[6];
@@ -351,7 +353,7 @@ static constexpr uint16_t C_DIM   = rgb(0x7f8fa8);
 static constexpr uint16_t C_DIM2  = rgb(0x4d5c76);
 static constexpr uint16_t C_CY    = rgb(0x22d3ee);
 static constexpr uint16_t C_GR    = rgb(0x5cf22e);   /* lime */
-static constexpr uint16_t C_OR    = rgb(0xff7a00);   /* warning — orange, well clear of the red */
+static constexpr uint16_t C_OR    = rgb(0xff7a00);   /* warn — orange, well clear of the red */
 static constexpr uint16_t C_RD    = rgb(0xff2626);   /* bright red, nothing mixed in */
 static constexpr uint16_t C_GY    = rgb(0x8aa0c0);
 static constexpr uint16_t C_INK   = rgb(0x04060a);   /* words printed on a level colour */
@@ -359,12 +361,12 @@ static constexpr uint16_t C_INK   = rgb(0x04060a);   /* words printed on a level
 /* level → word, solid colour, dark shade, flashes, sounds (the full alert),
    soft (the quieter notice instead — never both on the same level) */
 struct Level { const char* word; uint16_t c, dark; bool flashes, sounds, soft; };
-static const Level LV_INFO  = { "INFO",     C_GR, rgb(0x12380c), false, false, false };
-static const Level LV_WARN  = { "WARNING",  C_OR, rgb(0x3d1c00), true,  false, true  };
-static const Level LV_CRIT  = { "CRITICAL", C_RD, rgb(0x4a0c0c), true,  true,  false };
-static const Level LV_FAULT = { "OFFLINE",  C_GY, rgb(0x18202d), true,  false, true  };
+static const Level LV_INFO  = { "INFO",    C_GR, rgb(0x12380c), false, false, false };
+static const Level LV_WARN  = { "WARN",    C_OR, rgb(0x3d1c00), true,  false, true  };
+static const Level LV_CRIT  = { "CRIT",    C_RD, rgb(0x4a0c0c), true,  true,  false };
+static const Level LV_FAULT = { "OFFLINE", C_GY, rgb(0x18202d), true,  false, true  };
 
-/* One alert pattern for warning, critical and no connection alike: the WHOLE
+/* One alert pattern for warn, crit and no connection alike: the WHOLE
    screen flashes the level colour for the first ALERT_FLASH_MS of every new
    metric screen — synced to screenT0 (net.ino), never a free-running clock
    of its own. Five-second screens, so in practice: flash right at the 5 s
@@ -479,6 +481,9 @@ static void vFade(int x, int y, int h, uint16_t bg, uint16_t c){
 
 TouchDrvCSTXXX touch;
 static bool touchOK = false;
+
+SensorQMI8658 imu;              /* imu.ino — same bus, same board, shake detection only */
+static bool imuOK = false;
 
 /* ------------------------------------------------------------------ state */
 static uint8_t  curRow = 0;                  /* which metric screen is up */
@@ -697,9 +702,9 @@ const struct Level& levelNow(){
      "give me a second." Still a fault: still holds the last good data. */
   if (faultWord[0] && !strcmp(faultWord, "NO CLOCK")) return LV_WARN;
   if (faultWord[0])                    return LV_FAULT;   /* cannot reach the backend */
-  if (!strcmp(snap.level, "critical")) return LV_CRIT;
-  if (!strcmp(snap.level, "warning"))  return LV_WARN;
-  if (!strcmp(snap.level, "info"))     return LV_INFO;
+  if (!strcmp(snap.level, "crit")) return LV_CRIT;
+  if (!strcmp(snap.level, "warn")) return LV_WARN;
+  if (!strcmp(snap.level, "info")) return LV_INFO;
   return LV_FAULT;
 }
 /* What the ALERT band actually prints. A fault speaks over the payload's
@@ -817,6 +822,10 @@ void        hotspotStart();
 void        hotspotStop();
 void        hotspotTick();
 
+/* imu.ino */
+void        imuBegin();
+void        imuTick();
+
 /* input.ino */
 void        drawHoldOverlay();
 void        handleKeys();
@@ -846,7 +855,7 @@ void        cycleTick();
 bool        netFetch();
 void        netBegin();
 uint32_t    pollIntervalMs();
-void        refreshNow();
+void        refreshNow(const char* why);
 
 /* power.ino */
 void        applyBacklight();
@@ -863,6 +872,7 @@ void        drawSettings();
 void        alertSound();
 void        introSound();
 void        noticeSound();
+void        shakeSound();
 void        soundBegin();
 void        soundTick();
 void        toggleMute();
@@ -896,8 +906,8 @@ static void alertTick(){
   const Level& L = levelNow();
   const bool flash = alertFlash(L);
   if (flash && !wasFlash){
-    if (L.sounds)     alertSound();     /* sound.ino — critical only */
-    else if (L.soft)  noticeSound();    /* sound.ino — warning, and any connection fault */
+    if (L.sounds)     alertSound();     /* sound.ino — crit only */
+    else if (L.soft)  noticeSound();    /* sound.ino — warn, and any connection fault */
   }
   wasFlash = flash;
 }
@@ -955,6 +965,7 @@ void setup(){
   touch.setPins(PIN_TP_RST, PIN_TP_INT);
   touchOK = touch.begin(Wire, CST816_SLAVE_ADDRESS, PIN_I2C_SDA, PIN_I2C_SCL);
   LOGF("boot", "touch: %s", touchOK ? "CST816 ok" : "NOT FOUND (non-touch SKU?)");
+  imuBegin();                       /* imu.ino — same bus, shake detection only */
   LOGF("boot", "battery: %.2f V  %d%%  %s",
        batteryVolts(), batteryPercent(), charging() ? "charging" : "on battery");
 
@@ -974,7 +985,7 @@ void setup(){
   buildThemes();
   netBegin();                      /* net.ino — the banner starts out saying what we wait for */
   wifiBegin();                     /* wifi.ino — joining runs in the background from here */
-  soundBegin();             /* codec, the critical alert and the intro's torpedo fire — before the intro needs either — sound.ino */
+  soundBegin();             /* codec, the crit alert and the intro's torpedo fire — before the intro needs either — sound.ino */
   bootIntro();              /* once per power-on, hums with the beams, fades into the dashboard — intro.ino */
   if (soundMuted) showToast("SOUND OFF");  /* the brown-out mute check inside soundBegin() ran before
                                                anything was on screen to show it on — say it now instead */
@@ -1001,6 +1012,7 @@ static void idleWait(uint32_t ms){
 void loop(){
   handleTouch();            /* input.ino */
   handleKeys();             /* input.ino */
+  imuTick();                /* shake x3 -> force a poll — imu.ino */
   wifiTick();               /* wifi.ino — scan, join, watch for drops */
   hotspotTick();            /* hotspot.ino — serves the setup page while the AP is up */
   cycleTick();              /* 5 s per screen, refetch when the loop wraps — net.ino */

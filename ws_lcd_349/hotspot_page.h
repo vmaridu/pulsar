@@ -116,7 +116,7 @@ cursor:pointer}
     </select></label>
   <p class="hint">Double-tap the right key to mute every sound. It always clears on a
      restart — this is the <em>other</em> way it clears, on its own, so a mute from
-     last week can't silence a real critical today.</p>
+     last week can't silence a real crit today.</p>
 </section>
 
 <section>
@@ -158,7 +158,7 @@ cursor:pointer}
     </select></label>
   <p class="hint">Hold the right key 2 s to lock the stats away behind a padlock; hold it again
      to raise the keypad, and the code is what unlocks them. Six digits, 0-9. Defaults to
-     <code>123456</code> until you set your own. Five wrong tries inside 30 minutes locks the
+     <code>123456</code> until you set your own. Five wrong tries inside 5 minutes locks the
      keypad out for a while, so it can't just be guessed at. The board boots locked once it
      has shown real data, and re-locks by itself after the time picked here.</p>
 </section>

@@ -5,8 +5,10 @@
    USE, and future use is a thing we say out loud on Serial, never a key that
    silently does nothing.
 
-     GLASS  anywhere   tap: next metric screen
-                       double-tap: settings screen on / off
+     GLASS  anywhere   tap: next metric screen — or, while the dashboard is
+                             showing locked, opens the unlock keypad instead
+                       double-tap: settings screen on / off (works locked or not —
+                                   settings is never gated by the lock)
                        hold 2 s: force a refresh
      DOWN   GPIO0      tap: future use — off the main screen, back to it
                        double-tap: settings screen on / off
@@ -29,6 +31,9 @@
 
    Off the main screen, a tap on the glass goes back to it — except the lock
    keypad, which reads a tap as a digit instead; DOWN backs out of that one.
+   On the main screen itself, while it's showing locked, a tap opens that
+   same keypad instead of advancing the (hidden) metric cycle underneath —
+   the same destination UP's own hold already reaches.
 
    Tap timing: a key or finger with a double-tap action waits DOUBLE_TAP_MS
    before firing its single tap, so one gesture never fires both. A key with
@@ -267,15 +272,19 @@ void handleTouch(){
 
   if (tp.down && !tp.fired && view == VIEW_MAIN && now - tp.t0 >= HOLD_MS){
     tp.fired = true; touchPending = 0;
-    LOG("touch", "hold 2 s -> force refresh");
-    refreshNow();                                   /* net.ino */
+    refreshNow("glass held 2 s");                    /* net.ino */
   }
   if (touchPending && !tp.down && now - touchPending >= DOUBLE_TAP_MS){
     touchPending = 0;
-    nextScreen();                                   /* dashboard.ino */
-    cycleResetTimer();                              /* net.ino — a full 5 s on the chosen screen */
-    LOGF("touch", "tap -> screen %u/%u %s/%s", (unsigned)(curRow + 1), (unsigned)snap.nrows,
-         snap.rows[curRow].gateway, snap.rows[curRow].name);
+    if (lockIsLocked()){                             /* lock.ino — showing locked, not navigating */
+      LOG("touch", "tap -> opening the unlock keypad");
+      lockOpenKeypad();                              /* lock.ino */
+    } else {
+      nextScreen();                                   /* dashboard.ino */
+      cycleResetTimer();                              /* net.ino — a full 5 s on the chosen screen */
+      LOGF("touch", "tap -> screen %u/%u %s/%s", (unsigned)(curRow + 1), (unsigned)snap.nrows,
+           snap.rows[curRow].gateway, snap.rows[curRow].name);
+    }
   }
 }
 

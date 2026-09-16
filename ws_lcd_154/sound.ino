@@ -1,16 +1,16 @@
 /* ===========================================================================
-   Sound — the boot-intro torpedo fire, the critical alert, the subtler
-   notice, and mute.
+   Sound — the boot-intro torpedo fire, the crit alert, the subtler
+   notice, the shake-accepted chirp, and mute.
 
    The boot intro (intro.ino) fires a torpedo-launch burst every time a beam
    sweeps past top — twice a turn, same phase drawIntroFrame() pulses the
    core on — then stops with the animation: silent for the "PULSAR" screen
    and the cross-fade after it. Audible but soft-edged on purpose — well
-   under the critical alert's own volume, and a different character
+   under the crit alert's own volume, and a different character
    entirely — a launch, not a siren — so it never reads as trouble. Once
    running, one of two sounds rides every alert flash — started in the same
-   frame the flash is drawn, ending as it ends: `critical` gets the full
-   500 ms alert below; `warning` and any connection fault (OFFLINE, NOT FOUND, NO ACCESS, every
+   frame the flash is drawn, ending as it ends: `crit` gets the full
+   500 ms alert below; `warn` and any connection fault (OFFLINE, NOT FOUND, NO ACCESS, every
    banner api.md §6 names) get a short, quiet notice instead — enough to
    turn a head, not enough to sound like an outage. `info` stays silent.
 
@@ -18,9 +18,13 @@
    tone falling fast from 920 to 560 Hz with two harmonics for body, a 14 Hz
    shiver on top, a short thump on the attack and a soft 1.76 kHz glint. It
    fades to nothing at 500 ms. The notice is one soft tone, well under the
-   alert's volume, a fifth of its length — a nudge, not an alarm.
+   alert's volume, a fifth of its length — a nudge, not an alarm. The shake
+   chirp is shorter and quieter still, and sweeps UP instead of down — the
+   one sound here that means "accepted", not "something's wrong" — and it
+   plays only for a confirmed shake gesture (imu.ino), never the 2 s hold
+   or the automatic poll that also force a refresh.
 
-   All three are rendered once at boot, in float maths only — the S3's FPU
+   All four are rendered once at boot, in float maths only — the S3's FPU
    is single precision, and double maths (anything touching PI or a plain
    sin()) runs in software, slow enough to starve a core. Then a 250 Hz
    high-pass: the speaker cannot move lower, and trying only rattles and
@@ -35,7 +39,7 @@
    its own (set on the setup page, default 30 minutes, `0` = never times out).
 
    Past the intro, sound does not care what is on screen, or whether the
-   panel is even awake — UP tap sleeps the display and a critical still
+   panel is even awake — UP tap sleeps the display and a crit still
    sounds in the dark. That is what the speaker is for.
 
    Mirrors ws_lcd_154/mockup.html — same synth, same numbers.
@@ -58,6 +62,10 @@ static I2SClass i2s;
 #define NOTICE_MS       220    /* a fifth of the alert's length — a nudge, not an alarm */
 #define NOTICE_PEAK    0.35f   /* well under the alert's 0.85 — quiet on purpose */
 #define NOTICE_HZ      660.0f  /* one plain tone, no sweep, no harmonics past a touch of body */
+#define SHAKE_MS        120    /* the shortest of the four — a UI tick, not a banner */
+#define SHAKE_PEAK     0.30f   /* the quietest too — this one just says "got it" */
+#define SHAKE_HZ_LO    650.0f  /* sweeps UP, the opposite direction of the alert's dip, so it */
+#define SHAKE_HZ_HI   1100.0f  /* never reads as trouble even heard on its own */
 #define HIGHPASS_HZ     250
 #define PA_IDLE_MS     6000    /* the amp stays on this long after a sound, so the next
                                   one is not clipped by its start-up; then it sleeps */
@@ -70,6 +78,8 @@ static int16_t*     introBuf  = NULL;
 static int           introLen = 0;
 static int16_t*     noticeBuf = NULL;
 static int           noticeLen = 0;
+static int16_t*     shakeBuf  = NULL;
+static int           shakeLen  = 0;
 static int16_t*     playBuf   = NULL;   /* what the task is asked to play next */
 static int           playLen  = 0;
 static uint32_t      muteT0   = 0;      /* millis() mute was last engaged — soundTick() below */
@@ -98,8 +108,8 @@ static float alertSample(float t){
 
 /* One sample of the notice, t in seconds from its start. A single soft tone
    with a touch of its own octave for body, quick in and quicker out — the
-   opposite of the alert's urgency on purpose. Rides `warning` and any
-   connection fault; `critical` keeps the stronger alert above instead, and
+   opposite of the alert's urgency on purpose. Rides `warn` and any
+   connection fault; `crit` keeps the stronger alert above instead, and
    the two never play together — alertTick() (ws_lcd_154.ino) picks one. */
 static float noticeSample(float t){
   const float T = NOTICE_MS / 1000.0f;
@@ -108,6 +118,21 @@ static float noticeSample(float t){
   const float tone = sinf(ph) + 0.15f * sinf(2 * ph);
   const float attack  = t < 0.02f ? t / 0.02f : 1;
   const float release = t > T - 0.08f ? (T - t) / 0.08f : 1;
+  return attack * release * tone;
+}
+
+/* One sample of the shake-accepted chirp, t in seconds from its start. A
+   quick upward sweep — the opposite direction of the alert's downward dip —
+   so it reads as "got it", not "trouble", even by itself. Plays only from
+   imu.ino, only once a shake gesture is confirmed; never for the hold or
+   the automatic poll, so the sound keeps meaning one specific thing. */
+static float shakeSample(float t){
+  const float T = SHAKE_MS / 1000.0f;
+  if (t < 0 || t >= T) return 0;
+  const float hz = SHAKE_HZ_LO + (SHAKE_HZ_HI - SHAKE_HZ_LO) * (t / T);
+  const float tone = sinf(TAU_F * hz * t);
+  const float attack  = t < 0.01f ? t / 0.01f : 1;
+  const float release = t > T - 0.03f ? (T - t) / 0.03f : 1;
   return attack * release * tone;
 }
 
@@ -256,18 +281,25 @@ void soundBegin(){
   if (!introBuf) LOG("boot", "audio: intro sound alloc FAILED - boot intro will be silent");
 
   noticeBuf = renderSound(noticeSample, NOTICE_MS, NOTICE_PEAK, &noticeLen);
-  if (!noticeBuf) LOG("boot", "audio: notice buffer alloc FAILED - warning/fault sound disabled");
+  if (!noticeBuf) LOG("boot", "audio: notice buffer alloc FAILED - warn/fault sound disabled");
+
+  shakeBuf = renderSound(shakeSample, SHAKE_MS, SHAKE_PEAK, &shakeLen);
+  if (!shakeBuf) LOG("boot", "audio: shake-chirp buffer alloc FAILED - shake still refreshes, silently");
 }
 
-/* called by render() in the frame a critical flash first shows */
+/* called by render() in the frame a crit flash first shows */
 void alertSound(){ requestSound(alertBuf, alertLen); }
 
 /* called once, right as bootIntro() (intro.ino) starts drawing screen 1 */
 void introSound(){ requestSound(introBuf, introLen); }
 
-/* called by render() in the frame a warning or fault flash first shows —
+/* called by render() in the frame a warn or fault flash first shows —
    never in the same frame as alertSound(), alertTick() picks one or the other */
 void noticeSound(){ requestSound(noticeBuf, noticeLen); }
+
+/* called only by imu.ino, only once a shake gesture is confirmed — see
+   the file header above for why nothing else may call this one */
+void shakeSound(){ requestSound(shakeBuf, shakeLen); }
 
 /* UP double-tap. Also cleared by a restart, or by cfg.muteTimeoutMin
    elapsing on its own — soundTick() below. */

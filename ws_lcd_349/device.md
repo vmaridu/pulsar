@@ -7,26 +7,6 @@ Waveshare **ESP32-S3-Touch-LCD-3.49**. The panel is a 172 × 640 strip; Pulsar l
 
 ---
 
-## 0. 🚧 What this build does today
-
-Everything marked ✅ is implemented; anything marked 🟡 is documented as a placeholder on this build until it arrives — never silently missing → [product-requirements.md §11](../docs/product-requirements.md#11-extensibility-requirements).
-
-| Feature                                    | State                                                                 |
-| ------------------------------------------ | --------------------------------------------------------------------- |
-| Boot intro, with sound                     | ✅ → [functional-requirements.md §8](../docs/functional-requirements.md#8--boot-intro) |
-| The poll, the 5 s cycle, the count-up, the graph sweep | ✅ the same fetch, parser and fault banners as the square build → [functional-requirements.md §4](../docs/functional-requirements.md#4--errors) |
-| Whole-screen alert flash + the sounds      | ✅                                                                    |
-| Wi-Fi — six saved networks, priority, WPA2-Enterprise, captive portals | ✅                                        |
-| Setup hotspot and its page — every option in [functional-requirements.md §5](../docs/functional-requirements.md#5--configuration), factory reset included | ✅ |
-| Settings screen                            | ✅                                                                    |
-| The whole input map (§2), with hold rings  | ✅                                                                    |
-| Display on/off, sound mute/unmute + timeout | ✅                                                                   |
-| LEFT hold 2 s → off · from off, hold 2 s → on; low-battery shutdown | ✅                                           |
-| Battery reading in STATUS                  | ✅ percentage only — nothing on this board reports the charger, so no bolt icon, and the *on-charger* brightness figure applies at all times |
-| Privacy lock (RIGHT held 2 s) — code, keypad, lockout, auto-relock, boots locked | ✅ → [functional-requirements.md §6](../docs/functional-requirements.md#6--privacy-lock) and §2 below |
-
----
-
 ## 1. 🔩 Hardware
 
 Waveshare wide kit, SKU **32373** (Case A, 18650 cell); `-EN` variants ship without a cell, `B` variants with a LiPo in the smaller case.
@@ -40,7 +20,7 @@ Waveshare wide kit, SKU **32373** (Case A, 18650 cell); `-EN` variants ship with
 | Touch   | Capacitive, inside the same AXS15231B, over I²C — every SKU   |
 | Audio   | ES8311 codec + speaker, ES7210 + dual mics (mics unused)       |
 | Expander| TCA9554 — holds the power latch, backlight enable, panel reset |
-| IMU     | QMI8658 6-axis — unused                                       |
+| IMU     | QMI8658 6-axis — accelerometer only, shake-to-refresh → [§2](#2--input) |
 | RTC     | PCF85063 — unused so far                                      |
 | Storage | TF (microSD) — unused                                         |
 | Battery | 18650 (Case A) or 3.7 V LiPo (Case B), optional               |
@@ -73,27 +53,48 @@ Everything except the battery comes from the payload. The battery is read off th
 
 ## 2. 👆 Input
 
-Two keys and the glass. The keys are named by where they sit on the case, **LEFT** and **RIGHT**; the third, between them, is RESET on the chip's reset line. **LEFT is on the board's power circuit, and on this hardware a press of it pulses the rail — the chip resets before any firmware sees the key.** So LEFT is power and nothing else, and the standard map's DOWN roles → [AGENTS.md §3](../AGENTS.md#3--input--the-standard-map) live on the glass instead: on the dashboard's **left part** (STATUS / ALERT — on screen whenever the dashboard is, locked or not), a double-tap opens settings and a 2 s hold raises the setup hotspot. The other two parts keep the glass's own roles.
+Two keys and the glass. The keys are named by where they sit on the case, **LEFT** and **RIGHT**; the third, between them, is RESET on the chip's reset line. **LEFT is on the board's power circuit, and on this hardware a press of it pulses the rail — the chip resets before any firmware sees the key.** So LEFT is power and nothing else. This board has no separate key for settings or the setup hotspot — those live on the glass instead: on the dashboard's **left part** (STATUS / ALERT — on screen whenever the dashboard is, locked or not), a tap opens settings and a 2 s hold raises the setup hotspot. The other two parts carry next-screen and the refresh.
 
-| Input                        | Tap                    | Double-tap              | Hold 2 s                                   |
-| ---------------------------- | ---------------------- | ----------------------- | ------------------------------------------ |
-| **Glass** · left part        | Next metric screen     | **Settings** on / off   | **Setup hotspot** on / off                 |
-| **Glass** · right two parts  | Next metric screen     | _future use_            | **Force refresh**                          |
-| **Glass** · off the main screen | Back                | Back                    | In the hotspot: leave it                   |
-| **Glass** · the keypad       | A digit, or the readout to back out | Two digits | _nothing_ — a keypad only takes taps |
-| **RIGHT** key                | **Display on / off**   | **Sound mute / unmute** | **Lock**, or — already locked — **open the unlock keypad** |
-| **LEFT** key                 | _future use_ — a press resets the chip | _future use_ | **Power off** · from off: on |
+No gesture on this board waits to see if a second tap follows — a double-tap was tried for settings and for mute, and on both the keys and the glass it read as unreliable more than deliberate: a real tap sometimes sat waiting for a second one that never came, and this hardware's own touch chatter made a stray "second tap" too easy to manufacture by accident. Every tap here, including settings, resolves the instant it lifts. A brush against the left part while just reading STATUS/ALERT can pop settings open unwanted — a known, accepted trade for a gesture that answers instantly instead of half the time.
 
+| Input                        | Tap                    | Hold 2 s                            |
+| ---------------------------- | ---------------------- | ------------------------------------ |
+| **Glass** · left part        | **Settings** on / off  | **Setup hotspot** on / off          |
+| **Glass** · right two parts  | Next metric screen, or — locked — **open the unlock keypad** | **Force refresh** |
+| **Glass** · off the main screen | Back                 | In the hotspot: leave it            |
+| **Glass** · the keypad       | A digit, or the readout to back out | _nothing_ — a keypad only takes taps |
+| **RIGHT** key                 | **Display on / off**   | **Lock**, or — already locked — **open the unlock keypad** |
+| **LEFT** key                  | _future use_ — a press resets the chip | **Power off** · from off: on |
+
+- 📳 **Shake the board three times to force a refresh too** — a second way to reach the same action as the right two parts' hold, not a different one. Detected on the QMI8658 IMU (accelerometer only), independent of any key or the glass: it works from any view. A short, quiet upward chirp confirms the third shake was counted; that chirp is the shake gesture's alone — the hold and the automatic poll on wrap force the same refresh silently → [imu.ino](imu.ino)
 - ⏱️ **Every hold is 2 s**, and shows a ring filling toward it with the action inside — `SETUP`, `EXIT`, `REFRESH`, `LOCK`, `UNLOCK`, `OFF`, `ON`
-- 👆 **A double-tap is two taps inside 450 ms**, and the glass is read every 7 ms between frames so a quick pair is never merged into one long touch
-- 👆 **Parts, not zones, and only on the dashboard.** The left part is `x < 213` on the 640-wide picture, exactly where part 1 draws; the right two parts are the rest. A tap that slides is not a tap; a tap gives the chosen screen a fresh 5 s; with the display off a tap does nothing — RIGHT wakes it. Off the dashboard the parts mean nothing: a tap is back, a hold in the hotspot is exit
-- 🌑 **RIGHT tap sleeps the panel only.** The cycle keeps turning and a critical still sounds in the dark
-- 🔕 **RIGHT double-tap** mutes every sound until it is double-tapped again or the board restarts; the crossed speaker sits in STATUS while muted
+- 👆 **A second tap landing within 400 ms of the one that opened settings**, at the same spot, is swallowed too — not read as a fresh tap on whatever settings happens to be showing there (the sound icon, today) the instant it opens
+- 👆 **Parts, not zones, and only on the dashboard.** The left part is `x < 213` on the 640-wide picture, exactly where part 1 draws; the right two parts are the rest. A tap that slides is not a tap; on the right two parts a tap gives the chosen screen a fresh 5 s, on the left part a tap opens settings instead; with the display off a tap does nothing — RIGHT wakes it. Off the dashboard the parts mean nothing: a tap is back, a hold in the hotspot is exit
+- 🔓 **A tap on the right two parts while locked opens the unlock keypad** instead of stepping the cycle — parts 2 and 3 are the padlock then anyway, so there is no screen to step to. The left part's tap still always opens settings, locked or not — the lock never gates diagnostics
+- 🌑 **RIGHT tap sleeps the panel only.** The cycle keeps turning and a crit still sounds in the dark
+- 🔕 **Sound mute/unmute lives on the settings screen**, not a RIGHT double-tap → [below](#-settings-screen). The crossed speaker sits in STATUS while muted, same as always
 - 🔒 **RIGHT held 2 s** hides parts 2 and 3 behind a padlock — no code to lock; held again, it raises the keypad over the whole screen. The lock arms once real data has shown and the glass answered at boot; before that the hold is future use and draws no ring. It boots locked, and re-locks on its own after the setup page's timeout → [functional-requirements.md §6](../docs/functional-requirements.md#6--privacy-lock)
 - 🔢 **The keypad is seven equal columns** across the 640 px (`lockColX(i)` in `lock.ino`, the same split as the mockup): columns 0-1 hold the readout — `ENTER CODE`, six dots, `TAP HERE - BACK` — and columns 2-6 each split top / bottom into a digit, `1 2 3 4 5` across the top row, `6 7 8 9 0` across the bottom. Ten cells of 85 × 86 px, every one typeable. The digit just pressed shows in its dot for 550 ms, then masks. While the keypad is up the glass is a keypad and nothing else — no settings, no hotspot hold, no refresh; the ring never draws there
 - 🔌 **Off on USB is deep sleep** with the panel asleep and its backlight off; LEFT wakes it. The power latch stays up through the sleep on purpose — dropping it takes the display's own rail down with it, and the panel did not come back from that cleanly
 - 🔌 **Off and on are both a 2-second hold of LEFT.** The key powers the board up by itself; the firmware keeps the latch only once the hold reaches 2 s. Off drops the latch — on the cell that is truly off; on USB it is deep sleep, and LEFT wakes it into the same hold
 - 🪵 Every press and touch prints on Serial with its GPIO, and every touch-down prints the raw controller pair beside the screen point — that pair is what a calibration fix needs, should one ever be
+
+### 🔍 Settings screen
+
+A tap on the left part opens it; a tap anywhere outside CONTROLS closes it again. Same three-part split as the dashboard itself — part 1 is the only one that answers a tap.
+
+| Part | Owns                                                                          |
+| ---- | ------------------------------------------------------------------------------ |
+| 1    | **CONTROLS** — a 2×2 grid: sound / lock across the top, brightness − / + across the bottom, every cell the same size |
+| 2    | **DEVICE / WI-FI** — battery, name, MAC, the network joined, signal and IP     |
+| 3    | **BACKEND / DATA** — the host, auth mode, every gateway named, when it last measured and polled |
+
+- 🔈 **Tap the top-left sound icon to mute or unmute** — the same toggle a RIGHT double-tap used to be, moved here because double-taps on this hardware read as unreliable more than deliberate. No text label: the speaker glyph alone gets a cross through it while muted, the same convention STATUS's own small mute icon already uses, and the colour says it a second way — lime while on, red while muted, the same info/crit palette every level colour already uses
+- 🔒 **Tap the top-right padlock icon to lock or unlock.** Locking needs no code, the same as a RIGHT hold; unlocking opens the real 6-digit keypad, never a shortcut around it. The icon itself changes shape, not just colour — closed while locked, shackle swung open while unlocked — lime locked, red unlocked, the same info/crit palette as sound. Dim grey and closed until the lock has armed — real data shown, touch answered at boot, same condition as RIGHT's own hold → [functional-requirements.md §6](../docs/functional-requirements.md#6--privacy-lock)
+- ☀️ **The bottom row nudges backlight brightness — a sun on each side, small on the left, larger on the right, size alone hinting at the direction a tap moves it.** A `-` or `+` is cut right into each disc rather than drawn beside it. 5 points a tap, clamped 30-100%, the live percentage shown between the two. This is temporary, in RAM only, the same rule mute already follows: it's back to whatever the setup page's own figure says the moment the board restarts. Nothing on this board tells it whether it's on the charger (→ [§1](#1--hardware)), so the figure it nudges is always the *while charging* one — the only figure this board actually applies. Both icons dim once a tap there would no longer move the value, at either end
+- 📐 **Row content sits at the top and bottom of its own half**, not centred on the boundary between them — that's what opens a visible gap between the two rows without shrinking either one's tap target, which stays the full half of part 1 regardless of how small the icon drawn inside it is
+- 📊 **Parts 2 and 3 are read-only**, packed two rows tighter than before — 17 px apart, label and value on one line — now that part 1 carries controls instead of device info
+- 🔙 **A tap outside CONTROLS goes back** to the dashboard, the same as any other secondary view
 
 ### 🔄 One cycle
 
@@ -103,7 +104,7 @@ Orders · Created → Dispatched → Cancelled
 ```
 
 - ⏱️ **Each screen is up for 5 s** and then moves on by itself
-- 👆 A tap steps on early and gives the chosen screen a fresh 5 s
+- 👆 A tap on the right two parts steps on early and gives the chosen screen a fresh 5 s; the left part's tap opens settings instead, and doesn't advance the cycle
 - 🔄 **The wrap is the poll.** When it returns to the first screen it refetches, but never faster than `max(30, metrics × 5)` seconds → [functional-requirements.md §1](../docs/functional-requirements.md#1--screens)
 
 ---
@@ -114,7 +115,7 @@ Orders · Created → Dispatched → Cancelled
 
 | Part | x         | Band(s)         | Content                                                                                           |
 | ---- | --------- | --------------- | ------------------------------------------------------------------------------------------------- |
-| 1    | 0 – 212   | STATUS · ALERT  | A 26 px strip on top: battery + percentage left, the Wi-Fi fan right (a slash through it with no link, an orange dot while a portal is in the way), mute icon beside it. Beneath: the level word at size 3, its message bold, the reading's clock at the foot — all centred |
+| 1    | 0 – 212   | STATUS · ALERT  | A 26 px strip on top: the battery shell left (fill only, 10 % steps, no number), the Wi-Fi fan right (a slash through it with no link, an orange dot while a portal is in the way), mute icon beside it. Beneath: a small level icon beside the level word at size 3, its message bold underneath, the reading's clock at the foot — all centred |
 | 2    | 213 – 426 | BODY            | The graph, with the heading tile over it: value size 3 left with its unit, name size 2 and the span (`LAST 30M`) right |
 | 3    | 427 – 639 | BODY · FOOTER   | Gateway (first five letters, dim) left and metric name right across the top; four full-width rows beneath, tile name left at size 1, value size 3 right with its unit; the position rule along the bottom |
 
@@ -123,14 +124,15 @@ Orders · Created → Dispatched → Cancelled
 - 🔤 **The metric name draws at size 2 while it clears the gateway beside it** (up to 10 characters), else size 1. **The alert message has its own face** — the message size below, bold, 16 characters to a line; a longer one breaks at a space onto a second line
 - 📈 **The graph is part 2's ground**, one count per bucket, no headroom; it sweeps in left → right over ~900 ms on every new screen
 - 🔢 The numbers count up from the previous screen's over ~520 ms
-- 🎨 **A tile's colour is its own `level`** — `critical` red, `warning` orange, `info` the theme's own; the heading's span line takes the heading's colour
+- 🎨 **A tile's colour is its own `level`** — `crit` red, `warn` orange, `info` the theme's own; the heading's span line takes the heading's colour
 - 🔢 Number and unit formatting → [AGENTS.md §10](../AGENTS.md#10--aggregate-tile-formatting)
 
 ### 🚨 The ALERT part, and the whole-screen flash
 
-- 💡 **Colour lives in the level word alone at rest** — bold, full strength, size 3. The parts share the same black ground
-- 🚨 **The flash is the entire screen**: under `warning`, `critical` or a fetch fault all three parts go to the level colour for the first 500 ms of every 5 s screen, and every foreground turns to near-black ink → [functional-requirements.md §1](../docs/functional-requirements.md#-the-alert-is-the-whole-screen)
-- 🔤 `CRITICAL` at size 3 is 144 px — it fits the 213 px part with room; levels are never abbreviated
+- 💡 **Colour lives in the level word and its icon alone at rest** — bold, full strength, size 3. The parts share the same black ground
+- 🔵 **A small vector shape sits just before the word** — a dot for `info`, a caution triangle for `warn`, a diamond for `crit`, a slashed ring for a fetch fault — not a literal emoji: ProFont is a monochrome bitmap font with no colour-emoji glyphs in it. Fixed radius, only the shape changes between levels
+- 🚨 **The flash is the entire screen**: under `warn`, `crit` or a fetch fault all three parts go to the level colour for the first 500 ms of every 5 s screen, and every foreground turns to near-black ink → [functional-requirements.md §1](../docs/functional-requirements.md#-the-alert-is-the-whole-screen)
+- 🔤 Levels drawn abbreviated — `INFO` / `WARN` / `CRIT` — the same short form `alert.level` carries on the wire. Icon plus `CRIT` at size 3 is under 100 px together, comfortably inside the 213 px part
 
 ### 🔠 Text budget
 
@@ -154,7 +156,7 @@ The shared intro → [functional-requirements.md §8](../docs/functional-require
 
 ## 5. 🔔 Sound
 
-The same three sounds as the square build — the intro's torpedo fire, the full alert on `critical`, the quieter notice on `warning` and any fault — rendered once at boot and streamed through this board's ES8311. No amplifier-enable pin here; the audio path is switched on through the expander at boot and stays on. Codec volume 74 / 100. No codec answering on I²C → silent, everything else works. Mute, and its timeout, arrive with the input map.
+The same three sounds as the square build — the intro's torpedo fire, the full alert on `crit`, the quieter notice on `warn` and any fault — rendered once at boot and streamed through this board's ES8311. No amplifier-enable pin here; the audio path is switched on through the expander at boot and stays on. Codec volume 74 / 100. No codec answering on I²C → silent, everything else works. Mute, and its timeout, arrive with the input map.
 
 ---
 
@@ -169,17 +171,24 @@ The same three sounds as the square build — the intro's torpedo fire, the full
 - [ ] Boot intro plays once for 5 s — 3 s pulsar with torpedo bursts on each beam pass, 2 s the drifting-gradient `PULSAR` — then cross-fades into the dashboard
 - [ ] The picture is landscape, right way up on the desk with the keys top right — else flip `PANEL_ROTATION`
 - [ ] Three parts, black ground, soft fades between them, no hard lines
-- [ ] No stray dots: the top line of the picture is clean end to end. The glass mangles the last pixel of every write, so each of the ten 64-row strips is sent with its first two pixels repeated after it — `panelFlush()` in `ws_lcd_349.ino`
-- [ ] Part 1: battery percentage top left, the Wi-Fi fan top right, `INFO` in lime at size 3, `error budget healthy` bold and readable under it, the clock at the foot
+- [ ] No stray dots: the top line of the picture is clean end to end. The glass mangles the last pixel of every write; each strip is sent with its first two pixels repeated after it, and the last strip is sent twice — `panelFlush()` in `ws_lcd_349.ino`
+- [ ] Part 1: the battery shell top left (fill only, no percentage number, and it only moves in 10 % steps), the Wi-Fi fan top right, a small dot icon then `INFO` in lime, `error budget healthy` bold and readable beside it, the clock at the foot
 - [ ] Part 2: `737k` `2XX` with `LAST 30M` over the graph on the first screen; the graph sweeps in
 - [ ] Part 3: `ORDER` left and `Created` right across the top; `4XX 184k` orange, `5XX 205k` red, `AVG 42 ms`, `P95 180 ms`; five position segments, the first lit
 - [ ] Screens turn on their own every 5 s through all five and wrap; `view: auto ->` prints each one
-- [ ] A glass tap steps on early and the chosen screen gets a fresh 5 s; a slide prints `slide - ignored`; the touch-down line shows a screen point where you actually pressed
-- [ ] A double-tap on the left part opens settings and closes it again; a 2 s hold there shows the `SETUP` ring and raises the hotspot; a hold on the right two parts shows `REFRESH` and polls
-- [ ] RIGHT tap blanks the panel and brings it back; RIGHT double-tap shows `SOUND OFF` / `SOUND ON`
-- [ ] Once data has shown, RIGHT held 2 s shows the `LOCK` ring and parts 2 and 3 become the padlock with `HOLD RIGHT 2 S, ENTER CODE`; part 1 keeps drawing, and the left part still answers a double-tap and a hold
+- [ ] A tap on the right two parts steps on early and the chosen screen gets a fresh 5 s; a slide prints `slide - ignored`; the touch-down line shows a screen point where you actually pressed
+- [ ] A single tap on the left part opens settings immediately and logs `tap on the left part -> settings`. A 2 s hold on the left part shows the `SETUP` ring and raises the hotspot regardless; a hold on the right two parts shows `REFRESH` and polls
+- [ ] A stray echo landing right after that same tap prints `tap right after settings opened -> ignored` once and does nothing else — it doesn't fall through to the sound or lock icon underneath it
+- [ ] RIGHT tap blanks the panel and brings it back
+- [ ] Settings' left part (CONTROLS) is a 2×2 grid with a visible gap between the rows: sound top-left, padlock top-right, brightness `-`/`+` across the bottom with the live percentage between them — every cell's tap target still fills its full half even though the icon drawn inside it is small
+- [ ] Tapping the speaker toggles it between a plain lime speaker (on) and a red speaker with a cross through it (muted, no text label either way), and the crossed speaker in STATUS follows
+- [ ] Tapping the padlock locks instantly (no code): the icon itself changes from an open red shackle to a closed lime one — or, already locked, opens the real keypad, never a shortcut around it
+- [ ] Tapping `-`/`+` nudges the backlight and the shown percentage by 5 points, clamps at 30% and 100% (the sun on that side dims once it's at its limit), and prints `brightness N% (temporary, until restart)` on Serial — restarting the board brings the backlight back to the setup page's own figure, not wherever it was left
+- [ ] Once data has shown, RIGHT held 2 s shows the `LOCK` ring and parts 2 and 3 become the padlock with `HOLD RIGHT 2 S, ENTER CODE`; part 1 keeps drawing, and the left part still answers a hold
 - [ ] RIGHT held 2 s again raises the keypad: `1 2 3 4 5` across the top, `6 7 8 9 0` across the bottom, six hollow dots on the left. Each digit shows in its dot for a moment, then masks; `lock: entry now 1/6 digits` prints, never the digit. `123456` unlocks (unless the setup page set another); a wrong code clears the dots and prints `lock: attempt rejected`; a tap on the readout closes the keypad; a hold on the keypad draws no ring
 - [ ] A restart boots locked — the padlock is back before any number shows
+- [ ] Locked, a tap on the right two parts (the padlock itself) opens the unlock keypad directly — same destination as RIGHT's own second hold, no screen-cycling detour; the left part's tap still opens settings, same as unlocked
+- [ ] Shaking the board three times in quick succession refreshes too, from any view: Serial counts `imu: shake 1/3`, `2/3`, `3/3`, a short upward chirp plays, and the graph sweeps in — the same hairline/last-poll reset as the held-glass refresh, but silent on the hold and on the automatic wrap poll
 - [ ] LEFT held 2 s shows the `OFF` ring, then `OFF`, then the board goes dark; from off, LEFT held 2 s brings it back through the `ON` ring — shorter does nothing
 - [ ] On USB, off goes dark and LEFT held 2 s brings it back
 - [ ] The intro's sound is audible and stops the instant the `PULSAR` screen starts
