@@ -19,7 +19,7 @@ Waveshare square kit, SKU **33867** with cell.
 | Display | 1.54" IPS, **240 × 240**, ST7789           |
 | Touch   | CST816 — touch SKUs only                   |
 | Audio   | Speaker in the case, dual MEMS mics        |
-| IMU     | 6-axis — unused                            |
+| IMU     | QMI8658 6-axis — accelerometer only, shake-to-refresh → [§2](#2--input) |
 | RTC     | Keeps time across a reboot — unused so far |
 | Storage | TF (microSD)                               |
 | Battery | Optional **1000 mAh** LiPo, fits the shell |
@@ -91,6 +91,7 @@ This build's own input map — the physical keys and the glass, and what each on
 | **PWR** · middle key | _future use_              | _future use_            | **Power off** · from off: on             |
 | **UP** key           | **Display on / off**      | **Sound mute / unmute** | **Lock the screen**, or open the unlock keypad → [§6](#6--privacy-lock) |
 
+- 📳 **Shake the board three times to force a refresh too** — a second way to reach the same action as the glass hold, not a different one. Detected on the QMI8658 IMU (accelerometer only), independent of any key or the glass: it works from any view. A short, quiet upward chirp confirms the third shake was counted; that chirp is the shake gesture's alone — the hold and the automatic poll on wrap force the same refresh silently → [imu.ino](imu.ino)
 - ⏱️ **Every hold is 2 s** — keys and glass alike
 - ⭕ Anything held past a tap shows a ring filling toward 2 s with the action written inside — `REFRESH`, `SETUP`, `EXIT`, `OFF`, `ON`, `LOCK`, `UNLOCK` — so you see it coming and can let go. A hold that is future use shows **no ring**: nothing is coming
 - 👆 **One glass, no zones** on the main screen; the unlock keypad is the one place a tap position matters at all → [§6](#6--privacy-lock). Elsewhere a single tap waits 450 ms to be sure it is not the first half of a double-tap, and a finger that slides is not a tap
@@ -389,6 +390,7 @@ The sketch is modular — one concern per file, all flat in `ws_lcd_154/` (Ardui
 - [ ] A glass tap steps on early and the chosen screen gets a fresh 5 s; a slide does nothing
 - [ ] A glass double-tap opens settings, and a tap goes back; a DOWN tap on the main screen says `future use`
 - [ ] Glass held 2 s refreshes: `REFRESH` ring, hairline lights, graph sweeps in, `last poll` resets
+- [ ] Shaking the board three times in quick succession refreshes too: Serial counts `imu: shake 1/3`, `2/3`, `3/3`, a short upward chirp plays, and the graph sweeps in — the same hairline/`last poll` reset as the held-glass refresh, but silent on the hold and on the automatic wrap poll
 - [ ] DOWN double-tap opens settings, tap goes back; MAC and name are real, battery tracks the STATUS band, WI-FI names the network it joined with its real IP, BACKEND names the configured host, GATEWAYS lists both platforms
 - [ ] DOWN held 2 s raises the hotspot: the screen names the network, a fresh password and `192.168.4.1`
 - [ ] A phone joining it makes the count on screen go to `1 CONNECTED`, and the setup page opens by itself

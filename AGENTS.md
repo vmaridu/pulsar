@@ -104,14 +104,16 @@ This board has no screen for us to debug on, so **Serial out is the whole story*
 - 🔌 **115200 baud**, always. Print it in every readme next to the Serial instructions
 - 📋 Log **every** one of these, one line each, with a category prefix:
   - every button press and touch, and the **action it caused**
+  - every shake gesture counted, and whether it reached three and forced a poll
   - every poll: the URL, the status, the parse result — success *and* every failure,
     with the actual error text
   - power, display, mute, view changes
   - boot: reset reason, device name, hardware probe results, payload summary
 - 🏷️ Format: `[  1234ms] category: message` — category is one lowercase word
-  (`key`, `touch`, `net`, `wifi`, `cfg`, `power`, `view`, `sound`, `boot`, `data`).
+  (`key`, `touch`, `imu`, `net`, `wifi`, `cfg`, `power`, `view`, `sound`, `boot`, `data`).
   `wifi` is the radio — scanning, joining, portals; `net` is the poll on top of it;
-  `cfg` is the stored configuration being read or written
+  `cfg` is the stored configuration being read or written; `imu` is the motion sensor —
+  shake detection, nothing else lives there yet
 - 🤫 Never log in a tight render loop; log state *changes* and actions, not frames
 
 ## 6. 📁 Module layout — keep it modular
@@ -128,6 +130,7 @@ untouched by the compiler.
 | `intro.ino`         | The welcome screen (boot intro)                          |
 | `dashboard.ino`     | The four bands                                           |
 | `input.ino`         | Keys and touch — taps, double-taps, holds                |
+| `imu.ino`           | The motion sensor — shake detection                      |
 | `power.ino`         | Power latch, off/on, display on/off                      |
 | `config.ino`        | The stored endpoint and saved networks (NVS)             |
 | `wifi.ino`          | Joining saved networks — priority, enterprise, portals   |

@@ -49,14 +49,15 @@ whole story**.
 | Baud    | **115200**, 8-N-1              |
 | Format  | `[  1234ms] category: message` |
 
-Categories: `boot` · `key` · `touch` · `view` · `net` · `wifi` · `cfg` ·
+Categories: `boot` · `key` · `touch` · `imu` · `view` · `net` · `wifi` · `cfg` ·
 `data` · `power` · `sound`
 
 Logged, one line each: every button press and touch with the action it
-caused; every poll with its URL, outcome and real error text; every payload
-received, with any contract violation found — logged **before** anything is
-drawn from it; power, display, mute and view changes; and boot's reset reason
-first of all, so a looping board names its own cause. Never logged: frames.
+caused; every shake gesture counted and whether it reached three; every poll
+with its URL, outcome and real error text; every payload received, with any
+contract violation found — logged **before** anything is drawn from it;
+power, display, mute and view changes; and boot's reset reason first of all,
+so a looping board names its own cause. Never logged: frames.
 
 ---
 

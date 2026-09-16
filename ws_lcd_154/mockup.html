@@ -187,6 +187,7 @@ footer{margin-top:24px;color:var(--dim2);font-size:10.5px;text-align:center}
     <button class="b" id="doNext">▸ next metric<kbd>→</kbd></button>
     <button class="b" id="doHold">⏸ pause cycle<kbd>h</kbd></button>
     <button class="b" id="doPoll">poll now<kbd>p</kbd></button>
+    <button class="b" id="doShake">📳 shake x3<kbd>s</kbd></button>
     <button class="b act" id="doPwr">🔌 on charger<kbd>space</kbd></button>
     <button class="b" id="doLock">🔒 lock<kbd>l</kbd></button>
     <button class="b" id="doUnlock">🔓 unlock<kbd>u</kbd></button>
@@ -1059,7 +1060,8 @@ function drawIntroOver(I, t, f){
    simulated here.
    ========================================================================== */
 const AUDIO_RATE = 16000, SOUND_PEAK = 0.85, INTRO_PEAK = 0.32, INTRO_HIT_MS = 260,
-      NOTICE_MS = 220, NOTICE_PEAK = 0.35, NOTICE_HZ = 660, HIGHPASS_HZ = 250;
+      NOTICE_MS = 220, NOTICE_PEAK = 0.35, NOTICE_HZ = 660, HIGHPASS_HZ = 250,
+      SHAKE_MS = 120, SHAKE_PEAK = 0.30, SHAKE_HZ_LO = 650, SHAKE_HZ_HI = 1100;
 /* a drum kick: a sine sweeping down from fEnd+fSweep to fEnd, decaying */
 function kick(tau, fEnd, fSweep, k, decay){
   if (tau < 0 || tau > decay * 7) return 0;
@@ -1087,6 +1089,18 @@ function noticeSample(t){
   const tone = Math.sin(ph) + 0.15 * Math.sin(2 * ph);
   const attack  = t < 0.02 ? t / 0.02 : 1;
   const release = t > T - 0.08 ? (T - t) / 0.08 : 1;
+  return attack * release * tone;
+}
+/* the shake-accepted chirp: a quick upward sweep, the opposite direction
+   of the alert's downward dip, so it reads as "got it" even by itself.
+   Mirrors sound.ino's shakeSample() exactly. */
+function shakeSample(t){
+  const T = SHAKE_MS / 1000;
+  if (t < 0 || t >= T) return 0;
+  const hz = SHAKE_HZ_LO + (SHAKE_HZ_HI - SHAKE_HZ_LO) * (t / T);
+  const tone = Math.sin(2 * Math.PI * hz * t);
+  const attack  = t < 0.01 ? t / 0.01 : 1;
+  const release = t > T - 0.03 ? (T - t) / 0.03 : 1;
   return attack * release * tone;
 }
 /* one torpedo-fire burst, tau seconds since THIS hit's own launch instant —
@@ -1134,7 +1148,7 @@ function renderSound(sample, lenMs, peak){
   for (let i = 0; i < n; i++) out[i] *= peak / pk;
   return out;
 }
-let actx = null, alertBuf = null, introBuf = null, noticeBuf = null, audioNoted = false;
+let actx = null, alertBuf = null, introBuf = null, noticeBuf = null, shakeBuf = null, audioNoted = false;
 function playPCM(getBuf, setBuf){
   if (st.muted) return;
   try {
@@ -1164,6 +1178,17 @@ function noticeSound(){
     noticeBuf = actx.createBuffer(1, pcm.length, AUDIO_RATE);
     noticeBuf.getChannelData(0).set(pcm);
     return noticeBuf;
+  });
+}
+/* called only once a simulated shake gesture reaches three — never for
+   poll(true, ...) on its own, so the same rule the firmware keeps holds
+   here too: this sound means one specific thing */
+function shakeSound(){
+  playPCM(() => shakeBuf, () => {
+    const pcm = renderSound(shakeSample, SHAKE_MS, SHAKE_PEAK);
+    shakeBuf = actx.createBuffer(1, pcm.length, AUDIO_RATE);
+    shakeBuf.getChannelData(0).set(pcm);
+    return shakeBuf;
   });
 }
 /* called once, right as startIntro() begins screen 1 */
@@ -1386,8 +1411,8 @@ const LOCK_KEYS = [['1','2','3'], ['4','5','6'], ['7','8','9']];
 const LOCK_GRID_Y = 64, LOCK_CELL_W = 80, LOCK_CELL_H = 58;
 /* Row 1/2 boundary read a bit early on real hardware — taps near the top of
    row 2 (4/5/6) were landing as row 3 (7/8/9). Nudging the row1/row2 line
-   down mirrors the firmware's LOCK_ROW12_NUDGE fix in lock.ino — an
-   estimate, not hardware-confirmed, see that file's comment for the reasoning. */
+   down mirrors the firmware's LOCK_ROW12_NUDGE fix in lock.ino — see that
+   file's comment for the reasoning. */
 const LOCK_ROW12_NUDGE = 14;
 const LOCK_ROW_Y = [
   LOCK_GRID_Y,
@@ -1768,6 +1793,11 @@ document.querySelectorAll('.caseBtn[data-btn]').forEach(el => {
   el.addEventListener('pointerleave', () => { el.classList.remove('pressed'); KEYS[k].down = false; });
 });
 $('#doPoll').onclick = () => poll(true);
+/* simulates three counted shakes at once — imu.ino's own debounce/window
+   logic has no browser equivalent to fake, but the result is the same
+   forced refresh, and the chirp is exactly as exclusive to this button as
+   it is to the real gesture on the board: doPoll above never calls it */
+$('#doShake').onclick = () => { shakeSound(); poll(true, 'shake x3'); };
 $('#doIntro').onclick = () => { st.view = 'main'; st.screenT0 = Date.now(); startIntro(); };
 $('#doLock').onclick = lockEngage;
 $('#doUnlock').onclick = lockForceUnlock;
@@ -1802,6 +1832,7 @@ addEventListener('keydown', e => {
   if (k === 'arrowright') $('#doNext').click();
   else if (k === 'h') $('#doHold').click();
   else if (k === 'p') poll(true);
+  else if (k === 's') $('#doShake').click();
   else if (k === 'f') $('#doFault').click();
   else if (k === 'z') toggleReal();
   else if (k === 'v') toggleCase();

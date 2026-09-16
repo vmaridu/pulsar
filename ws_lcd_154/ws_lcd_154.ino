@@ -34,6 +34,7 @@
        intro.ino          the welcome screen — pulsar, then the PULSAR label
        dashboard.ino      the four bands
        input.ino          keys and touch — taps, double-taps, holds
+       imu.ino            the motion sensor — shake-to-refresh
        power.ino          power latch, off/on, display on/off
        config.ino         the stored endpoint and saved networks (NVS)
        wifi.ino           joining saved networks — priority, enterprise, portals
@@ -119,6 +120,7 @@
 #else
 #include "TouchDrvCSTXXX.hpp"       /* older SensorLib — deprecation warning is harmless */
 #endif
+#include "SensorQMI8658.hpp"        /* SensorLib again — the shake gesture, imu.ino */
 
 #if ARDUINOJSON_VERSION_MAJOR < 7
 #error "Install ArduinoJson 7.x - v6 uses a different document API"
@@ -480,6 +482,9 @@ static void vFade(int x, int y, int h, uint16_t bg, uint16_t c){
 TouchDrvCSTXXX touch;
 static bool touchOK = false;
 
+SensorQMI8658 imu;              /* imu.ino — same bus, same board, shake detection only */
+static bool imuOK = false;
+
 /* ------------------------------------------------------------------ state */
 static uint8_t  curRow = 0;                  /* which metric screen is up */
 /* which screen is up — input.ino moves between them */
@@ -817,6 +822,10 @@ void        hotspotStart();
 void        hotspotStop();
 void        hotspotTick();
 
+/* imu.ino */
+void        imuBegin();
+void        imuTick();
+
 /* input.ino */
 void        drawHoldOverlay();
 void        handleKeys();
@@ -846,7 +855,7 @@ void        cycleTick();
 bool        netFetch();
 void        netBegin();
 uint32_t    pollIntervalMs();
-void        refreshNow();
+void        refreshNow(const char* why);
 
 /* power.ino */
 void        applyBacklight();
@@ -863,6 +872,7 @@ void        drawSettings();
 void        alertSound();
 void        introSound();
 void        noticeSound();
+void        shakeSound();
 void        soundBegin();
 void        soundTick();
 void        toggleMute();
@@ -955,6 +965,7 @@ void setup(){
   touch.setPins(PIN_TP_RST, PIN_TP_INT);
   touchOK = touch.begin(Wire, CST816_SLAVE_ADDRESS, PIN_I2C_SDA, PIN_I2C_SCL);
   LOGF("boot", "touch: %s", touchOK ? "CST816 ok" : "NOT FOUND (non-touch SKU?)");
+  imuBegin();                       /* imu.ino — same bus, shake detection only */
   LOGF("boot", "battery: %.2f V  %d%%  %s",
        batteryVolts(), batteryPercent(), charging() ? "charging" : "on battery");
 
@@ -1001,6 +1012,7 @@ static void idleWait(uint32_t ms){
 void loop(){
   handleTouch();            /* input.ino */
   handleKeys();             /* input.ino */
+  imuTick();                /* shake x3 -> force a poll — imu.ino */
   wifiTick();               /* wifi.ino — scan, join, watch for drops */
   hotspotTick();            /* hotspot.ino — serves the setup page while the AP is up */
   cycleTick();              /* 5 s per screen, refetch when the loop wraps — net.ino */

@@ -198,6 +198,14 @@ Requirements:
   display.
 - A gesture that would move between metric rows must not fire from a
   passing touch that traveled — only a stationary press counts.
+- A build with a motion sensor may offer shaking the device as a second way
+  to force an immediate refetch, on top of the long press, not instead of
+  it. Counted as a small, fixed number of distinct motions in quick
+  succession — not one continuous motion — so it isn't triggered by being
+  picked up or set down. A confirmation sound marks a counted shake as
+  accepted; that sound belongs to the shake gesture alone and must never
+  play for the long-press refresh or for the automatic poll on wrap, so it
+  keeps meaning one specific thing.
 
 ---
 

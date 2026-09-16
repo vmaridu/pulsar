@@ -12,6 +12,7 @@ What this build does → [`device.md`](device.md).
   | `intro.ino`                          | The welcome screen — the pulsar animation and the PULSAR label     |
   | `dashboard.ino`                      | The three parts of the screen                                     |
   | `input.ino`                          | Keys and touch — taps and holds                                    |
+  | `imu.ino`                             | The motion sensor — shake-to-refresh                               |
   | `power.ino`                          | Power latch, off / on, display on / off, the backlight            |
   | `config.ino`                         | The stored endpoint and saved networks (NVS)                      |
   | `wifi.ino`                           | Joining saved networks — priority, enterprise, captive portals    |
@@ -49,7 +50,7 @@ What this build does → [`device.md`](device.md).
    ```
 3. **OK**, then **Tools → Board → Boards Manager**, search `esp32`, install **esp32 by Espressif Systems** (v3.x)
 
-## 3. 📚 Install the two libraries
+## 3. 📚 Install the three libraries
 
 **Tools → Manage Libraries**, search and install each:
 
@@ -57,10 +58,12 @@ What this build does → [`device.md`](device.md).
 | --------------------------- | ------------------ | ----------------------------------------- |
 | **GFX Library for Arduino** | Moon On Our Nation | the AXS15231B panel over QSPI + the canvas |
 | **ArduinoJson**             | Benoit Blanchon    | parsing the payload                       |
+| **SensorLib**               | lewisxhe           | QMI8658 shake detection (imu.ino) only    |
 
 > Install **GFX Library for Arduino 1.5 or newer** — that is where the AXS15231B driver and the QSPI bus arrived. If the compile stops on `Arduino_AXS15231B` or `Arduino_ESP32QSPI`, the library is older than that; update it.
+> If SensorLib asks to install dependencies, say yes.
 
-👆 **No touch library.** This panel's touch controller is part of the display driver chip and the sketch talks to it directly — nothing to install.
+👆 **No touch library.** This panel's touch controller is part of the display driver chip and the sketch talks to it directly — nothing to install. The IMU is a separate chip, and that one does need SensorLib, above.
 
 🔊 **Nothing extra for sound.** `ESP_I2S` is part of the ESP32 board package from step 2, and the codec driver ships in the sketch folder.
 

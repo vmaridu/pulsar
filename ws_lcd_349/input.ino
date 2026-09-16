@@ -13,21 +13,21 @@
    (the STATUS / ALERT part) which is on screen whenever the dashboard is,
    locked or not. The other two parts keep the glass's own roles.
 
-   No gesture here waits to see if a second tap follows any more. A
-   double-tap was tried for settings and for mute, and on both the keys
-   and the glass it read as unreliable more than deliberate: a real tap
-   sometimes sat waiting half a second for a second one that was never
-   coming, and this hardware's own touch chatter (see handleTouch()) made
-   a stray "second tap" too easy to manufacture by accident. Every tap
-   fires the moment the finger or the key lifts. One narrow exception: a
-   second tap on the left part landing right after the first one opened
-   settings is recognized and ignored — double-tap on the left part is
-   future use, reserved rather than misread as a fresh tap on whatever
-   settings happens to be showing there (the sound icon, today) — see
-   handleTouch()'s own comment on SETTINGS_REOPEN_GUARD_MS.
+   No gesture here waits to see if a second tap follows. Double-tap was
+   tried for settings and for mute — on both the keys and the glass it
+   read as unreliable more than deliberate, a real tap sometimes sitting
+   half a second to see if a second one was coming, and this hardware's
+   own touch chatter (see handleTouch()) made a stray "second tap" too
+   easy to manufacture by accident. Settings is back to a single tap:
+   every left-part tap resolves the instant it lifts. A brush against the
+   left part while reading STATUS/ALERT can pop settings open unwanted —
+   a known, accepted trade for a gesture that answers instantly instead
+   of half the time. A stray echo of that same tap landing right after is
+   separately swallowed, so it can't misread as a fresh tap on whatever
+   settings draws at that same spot the instant it opens —
+   SETTINGS_REOPEN_GUARD_MS, same file.
 
      GLASS  left part     tap: settings screen on / off
-                          double-tap: future use
                           hold 2 s: the setup hotspot on / off — hotspot.ino
             right parts   tap: next metric screen
                           hold 2 s: force a refresh — net.ino
@@ -57,9 +57,9 @@
 #define TOUCH_MOVE_PX     24     /* a finger that travels further is not a tap */
 #define TOUCH_GLITCH_MS        35   /* a held touch won't be treated as lifted until sensed has stayed false this long */
 #define TOUCH_DOWN_DEBOUNCE_MS 20   /* a fresh touch-down won't be trusted until sensed has stayed true this long */
-#define SETTINGS_REOPEN_GUARD_MS 400   /* a second tap on the left part landing this soon after the
-                                           first opened settings is the second half of a double-tap,
-                                           not a fresh tap on whatever settings shows there now */
+#define SETTINGS_REOPEN_GUARD_MS 400   /* a second tap landing this soon after the one that just
+                                           opened settings is swallowed too, not a fresh tap on
+                                           whatever settings shows there the instant it opens */
 
 enum { K_LEFT, K_RIGHT, K_COUNT };
 struct Key {
@@ -185,8 +185,8 @@ static uint32_t tpT0 = 0, tpSeen = 0;
 static uint32_t tpLiftT0 = 0, tpCandT0 = 0;
 static int16_t  tpX0 = 0, tpY0 = 0;
 static uint8_t  tpZeros = 0;                            /* "no finger" answers in a row */
-static uint32_t tpSettingsOpenT0 = 0;   /* down-time of the tap that last opened settings from the
-                                            left part — see SETTINGS_REOPEN_GUARD_MS above */
+static uint32_t tpSettingsOpenT0 = 0;   /* down-time of the tap that opened settings — see
+                                            SETTINGS_REOPEN_GUARD_MS above */
 static int16_t  tpSettingsOpenX = 0, tpSettingsOpenY = 0;
 
 static void hotspotToggle(){
@@ -194,10 +194,9 @@ static void hotspotToggle(){
   else { LOG("touch", "hold 2 s on the left part -> setup hotspot"); view = VIEW_HOTSPOT; hotspotStart(); }   /* hotspot.ino */
 }
 
-/* a glass tap on the main screen — the only view this dispatches for;
-   every other view is handled directly in handleTouch()'s up-transition.
-   Settings stays on the left part's tap even while locked — diagnostics
-   are never gated by the lock. The right two parts are where the padlock
+/* Called on the main screen once a tap is confirmed to act. Settings
+   opens even while locked — diagnostics are never gated by the lock.
+   The right two parts are where the padlock
    itself is drawn while locked (lock.ino's drawLockedBody() replaces
    parts 2 and 3), so a tap there opens the keypad directly instead of
    "next screen" — a screen change nobody can see the point of anyway
@@ -276,32 +275,39 @@ void handleTouch(){
     else if (view == VIEW_LOCK) lockHandleTap(tp.x, tp.y);
     else if (!displayAwake) LOG("touch", "tap -> ignored, display is off (tap RIGHT to wake it)");
     else if (tpSeen - tpT0 >= TAP_MS){ /* too long for a tap, too short for the hold that never came */ }
-    /* A double-tap on the left part is future use — reserved, not a
-       fresh tap on whatever settings happens to show there now. Caught
-       here, not by waiting to see if a second tap follows (that wait is
-       exactly what made every tap feel slow): the down edge above
-       already stamped tpT0/tpX0/tpY0 for THIS touch, so it costs
-       nothing to compare them against the tap that just opened
-       settings, after the fact, once this one is confirmed a tap too. */
+    /* A stray echo landing right after the tap that opened settings is
+       swallowed, not read as a fresh tap on whatever settings shows there
+       now — this hardware's touch chatter can turn one physical tap into
+       what looks like a second one a moment later. Caught here, not by
+       waiting to see if a stray tap follows (that wait is exactly what
+       made every tap feel slow): the down edge above already stamped
+       tpT0/tpX0/tpY0 for THIS touch, so it costs nothing to compare them
+       against the tap that just opened settings, after the fact, once
+       this one is confirmed a tap too. */
     else if (view == VIEW_SETTINGS && tpSettingsOpenT0 &&
              tpT0 - tpSettingsOpenT0 < SETTINGS_REOPEN_GUARD_MS &&
              abs(tpX0 - tpSettingsOpenX) < TOUCH_MOVE_PX && abs(tpY0 - tpSettingsOpenY) < TOUCH_MOVE_PX){
-      LOG("touch", "double-tap on the left part -> future use");
+      LOG("touch", "tap right after settings opened -> ignored");
       tpSettingsOpenT0 = 0;
     }
     else if (view == VIEW_SETTINGS) settingsHandleTap(tp.x, tp.y);    /* settings.ino */
     else if (view != VIEW_MAIN){ LOG("touch", "tap -> back to main"); showMain(); }
+    else if (!tpLeftPart) onGlassTap(false);
+    /* A single tap anywhere on the left part opens settings directly —
+       no double-tap, no arming, no waiting to see if a second tap
+       follows. A double-tap was tried here and made the gesture feel
+       unreliable more than deliberate (see the header comment); this
+       is back to the simpler, single-tap behaviour. */
     else {
-      const bool openingSettings = tpLeftPart;
-      onGlassTap(tpLeftPart);
-      if (openingSettings){ tpSettingsOpenT0 = tpT0; tpSettingsOpenX = tpX0; tpSettingsOpenY = tpY0; }
+      onGlassTap(true);
+      tpSettingsOpenT0 = tpT0; tpSettingsOpenX = tpX0; tpSettingsOpenY = tpY0;
     }
   }
 
   if (tpDown && !tpFired && displayAwake && now - tpT0 >= HOLD_MS){
     tpFired = true;
     if (view == VIEW_HOTSPOT || (view == VIEW_MAIN && tpLeftPart)) hotspotToggle();
-    else if (view == VIEW_MAIN){ LOG("touch", "hold 2 s -> force refresh"); refreshNow(); }   /* net.ino */
+    else if (view == VIEW_MAIN) refreshNow("held 2 s");   /* net.ino */
     else if (view == VIEW_LOCK) LOG("touch", "hold on the keypad -> nothing, a keypad only takes taps");
     else LOG("touch", "hold 2 s -> nothing here");
   }

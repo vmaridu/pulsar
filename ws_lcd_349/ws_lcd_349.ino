@@ -40,6 +40,7 @@
        intro.ino          the welcome screen
        dashboard.ino      the three parts
        input.ino          keys and touch — taps and holds
+       imu.ino            the motion sensor — shake-to-refresh
        power.ino          power latch, off/on, display on/off, the backlight
        config.ino         the stored endpoint and saved networks (NVS)
        wifi.ino           joining saved networks — priority, enterprise, portals
@@ -56,6 +57,7 @@
    Libraries (Arduino Library Manager):
        GFX Library for Arduino   by Moon On Our Nation   (Arduino_GFX ≥ 1.5)
        ArduinoJson               by Benoit Blanchon      (v7)
+       SensorLib                 by lewisxhe             (QMI8658 — imu.ino's shake gesture only)
    Touch needs no library: the AXS15231B answers on I²C directly.
 
    Every pin, address and sequence below comes from Waveshare's own demos:
@@ -103,6 +105,9 @@
 #endif
 #include "es8311.h"                 /* codec driver, beside this sketch — Espressif, Apache-2.0 */
 #include "fonts.h"                  /* ProFont at four sizes — the screen's one font, Adafruit GFX format */
+#include "SensorQMI8658.hpp"        /* SensorLib — the shake gesture, imu.ino. Touch itself needs
+                                        no library on this board; this is the first and only
+                                        SensorLib use here */
 
 #if ARDUINOJSON_VERSION_MAJOR < 7
 #error "Install ArduinoJson 7.x - v6 uses a different document API"
@@ -170,6 +175,7 @@
 #define BRIGHTNESS_MAX         100
 #define BRIGHTNESS_DEFAULT_BATTERY   50
 #define BRIGHTNESS_DEFAULT_CHARGING  90
+#define BRIGHTNESS_STEP_PCT      5   /* one tap of the settings screen's brightness +/- icons */
 
 /* --------------------------------------------------------------- config
    What a person sets over the setup page, and the only place the endpoint
@@ -435,16 +441,26 @@ static inline uint32_t fbIndex(int x, int y){
 
    The tenth dot — always the same one, in the strip nearest the top-left
    corner — outlived that fix and a first attempt at this one (priming the
-   transaction with a throwaway pixel before the real loop, on the theory
-   that the FIRST write after startWrite() was the odd one out — it
-   wasn't; the dot came back exactly the same afterward). The other
-   natural asymmetry is the LAST write: it alone sits right up against
-   endWrite(), whatever that does to actually close the transaction out.
-   So the last strip is sent twice — identically, tail padding and all —
-   right before endWrite() runs. If closing the transaction is what
-   mangles a pixel, it now mangles the second, throwaway copy; the first,
-   real copy already landed correctly, the same way every other strip's
-   single copy already does.                                             */
+   transaction with a throwaway single PIXEL before the real loop, on the
+   theory that the FIRST write after startWrite() was the odd one out —
+   the dot came back exactly the same afterward). That primer was too
+   small to prove the theory wrong: a lone pixel is a different-sized bus
+   transaction than a real strip, so it may not touch whatever the
+   controller actually does right at transaction start. The other natural
+   asymmetry is the LAST write: it alone sits right up against endWrite(),
+   whatever that does to actually close the transaction out. So the last
+   strip is sent twice — identically, tail padding and all — right before
+   endWrite() runs. If closing the transaction is what mangles a pixel, it
+   now mangles the second, throwaway copy; the first, real copy already
+   landed correctly, the same way every other strip's single copy already
+   does. That fix cleared nine of the ten dots outright and, going by
+   where the tenth was always reported, never actually touched its cause —
+   it targets the boundary at the END of the transaction, and the tenth
+   dot sits at the boundary at the START of it, in the very first strip.
+   Mirrored the same way: that first strip is now ALSO sent twice — a full
+   real copy first, thrown away, then the loop's own real copy immediately
+   after. Whatever mangles a pixel right at startWrite() now mangles the
+   throwaway copy instead of the one that ends up on the glass.          */
 #define FLUSH_ROWS 64
 #define FLUSH_TAIL  2
 static uint16_t* flushBuf = NULL;   /* one strip plus the tail, internal RAM */
@@ -453,6 +469,14 @@ void panelFlush(){
   if (!flushBuf) flushBuf = (uint16_t*)malloc(((size_t)PANEL_W * FLUSH_ROWS + FLUSH_TAIL) * sizeof(uint16_t));
   Arduino_TFT* tft = (Arduino_TFT*)panel;
   tft->startWrite();
+  if (flushBuf){                      /* the redundant priming write — see the comment above */
+    const int h0 = FLUSH_ROWS < PANEL_H ? FLUSH_ROWS : PANEL_H;
+    const size_t n0 = (size_t)PANEL_W * h0;
+    tft->writeAddrWindow(0, 0, PANEL_W, h0);
+    memcpy(flushBuf, fb, n0 * sizeof(uint16_t));
+    memcpy(flushBuf + n0, fb, FLUSH_TAIL * sizeof(uint16_t));
+    bus->writePixels(flushBuf, n0 + FLUSH_TAIL);
+  }
   int lastY = 0, lastH = 0;
   for (int y = 0; y < PANEL_H; y += FLUSH_ROWS){
     const int h = (PANEL_H - y) < FLUSH_ROWS ? (PANEL_H - y) : FLUSH_ROWS;
@@ -555,6 +579,9 @@ static void touchBegin(){
   Wire1.beginTransmission(TP_I2C_ADDR);        /* the bus was begun in panelBegin() */
   touchOK = Wire1.endTransmission() == 0;
 }
+
+SensorQMI8658 imu;              /* imu.ino — the main Wire bus, not Wire1's touch bus */
+static bool imuOK = false;
 bool touchRead(struct TouchPoint& tp){
   static const uint8_t cmd[11] = { 0xb5, 0xab, 0xa5, 0x5a, 0, 0, 0, 0x0e, 0, 0, 0 };
   Wire1.beginTransmission(TP_I2C_ADDR);
@@ -643,6 +670,11 @@ static uint32_t refreshT0 = 0;     /* last forced refresh — lights the STATUS 
 static bool     audioOK = false;
 static bool     soundMuted = false;/* toggled from settings' sound icon; RAM only, so every restart has sound */
 static bool     displayAwake = true;/* RIGHT tap; the panel only — polling and alerts carry on */
+static uint8_t  liveBrightnessPct = 0;/* the duty actually on the backlight right now; the settings
+                                          screen's brightness icons nudge this in RAM only, same as
+                                          soundMuted above — never written to cfg/NVS, so it's back
+                                          to whatever the setup page says after a restart. Kept in
+                                          sync with cfg.brightnessCharging by applyBacklight() — power.ino */
 static uint32_t toastT0 = 0;
 static const char* toastText = "";
 
@@ -863,6 +895,10 @@ void        hotspotStart();
 void        hotspotStop();
 void        hotspotTick();
 
+/* imu.ino */
+void        imuBegin();
+void        imuTick();
+
 /* input.ino */
 void        drawHoldOverlay();
 void        handleKeys();
@@ -892,10 +928,11 @@ void        cycleTick();
 bool        netFetch();
 void        netBegin();
 uint32_t    pollIntervalMs();
-void        refreshNow();
+void        refreshNow(const char* why);
 
 /* power.ino */
 void        applyBacklight();
+void        brightnessNudge(int deltaPct);
 void        batteryTick();
 void        displayToggle();
 void        powerOff();
@@ -909,6 +946,7 @@ void        settingsHandleTap(int16_t x, int16_t y);
 void        alertSound();
 void        introSound();
 void        noticeSound();
+void        shakeSound();
 void        soundBegin();
 void        soundTick();
 void        toggleMute();
@@ -1086,6 +1124,7 @@ void setup(){
 
   touchBegin();
   LOGF("boot", "touch: %s", touchOK ? "AXS15231B ok" : "NOT FOUND - screens still turn on their own");
+  imuBegin();                      /* imu.ino — same Wire bus, shake detection only */
   LOGF("boot", "battery: %.2f V  %d%%", batteryVolts(), batteryPercent());
 
   /* No payload is baked in, so there is nothing to show yet and nothing to
@@ -1132,6 +1171,7 @@ static void idleWait(uint32_t ms){
 void loop(){
   handleTouch();            /* input.ino */
   handleKeys();             /* input.ino */
+  imuTick();                /* shake x3 -> force a poll — imu.ino */
   wifiTick();               /* wifi.ino — scan, join, watch for drops */
   hotspotTick();            /* hotspot.ino — serves the setup page while the AP is up */
   cycleTick();              /* 5 s per screen, refetch when the loop wraps — net.ino */

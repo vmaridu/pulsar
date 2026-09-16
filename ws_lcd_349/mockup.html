@@ -160,6 +160,7 @@ footer{margin-top:24px;color:var(--dim2);font-size:10.5px;text-align:center}
     <button class="b" id="doNext">▸ next metric<kbd>→</kbd></button>
     <button class="b" id="doHold">⏸ pause cycle<kbd>h</kbd></button>
     <button class="b" id="doPoll">poll now<kbd>p</kbd></button>
+    <button class="b" id="doShake">📳 shake x3<kbd>s</kbd></button>
     <button class="b act" id="doPwr">🔌 on charger<kbd>space</kbd></button>
     <button class="b" id="doLock">🔒 lock<kbd>l</kbd></button>
     <button class="b" id="doUnlock">🔓 unlock<kbd>u</kbd></button>
@@ -551,6 +552,23 @@ function drawWifiIcon(cx, cy, th){
   }
 }
 
+/* A small glyph beside the level word — a vector shape, not a literal
+   Unicode emoji (this canvas font has no colour-emoji glyphs either, and
+   the real panel's font definitely doesn't). Mirrors dashboard.ino's
+   drawLevelIcon() exactly: a plain dot for info, a caution triangle for
+   warn, a diamond for crit, a slashed ring for a fetch fault. Same fixed
+   radius every level — only the shape changes, never the size. */
+function drawLevelIcon(cx, cy, r, shape, c){
+  if (shape === 'info') g.circle(cx, cy, r, c);
+  else if (shape === 'warn') g.tri(cx, cy - r, cx - r, cy + r - 1, cx + r, cy + r - 1, c);
+  else if (shape === 'crit'){
+    g.tri(cx - r, cy, cx, cy - r, cx + r, cy, c);
+    g.tri(cx - r, cy, cx, cy + r, cx + r, cy, c);
+  } else {
+    g.ring(cx, cy, r, c);
+    g.line(cx - r, cy + r, cx + r, cy - r, c);
+  }
+}
 /* part 1 — STATUS (battery, wifi) over ALERT (level, message, clock).
    Dark and calm at rest, the same as parts 2 and 3; only the level word
    itself carries colour. The whole-screen flash (see frame()) still turns
@@ -579,7 +597,12 @@ function drawPart1(th){
      spare, rather than pinned to the left edge */
   const lv = level(), fault = !!SNAP.fault;
   const wordC = ink ? th.tx : (fault ? C.gy : LV[lv].c);
-  g.text(fault ? 'OFFLINE' : LV[lv].w, cx, statusH + 24, 3, wordC, 'c', true);
+  const word = fault ? 'OFFLINE' : LV[lv].w;
+  const shape = fault ? 'fault' : lv;
+  const iconR = 9, gap = 10, wordW = word.length * 18;   // size-3 glyph advance, see GFX.text()
+  const startX = cx - (iconR * 2 + gap + wordW) / 2;
+  drawLevelIcon(startX + iconR, statusH + 24 + 9, iconR, shape, wordC);
+  g.text(word, startX + iconR * 2 + gap, statusH + 24, 3, wordC, 'l', true);
   /* the message in its own size, bright and bold under the word — one line
      when it fits MSG_CHARS, else two, broken at a space (dashboard.ino) */
   const msg = (fault ? 'no route to host' : SNAP.alert.message).slice(0, 20);
@@ -842,7 +865,8 @@ function drawIntroText(tt){
    into a buffer and streamed, never synthesised live.
    ========================================================================== */
 const AUDIO_RATE = 16000, SOUND_PEAK = 0.85, INTRO_PEAK = 0.32, INTRO_HIT_MS = 260,
-      NOTICE_MS = 220, NOTICE_PEAK = 0.35, NOTICE_HZ = 660, HIGHPASS_HZ = 250;
+      NOTICE_MS = 220, NOTICE_PEAK = 0.35, NOTICE_HZ = 660, HIGHPASS_HZ = 250,
+      SHAKE_MS = 120, SHAKE_PEAK = 0.30, SHAKE_HZ_LO = 650, SHAKE_HZ_HI = 1100;
 function kick(tau, fEnd, fSweep, k, decay){
   if (tau < 0 || tau > decay * 7) return 0;
   return Math.sin(2 * Math.PI * (fEnd * tau + fSweep * k * (1 - Math.exp(-tau / k)))) * Math.exp(-tau / decay);
@@ -867,6 +891,17 @@ function noticeSample(t){
   const tone = Math.sin(ph) + 0.15 * Math.sin(2 * ph);
   const attack  = t < 0.02 ? t / 0.02 : 1;
   const release = t > T - 0.08 ? (T - t) / 0.08 : 1;
+  return attack * release * tone;
+}
+/* the shake-accepted chirp: a quick upward sweep, the opposite direction
+   of the alert's downward dip. Mirrors sound.ino's shakeSample() exactly. */
+function shakeSample(t){
+  const T = SHAKE_MS / 1000;
+  if (t < 0 || t >= T) return 0;
+  const hz = SHAKE_HZ_LO + (SHAKE_HZ_HI - SHAKE_HZ_LO) * (t / T);
+  const tone = Math.sin(2 * Math.PI * hz * t);
+  const attack  = t < 0.01 ? t / 0.01 : 1;
+  const release = t > T - 0.03 ? (T - t) / 0.03 : 1;
   return attack * release * tone;
 }
 function torpedoHit(tau){
@@ -900,7 +935,7 @@ function renderSound(sample, lenMs, peak){
   for (let i = 0; i < n; i++) out[i] *= peak / pk;
   return out;
 }
-let actx = null, alertBuf = null, introBuf = null, noticeBuf = null, audioNoted = false;
+let actx = null, alertBuf = null, introBuf = null, noticeBuf = null, shakeBuf = null, audioNoted = false;
 function playPCM(getBuf, setBuf){
   if (st.muted) return;
   try {
@@ -931,6 +966,17 @@ function noticeSound(){
     return noticeBuf;
   });
 }
+/* called only once a simulated shake gesture reaches three — never for a
+   plain poll(true, ...), so this sound stays exclusive to the gesture,
+   same as the real board */
+function shakeSound(){
+  playPCM(() => shakeBuf, () => {
+    const pcm = renderSound(shakeSample, SHAKE_MS, SHAKE_PEAK);
+    shakeBuf = actx.createBuffer(1, pcm.length, AUDIO_RATE);
+    shakeBuf.getChannelData(0).set(pcm);
+    return shakeBuf;
+  });
+}
 function introSound(){
   playPCM(() => introBuf, () => {
     const pcm = renderSound(introSample, I_ANIM_END * 1000, INTRO_PEAK);
@@ -949,7 +995,7 @@ document.addEventListener('click', () => { if (actx && actx.state === 'suspended
    ========================================================================== */
 let st = {
   intro: null, caseView: true, real: false,
-  row: 0, paused: false, muted: false, plugged: true,
+  row: 0, paused: false, muted: false, plugged: true, brightness: 90,
   screenT0: Date.now(), sweepT0: Date.now(), countT0: Date.now(), from: null,
   lastPoll: Date.now(), nextPoll: Date.now() + POLL_MIN_MS,
   flashOn: false, wasFlash: false,
@@ -1104,47 +1150,88 @@ function lockTick(){
    (COL_X/COL_W), each a themed group of label/value pairs: label small
    and dim above, value bright and bold below, left-aligned with a
    consistent indent — not one centred column of run-together text. */
-/* the speaker glyph — same shape as drawMuteIcon() above, drawn bigger
-   since this one is meant to be tapped, with the cross only when muted
-   (STATUS's own copy is only ever drawn crossed, since it only shows up
-   at all while muted). Mirrors settings.ino's drawSpeakerIcon(). */
-function drawSpeakerIcon(x, y, s, muted, c){
-  g.fillRect(x, y + 2*s, 2*s, 3*s, c);
-  g.tri(x + 2*s, y + 3*s, x + 5*s, y, x + 5*s, y + 6*s, c);
+/* the speaker glyph — same shape as drawMuteIcon() above. Muted adds the
+   same cross that icon draws, right onto this one instead of a separate
+   ON/OFF word — the glyph alone says the state, colour says it twice
+   (lime on, red off, the same info/crit palette every level colour
+   already uses). Mirrors settings.ino's drawSpeakerIcon(). */
+function drawSpeakerIcon(x, y, c, muted){
+  g.fillRect(x, y + 4, 4, 6, c);
+  g.tri(x + 4, y + 6, x + 10, y, x + 10, y + 12, c);
   if (muted){
-    g.line(x + 7*s, y + s, x + 12*s, y + 6*s, c);
-    g.line(x + 7*s, y + 6*s, x + 12*s, y + s, c);
+    g.line(x + 14, y + 2, x + 22, y + 10, c);
+    g.line(x + 14, y + 10, x + 22, y + 2, c);
   }
 }
-/* a small padlock — same shape as the big one drawn behind a locked
-   BODY/FOOTER, scaled down to fit a tappable control icon. One glyph
-   either way; only the colour and the word beside it say the state. */
-function drawLockIcon(cx, cy, c, bg){
-  const shackleR = 9, shackleTh = 4, bodyW = 26, bodyH = 19;
-  g.circle(cx, cy, shackleR, c);
-  g.circle(cx, cy, shackleR - shackleTh, bg);
+/* a small padlock, closed or open — two different silhouettes, not one
+   glyph recoloured. Closed: the shackle sits centred over the body,
+   same shape as the big one drawn behind a locked BODY/FOOTER. Open: the
+   shackle swings up and right, its lower-left quarter erased, so it
+   reads as unlatched at a glance, not just a different colour. Locked
+   is lime, unlocked is red — same info/crit palette as sound. Not yet
+   armed skips the colour rule entirely and stays dim grey, since that's
+   a third, unavailable state, not a point on the locked/unlocked scale.
+   Mirrors settings.ino's drawLockIcon(). */
+function drawLockIcon(cx, cy, locked, c, bg){
+  const shackleR = 6, shackleTh = 2, bodyW = 15, bodyH = 11;
+  const sx = locked ? cx : cx + 4, sy = locked ? cy : cy - 3;
+  g.circle(sx, sy, shackleR, c);
+  g.circle(sx, sy, shackleR - shackleTh, bg);
+  if (!locked) g.fillRect(sx - shackleR - 1, sy, shackleR + 1, shackleR + 1, bg);
   g.fillRect(cx - bodyW/2, cy, bodyW, bodyH, c);
-  g.circle(cx, cy + bodyH*2/5, 2, bg);
+  g.circle(cx, cy + bodyH*2/5, 1.5, bg);
   g.fillRect(cx - 1, cy + bodyH*2/5, 2, bodyH*3/10, bg);
 }
-/* part 1 — CONTROLS, the only interactive part of this screen. Two so
-   far: sound on/off (moved here off a RIGHT double-tap), and
-   lock/unlock — same rule as the RIGHT hold: locking needs no code,
-   unlocking opens the real keypad rather than skipping it. See
-   settingsTap(). */
+/* a sun with the direction embedded right in the disc — a "-" or "+"
+   cut into its centre, background-coloured, instead of a separate
+   character floating beside it. Smaller and dimmer-looking on the
+   minus side, bigger on the plus side, so size alone hints at the
+   direction before anyone reads the cutout. Dims to C.line2 once a tap
+   there would no longer move the value, at either end. Mirrors
+   settings.ino's drawSunIcon(). */
+function drawSunIcon(cx, cy, r, plus, c, bg){
+  g.circle(cx, cy, r, c);
+  const rayIn = r + 2, rayOut = r + (plus ? 5 : 4);
+  for (let i = 0; i < 8; i++){
+    const a = i * Math.PI / 4;
+    g.line(cx + Math.round(Math.cos(a)*rayIn),  cy + Math.round(Math.sin(a)*rayIn),
+           cx + Math.round(Math.cos(a)*rayOut), cy + Math.round(Math.sin(a)*rayOut), c);
+  }
+  g.fillRect(cx - r + 1, cy - 1, 2*r - 2, 2, bg);
+  if (plus) g.fillRect(cx - 1, cy - r + 1, 2, 2*r - 2, bg);
+}
+const BRIGHTNESS_MIN = 30, BRIGHTNESS_MAX = 100, BRIGHTNESS_STEP = 5;
+/* part 1 — CONTROLS, the only interactive part of this screen, a 2x2
+   grid: sound top-left, lock top-right, brightness minus/plus across
+   the bottom row — a temporary nudge only, gone on refresh/restart,
+   same rule mute already follows. Row content sits near the top and
+   bottom of its own half rather than centred on the row boundary, so a
+   visible gap opens up between the two rows without shrinking either
+   one's tap target — see settingsTap(). */
 function drawSettingsControls(th){
   const x = COL_X[0] + 14, w = COL_W[0];
   g.text('CONTROLS', x, 26, 1.1, th.dim, 'l', true);
   g.hFade(x, 38, w - 24, th.rule);
-  const cx = COL_X[0] + COL_W[0] / 2;
+  const midX = COL_X[0] + COL_W[0] / 2;
+  const cxL = COL_X[0] + (midX - COL_X[0]) / 2, cxR = midX + (COL_X[1] - midX) / 2;
 
-  const sc = st.muted ? C.or : th.tx;
-  drawSpeakerIcon(cx - 15, 48, 2, st.muted, sc);
-  g.text(st.muted ? 'SOUND OFF' : 'SOUND ON', cx, 74, 1.4, sc, 'c', true);
+  /* sound — top-left, icon high in the row, hugging the heading */
+  const cy1 = 54;
+  const sc = st.muted ? C.rd : C.gr;
+  drawSpeakerIcon(cxL - 11, cy1 - 6, sc, st.muted);
 
-  const lc = lockIsLocked() ? C.or : th.tx;
-  drawLockIcon(cx, 104, lc, th.bg);
-  g.text(lockIsLocked() ? 'LOCKED' : 'UNLOCKED', cx, 128, 1.4, lc, 'c', true);
+  /* lock — top-right, same row */
+  const lc = lockIsLocked() ? C.gr : C.rd;
+  drawLockIcon(cxR, cy1, lockIsLocked(), lc, th.bg);
+
+  /* brightness — bottom row, icons low, hugging the back-hint line.
+     Temporary (st.brightness), never persisted.                       */
+  const cy2 = 132;
+  const mc = st.brightness <= BRIGHTNESS_MIN ? C.line2 : th.tx;
+  const pc = st.brightness >= BRIGHTNESS_MAX ? C.line2 : th.tx;
+  drawSunIcon(cxL, cy2, 4, false, mc, th.bg);
+  drawSunIcon(cxR, cy2, 7, true, pc, th.bg);
+  g.text(st.brightness + '%', midX, cy2 - 5, 1, th.dim, 'c');
 }
 function drawSettingsScreen(th){
   g.fillRect(0, 0, W, H, th.bg);
@@ -1193,7 +1280,7 @@ function drawSettingsScreen(th){
   });
 
   g.hFade(W/2 - 200, 150, 400, th.rule);
-  g.text('TAP AN ICON TO TOGGLE IT  ·  TAP ELSEWHERE TO GO BACK', W/2, 156, 1, th.dim, 'c');
+  g.text('TAP AN ICON TO USE IT  ·  TAP ELSEWHERE TO GO BACK', W/2, 156, 1, th.dim, 'c');
 }
 function drawHotspotScreen(th){
   g.fillRect(0, 0, W, H, th.bg);
@@ -1219,29 +1306,35 @@ function settingsToggle(){
   log('glass tap on the left part → settings');
 }
 /* Part 1 of the settings screen — CONTROLS — is the one interactive part
-   of it. A hit inside its sound-icon region toggles mute; anywhere else
-   is the same "tap to go back" every other secondary view already has.
-   The guard: a second tap landing here within SETTINGS_REOPEN_GUARD_MS
-   of the tap that just opened this screen, at the same spot, is a
-   double-tap on the left part — future use, not a fresh tap on whatever
-   settings happens to show there now. Mirrors settings.ino exactly. */
-const CTRL_SOUND_Y0 = 40, CTRL_SOUND_Y1 = 92, CTRL_LOCK_Y0 = 92, CTRL_LOCK_Y1 = 144;
+   of it, a 2x2 grid: sound / lock across the top row, brightness minus /
+   plus across the bottom. A hit inside a cell acts on that control;
+   anywhere else is the same "tap to go back" every other secondary view
+   already has. The guard: a stray echo landing here within
+   SETTINGS_REOPEN_GUARD_MS of the tap that just opened this screen (see
+   glassTap()), at the same spot, is swallowed too, not read as a fresh
+   tap on whatever settings shows there now. Mirrors settings.ino exactly. */
+const CTRL_ROW1_Y0 = 40, CTRL_ROW1_Y1 = 94, CTRL_ROW2_Y0 = 94, CTRL_ROW2_Y1 = 148;
 const SETTINGS_REOPEN_GUARD_MS = 400, TOUCH_MOVE_PX = 24;
 let settingsOpenT0 = 0, settingsOpenX = 0, settingsOpenY = 0;
 function settingsTap(dx, dy){
   if (settingsOpenT0 && Date.now() - settingsOpenT0 < SETTINGS_REOPEN_GUARD_MS &&
       Math.abs(dx - settingsOpenX) < TOUCH_MOVE_PX && Math.abs(dy - settingsOpenY) < TOUCH_MOVE_PX){
-    log('glass double-tap on the left part → future use');
+    log('glass tap right after settings opened → ignored');
     settingsOpenT0 = 0;
     return;
   }
-  if (dx < COL_X[1] && dy >= CTRL_SOUND_Y0 && dy < CTRL_SOUND_Y1){
-    muteToggle('tap on the sound icon');
-    return;
-  }
-  if (dx < COL_X[1] && dy >= CTRL_LOCK_Y0 && dy < CTRL_LOCK_Y1){
+  const midX = COL_X[0] + COL_W[0] / 2;
+  if (dx >= COL_X[1]){ st.view = 'main'; log('glass tap → back to dashboard'); return; }
+  if (dy >= CTRL_ROW1_Y0 && dy < CTRL_ROW1_Y1){
+    if (dx < midX){ muteToggle('tap on the sound icon'); return; }
     if (lockIsLocked()){ log('tap on the lock icon → opening the unlock keypad'); lockOpenKeypad(); }
     else { log('tap on the lock icon → locked'); lockEngage(); }
+    return;
+  }
+  if (dy >= CTRL_ROW2_Y0 && dy < CTRL_ROW2_Y1){
+    const delta = dx < midX ? -BRIGHTNESS_STEP : BRIGHTNESS_STEP;
+    st.brightness = Math.max(BRIGHTNESS_MIN, Math.min(BRIGHTNESS_MAX, st.brightness + delta));
+    log('tap on the brightness ' + (delta < 0 ? '-' : '+') + ' icon → ' + st.brightness + '% (temporary, until restart)');
     return;
   }
   st.view = 'main';
@@ -1285,15 +1378,19 @@ function boardReset(key){
    A tap on the LEFT part (x < COL_X[1]) opens settings directly — not
    next-screen, and not the hotspot, which stays on that part's hold, and
    settings stays reachable even while locked (diagnostics are never
-   gated by the lock). The other two parts are where the padlock itself
-   is drawn while locked, so a tap there opens the keypad directly
-   instead of stepping to a screen nobody can see; unlocked, it steps to
-   the next metric screen as always. Off the main screen a tap goes back,
-   from either part, except settings' own CONTROLS region — see
-   settingsTap(). A 2 s hold on the left part raises the setup hotspot,
-   and on the other two parts it forces a refresh. On the keypad every
-   tap is a digit, or a tap on the readout to back out — no hold does
-   anything there.                                                      */
+   gated by the lock). No double-tap: a double-tap was tried here and
+   read as unreliable more than deliberate, a real tap sometimes sitting
+   half a second to see if a second one was coming. A brush against the
+   left part while just reading STATUS/ALERT can pop settings open
+   unwanted — a known, accepted trade for a gesture that answers
+   instantly. The other two parts are where the padlock itself is drawn
+   while locked, so a tap there opens the keypad directly instead of
+   stepping to a screen nobody can see; unlocked, it steps to the next
+   metric screen as always. Off the main screen a tap goes back, from
+   either part, except settings' own CONTROLS region — see settingsTap().
+   A 2 s hold on the left part raises the setup hotspot, and on the other
+   two parts it forces a refresh. On the keypad every tap is a digit, or
+   a tap on the readout to back out — no hold does anything there.      */
 function glassTap(dx, dy){
   if (st.off) return;
   if (!st.screen){ log('glass tap → ignored, display is off (tap RIGHT to wake it)'); return; }
@@ -1304,13 +1401,14 @@ function glassTap(dx, dy){
   }
   if (st.view === 'settings'){ settingsTap(dx, dy); return; }
   if (st.view !== 'main'){ st.view = 'main'; log('glass tap → back to dashboard'); return; }
-  if (dx < COL_X[1]){
-    settingsToggle();
-    settingsOpenT0 = Date.now(); settingsOpenX = dx; settingsOpenY = dy;
+  if (dx >= COL_X[1]){
+    if (lockIsLocked()){ log('glass tap on the locked icon → opening the unlock keypad'); lockOpenKeypad(); return; }
+    nextManual();
     return;
   }
-  if (lockIsLocked()){ log('glass tap on the locked icon → opening the unlock keypad'); lockOpenKeypad(); return; }
-  nextManual();
+  const now = Date.now();
+  settingsToggle();
+  settingsOpenT0 = now; settingsOpenX = dx; settingsOpenY = dy;
 }
 function glassHold(leftPart){
   if (st.view === 'hotspot' || (st.view === 'main' && leftPart)) hotspotToggle();
@@ -1553,6 +1651,11 @@ $('#doIntro').addEventListener('click', startIntro);
 $('#doNext').addEventListener('click', nextManual);
 $('#doHold').addEventListener('click', toggleHold);
 $('#doPoll').addEventListener('click', () => poll(true, 'poll now'));
+/* simulates three counted shakes at once — imu.ino's own debounce/window
+   logic has no browser equivalent to fake, but the result is the same
+   forced refresh, and the chirp is exactly as exclusive to this button as
+   it is to the real gesture on the board: doPoll above never calls it */
+$('#doShake').addEventListener('click', () => { shakeSound(); poll(true, 'shake x3'); });
 $('#doFault').addEventListener('click', toggleFault);
 $('#doLock').addEventListener('click', lockEngage);
 $('#doUnlock').addEventListener('click', lockForceUnlock);
@@ -1636,6 +1739,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'u') lockForceUnlock();
   if (e.key === 'Escape') lockCloseKeypad();
   if (e.key === 'p') $('#doPoll').click();
+  if (e.key === 's') $('#doShake').click();
   if (e.key === ' '){ e.preventDefault(); $('#doPwr').click(); }
   if (st.view === 'lock' && e.key >= '0' && e.key <= '9') lockDigit(Number(e.key));
 });

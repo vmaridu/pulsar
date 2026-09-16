@@ -36,16 +36,16 @@ own input map: [ws_lcd_154/device.md §2](ws_lcd_154/device.md#2--input) ·
 
 ## 📚 Docs
 
-| Path                                              | Owns                                                                         |
-| ------------------------------------------------- | ---------------------------------------------------------------------------- |
-| 📋 **[docs/product-requirements.md](docs/product-requirements.md)** | Product requirements — what every build must do, device-agnostic |
-| 📡 **[docs/api.md](docs/api.md)**                 | The contract — endpoint, payload, every field, limits                        |
-| 🔧 **[docs/functional-requirements.md](docs/functional-requirements.md)** | Shared behaviour — screens, logging, sound, errors, configuration |
-| 🖥️ `ws_lcd_154/` · `ws_lcd_349/`                  | One folder per supported display — firmware, docs and mockup together        |
-| ↳ `<display>/device.md`                           | Hardware, screen layout, on-device checklist                                 |
-| ↳ `<display>/mockup.html`                         | Interactive mockup running a real payload                                    |
-| ↳ `<display>/README.md`                           | Flashing and troubleshooting                                                 |
-| 🧪 **[simulator/README.md](simulator/README.md)** | A fake backend to point either build (or the mockups) at — zero dependencies |
+| Path                                                                      | Owns                                                                         |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| 📋 **[docs/product-requirements.md](docs/product-requirements.md)**       | Product requirements — what every build must do, device-agnostic             |
+| 📡 **[docs/api.md](docs/api.md)**                                         | The contract — endpoint, payload, every field, limits                        |
+| 🔧 **[docs/functional-requirements.md](docs/functional-requirements.md)** | Shared behaviour — screens, logging, sound, errors, configuration            |
+| 🖥️ `ws_lcd_154/` · `ws_lcd_349/`                                          | One folder per supported display — firmware, docs and mockup together        |
+| ↳ `<display>/device.md`                                                   | Hardware, screen layout, on-device checklist                                 |
+| ↳ `<display>/mockup.html`                                                 | Interactive mockup running a real payload                                    |
+| ↳ `<display>/README.md`                                                   | Flashing and troubleshooting                                                 |
+| 🧪 **[simulator/README.md](simulator/README.md)**                         | A fake backend to point either build (or the mockups) at — zero dependencies |
 
 ## 🚀 Getting started
 
@@ -56,7 +56,5 @@ own input map: [ws_lcd_154/device.md §2](ws_lcd_154/device.md#2--input) ·
 
 ## 🗺️ Next
 
-- 🔐 Confirm HMAC signing on the device actually verifies
 - 📦 Ship flashable `.bin` images for both boards
-- 🔀 Merge the working branch to `main`
 - ✍️ A public write-up — pick a home, then post it (LinkedIn and elsewhere)

@@ -272,8 +272,7 @@ void handleTouch(){
 
   if (tp.down && !tp.fired && view == VIEW_MAIN && now - tp.t0 >= HOLD_MS){
     tp.fired = true; touchPending = 0;
-    LOG("touch", "hold 2 s -> force refresh");
-    refreshNow();                                   /* net.ino */
+    refreshNow("glass held 2 s");                    /* net.ino */
   }
   if (touchPending && !tp.down && now - touchPending >= DOUBLE_TAP_MS){
     touchPending = 0;

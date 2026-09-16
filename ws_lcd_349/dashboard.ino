@@ -53,19 +53,21 @@ static void drawChargeIcon(int x, int y, uint16_t c){
   cv->fillTriangle(x + 5, y,     x,     y + 4, x + 4, y + 4, c);
   cv->fillTriangle(x + 4, y + 3, x + 6, y + 3, x + 1, y + 8, c);
 }
-/* battery: a 26 x 14 shell, filled by charge, the percentage beside it */
+/* battery: a 26 x 14 shell, filled by charge. No number beside it — the
+   shell's fill is the only readout, quantised to 10 % steps (100, 90,
+   80 … 10, 0) instead of a smooth fill, same convention as ws_lcd_154's
+   own battery icon. */
 static void drawBattery(int x, int y, const struct Theme& th){
   const int bw = 26, bh = 14, pc = batteryPercent();
+  const int lvl = ((pc + 5) / 10) * 10;
   const bool onCharge = charging();
   const uint16_t shell = th.ink ? th.rule : C_LINE2;
   cv->fillRect(x, y, bw, bh, shell);
   cv->fillRect(x + 2, y + 2, bw - 4, bh - 4, th.bg);
-  int fill = (bw - 4) * pc / 100; if (fill < 2) fill = 2;
+  int fill = (bw - 4) * lvl / 100; if (fill < 2) fill = 2;
   cv->fillRect(x + 2, y + 2, fill, bh - 4, th.ink ? th.tx : (onCharge ? C_CY : C_DIM));
   cv->fillRect(x + bw, y + bh / 2 - 2, 2, 4, shell);
   if (onCharge) drawChargeIcon(x + bw + 3, y + 3, th.ink ? th.tx : C_CY);
-  char pcs[16]; snprintf(pcs, sizeof pcs, "%d%%", pc);
-  txt(pcs, x + bw + (onCharge ? 21 : 10), y + 3, 1, th.ink ? th.tx : C_DIM2, 'l', true);
 }
 /* a Wi-Fi fan: a dot and three arcs, lit by signal — 24 x 15, anchored by
    its bottom-centre. Not joined: the whole fan dim with a slash through
@@ -94,6 +96,45 @@ static void drawWifiIcon(int cx, int cy, const struct Theme& th){
     const uint16_t sc = th.ink ? th.tx : C_OR;
     cv->drawLine(cx - 9, cy + 1, cx + 9, cy - 15, sc);
     cv->drawLine(cx - 8, cy + 1, cx + 10, cy - 15, sc);
+  }
+}
+
+/* A small glyph beside the level word — a vector shape, not a literal
+   Unicode emoji: ProFont is a monochrome bitmap font with no colour-emoji
+   glyphs in it, so cv->print() has nothing to draw for one and would just
+   show a blank box. A distinct silhouette per level does the same job at
+   a glance, same drawing style as the icons above. Escalating shape reads
+   the same way the words themselves escalate: a plain dot, a caution
+   triangle, a diamond for the one that sounds. Radius is fixed — the
+   glyph never resizes between levels, only INFO_LEVEL/WARN_LEVEL/etc pick
+   which shape draws inside that same radius.                            */
+#define LI_INFO  0
+#define LI_WARN  1
+#define LI_CRIT  2
+#define LI_FAULT 3
+/* a plain int, not an enum: the Arduino prototype scanner hoists a
+   generated declaration for this function above this very definition,
+   and an enum type it hasn't seen yet there fails to compile — see
+   AGENTS.md's note on this project not relying on that scanner.       */
+static void drawLevelIcon(int cx, int cy, int r, int shape, uint16_t c){
+  switch (shape){
+    case LI_INFO:                              /* a plain dot */
+      cv->fillCircle(cx, cy, r, c);
+      break;
+    case LI_WARN:                              /* a caution triangle */
+      cv->fillTriangle(cx, cy - r, cx - r, cy + r - 1, cx + r, cy + r - 1, c);
+      break;
+    case LI_CRIT:                              /* a diamond — the loudest silhouette */
+      cv->fillTriangle(cx - r, cy, cx, cy - r, cx + r, cy, c);
+      cv->fillTriangle(cx - r, cy, cx, cy + r, cx + r, cy, c);
+      break;
+    case LI_FAULT:                             /* a slashed ring — no signal, same
+                                                   language as drawWifiIcon()'s own slash */
+      cv->drawCircle(cx, cy, r, c);
+      cv->drawCircle(cx, cy, r - 1, c);
+      cv->drawLine(cx - r, cy + r, cx + r, cy - r, c);
+      cv->drawLine(cx - r, cy + r - 1, cx + r, cy - r - 1, c);
+      break;
   }
 }
 
@@ -140,7 +181,14 @@ static void drawPart1(const struct Level& L, const struct Theme& th){
   else hFade(x + 10, TOP_BAR_H, w - 20, th.bg, th.ink ? th.rule : C_LINE);
 
   const uint16_t wordC = th.ink ? th.tx : L.c;
-  txt(alertWord(L), cx, TOP_BAR_H + 24, 3, wordC, 'c', true);
+  const char* word = alertWord(L);
+  const int shape = &L == &LV_CRIT ? LI_CRIT : &L == &LV_WARN ? LI_WARN :
+                     &L == &LV_FAULT ? LI_FAULT : LI_INFO;
+  const int iconR = 9, gap = 10;
+  const int wordW = (int)strlen(word) * fontFor(3).adv;
+  const int startX = cx - (iconR * 2 + gap + wordW) / 2;
+  drawLevelIcon(startX + iconR, TOP_BAR_H + 24 + fontFor(3).cap / 2, iconR, shape, wordC);
+  txt(word, startX + iconR * 2 + gap, TOP_BAR_H + 24, 3, wordC, 'l', true);
 
   /* the message in its own size, bright and bold under the word — one
      line when it fits, else two, broken at a space                      */

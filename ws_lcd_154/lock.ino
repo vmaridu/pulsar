@@ -212,21 +212,15 @@ void lockTick(){
    with the canvas (input.ino's handleTouch() — confirmed on real hardware,
    not a guess: columns and the row0/row1 boundary land correctly).
 
-   ROW1/ROW2 FIX, ESTIMATED — NOT YET HARDWARE-CONFIRMED. The row1/row2
-   boundary read early on real hardware: the lower part of 4/5/6 could
-   register as 7/8/9, while every other cell (both columns, the row0/row1
-   line, 7/8/9 pressed on their own centres) read correctly — consistent
-   with the touch panel's real coordinate range not being exactly 0-239,
-   an error too small to matter near the top of the grid and large enough
-   two rows down. Rather than one LOCK_CELL_H for all three rows, LOCK_ROW_Y
-   below gives row 1 LOCK_ROW12_NUDGE px more room at row 2's expense —
-   a reasoned estimate from the symptom, not a measurement. Both drawLock()
-   and the hit test below read the same table, so what's drawn always
-   matches what a tap resolves to. If 4/5/6 still misses low, or 7/8/9
-   now misses high, "touch: down at X,Y (raw RX,RY)" (input.ino, printed
-   on every touch-down) plus "lock: tap at X,Y -> cell (R,C)" below are
-   the exact numbers a real correction needs — nudge LOCK_ROW12_NUDGE
-   from those, not from another guess.                                   */
+   The row1/row2 boundary read a touch early on real hardware: the lower
+   part of 4/5/6 could register as 7/8/9, while every other cell (both
+   columns, the row0/row1 line, 7/8/9 pressed on their own centres) read
+   correctly — consistent with the touch panel's real coordinate range not
+   being exactly 0-239, an error too small to matter near the top of the
+   grid and large enough two rows down. Rather than one LOCK_CELL_H for all
+   three rows, LOCK_ROW_Y below gives row 1 LOCK_ROW12_NUDGE px more room
+   at row 2's expense. Both drawLock() and the hit test below read the
+   same table, so what's drawn always matches what a tap resolves to.    */
 static const char* const LOCK_KEYS[3][3] = {
   { "1", "2", "3" },
   { "4", "5", "6" },

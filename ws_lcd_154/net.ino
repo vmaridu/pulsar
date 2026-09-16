@@ -600,12 +600,13 @@ uint32_t pollIntervalMs(){
   return lap > min ? lap : min;
 }
 
-/* A poll the person asked for — the glass held 2 s. Ignores the schedule,
-   lights the status hairline and sweeps the graph back in. A forced refresh
-   also clears a Retry-After hold: a person asking by hand outranks a backend
-   that asked us to wait.                                                  */
-void refreshNow(){
-  LOG("net", "forced refresh - glass held 2 s");
+/* A poll the person asked for — the glass held 2 s, or three shakes
+   (imu.ino). Ignores the schedule, lights the status hairline and sweeps
+   the graph back in. A forced refresh also clears a Retry-After hold: a
+   person asking by hand outranks a backend that asked us to wait. `why`
+   is just what goes in the log line — every caller names its own gesture. */
+void refreshNow(const char* why){
+  LOGF("net", "forced refresh - %s", why);
   pollHoldUntil = 0;
   beginCount();
   netFetch();

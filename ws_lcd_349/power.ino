@@ -27,16 +27,34 @@
    false — and a desk display that is USB-powered nine times out of ten
    must not come up dim for it. The on-charger figure applies at all
    times here; the on-battery figure is stored for a revision that can
-   tell the two apart. Asleep is dark regardless.                        */
+   tell the two apart. Asleep is dark regardless. This is also where
+   liveBrightnessPct — the settings screen's temporary brightness nudge —
+   resyncs to the configured duty, so a config save always wins over
+   whatever the +/- icons had left it at.                                */
 void applyBacklight(){
   if (!displayAwake){
     ledcWrite(PIN_LCD_BL, 255);
     exioWrite(EXIO_BL_EN, false);
     return;
   }
-  const uint8_t pct = cfg.brightnessCharging;
-  ledcWrite(PIN_LCD_BL, 255 - (uint32_t)pct * 255 / 100);
+  liveBrightnessPct = cfg.brightnessCharging;
+  ledcWrite(PIN_LCD_BL, 255 - (uint32_t)liveBrightnessPct * 255 / 100);
   exioWrite(EXIO_BL_EN, true);
+}
+
+/* Settings screen's brightness +/- icons. A temporary nudge, in RAM only
+   — liveBrightnessPct is never written to cfg/NVS, so it's back to
+   whatever the setup page says the moment the board restarts, the same
+   rule soundMuted already follows. Clamped to BRIGHTNESS_MIN..MAX, the
+   same range the setup page itself allows.                              */
+void brightnessNudge(int deltaPct){
+  if (!displayAwake) return;
+  int pct = (int)liveBrightnessPct + deltaPct;
+  if (pct < BRIGHTNESS_MIN) pct = BRIGHTNESS_MIN;
+  if (pct > BRIGHTNESS_MAX) pct = BRIGHTNESS_MAX;
+  liveBrightnessPct = (uint8_t)pct;
+  ledcWrite(PIN_LCD_BL, 255 - (uint32_t)liveBrightnessPct * 255 / 100);
+  LOGF("power", "brightness %d%% (temporary, until restart)", liveBrightnessPct);
 }
 
 /* -------------------------------------------------------------- low battery
